@@ -66,7 +66,7 @@ typedef Array_t<LineUpdate> UpdateList;
 class FileBuf
 {
 public:
-  FileBuf( const char* const FILE_NAME, const bool UNDOABLE, const File_Type FT );
+  FileBuf( const char* const FILE_NAME, const bool MUTABLE, const File_Type FT );
   FileBuf( const char* const FILE_NAME, const FileBuf& rfb );
   ~FileBuf();
 
@@ -178,7 +178,7 @@ private:
   bool       LF_at_EOF; // Line feed at end of file
   File_Type  file_type;
   Highlight_Base* pHi;
-  const bool undoable;
+  const bool m_mutable;
 };
 
 #endif

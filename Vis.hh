@@ -116,6 +116,11 @@ struct Vis
   void GoToFile();
   bool GoToFile_GoToBuffer( String& fname );
   bool HaveFile( const char* file_name, unsigned* index=0 );
+  bool FName_2_FNum( const String& full_fname, unsigned& file_num );
+  bool File_Is_Displayed( const String& full_fname );
+  bool File_Is_Displayed( const unsigned file_num );
+  void ReleaseFileName( const String& full_fname );
+  void ReleaseFileNum( const unsigned file_num );
 
   void GoToBuffer( const unsigned buf_idx );
   void SetWinToBuffer( const unsigned win_idx

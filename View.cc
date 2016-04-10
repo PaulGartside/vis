@@ -2892,58 +2892,68 @@ int View::Do_dw()
 
   const unsigned LL = pfb->LineLen( st_line );
 
-  // Handle that case of cursor past EOL:
-  if( LL-1 < st_char ) return 0;
-
-  // Determine fn_line, fn_char:
-  unsigned fn_line = 0;
-  unsigned fn_char = 0;
-  Do_dw_get_fn( fn_line, fn_char );
-  if( fn_line < st_line
-   || (fn_line == st_line && fn_char < st_char) ) return 0;
-
-  Do_x_range( st_line, st_char, fn_line, fn_char );
-
-  if( LL-1 == fn_char ) return 2;
-  return 1;
+  // If past end of line, nothing to do
+  if( st_char < LL )
+  {
+    // Determine fn_line, fn_char:
+    unsigned fn_line = 0;
+    unsigned fn_char = 0;
+    if( Do_dw_get_fn( st_line, st_char, fn_line, fn_char ) )
+    {
+      Do_x_range( st_line, st_char, fn_line, fn_char );
+      bool deleted_last_char = fn_char == LL-1;
+      return deleted_last_char ? 2 : 1;
+    }
+  }
+  return 0;
 }
 
-void View::Do_dw_get_fn( unsigned& fn_line, unsigned& fn_char )
+bool View::Do_dw_get_fn( const int st_line, const int st_char
+                       , unsigned& fn_line, unsigned& fn_char  )
 {
-  CrsPos ncp_w = { 0, 0 };
+  const unsigned LL = pfb->LineLen( st_line );
+  const uint8_t  C  = pfb->Get( st_line, st_char );
+
+  if( IsSpace( C )      // On white space
+    || ( st_char < LL-1 // On non-white space before white space
+     //&& NotSpace( C )
+       && IsSpace( pfb->Get( st_line, st_char+1 ) ) ) )
+  {
+    // w:
+    CrsPos ncp_w = { 0, 0 };
+    bool ok = GoToNextWord_GetPosition( ncp_w );
+    if( ok && 0 < ncp_w.crsChar ) ncp_w.crsChar--;
+    if( ok && st_line == ncp_w.crsLine
+           && st_char <= ncp_w.crsChar )
+    {
+      fn_line = ncp_w.crsLine;
+      fn_char = ncp_w.crsChar;
+      return true;
+    }
+  }
+  // if not on white space, and
+  // not on non-white space before white space,
+  // or fell through, try e:
   CrsPos ncp_e = { 0, 0 };
-  GoToNextWord_GetPosition( ncp_w );
-  GoToEndOfWord_GetPosition( ncp_e );
+  bool ok = GoToEndOfWord_GetPosition( ncp_e );
 
-  fn_line = ncp_e.crsLine;
-  fn_char = ncp_e.crsChar;
-
-  if( ncp_w.crsLine ==ncp_e.crsLine
-   && ncp_w.crsChar < ncp_e.crsChar )
+  if( ok && st_line == ncp_e.crsLine
+         && st_char <= ncp_e.crsChar )
   {
-    fn_line = ncp_w.crsLine;
-    fn_char = ncp_w.crsChar;
-    // Delete up to start of word:
-    if( fn_char ) fn_char -= 1;
+    fn_line = ncp_e.crsLine;
+    fn_char = ncp_e.crsChar;
+    return true;
   }
-  else if( ncp_w.crsLine == ncp_e.crsLine
-        && ncp_w.crsChar == ncp_e.crsChar )
-  {
-    // Delete up to start of word:
-    if( fn_char ) fn_char -= 1;
-  }
+  return false;
 }
 
 void View::Do_Tilda_v()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( v_fn_line < v_st_line
-   || (v_fn_line == v_st_line && v_fn_char < v_st_char) )
-  {
-    Swap( v_st_line, v_fn_line );
-    Swap( v_st_char, v_fn_char );
-  }
+  if( v_fn_line < v_st_line ) Swap( v_st_line, v_fn_line );
+  if( v_fn_char < v_st_char ) Swap( v_st_char, v_fn_char );
+
   if( inVisualBlock ) Do_Tilda_v_block();
   else                Do_Tilda_v_st_fn();
 
@@ -3006,11 +3016,9 @@ void View::Do_D_v_line()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( v_fn_line < v_st_line )
-  {
-    Swap( v_st_line, v_fn_line );
-    Swap( v_st_char, v_fn_char );
-  }
+  if( v_fn_line < v_st_line ) Swap( v_st_line, v_fn_line );
+  if( v_fn_char < v_st_char ) Swap( v_st_char, v_fn_char );
+
   gl_pVis->reg.clear();
 
   bool removed_line = false;
@@ -3051,15 +3059,93 @@ void View::Do_D_v_line()
   }
 }
 
+//void View::Do_dd()
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//  // If there is nothing to 'dd', just return:
+//  if( pfb->NumLines() < 2 ) return;
+//
+//  const unsigned OCL = CrsLine();           // Old cursor line
+//  const unsigned OCP = CrsChar();           // Old cursor position
+//  const unsigned ONL = pfb->NumLines();     // Old number of lines
+//  const unsigned OLL = pfb->LineLen( OCL ); // Old line length
+//
+//  const bool DELETING_LAST_LINE = OCL == ONL-1;
+//
+//  const unsigned NCL = DELETING_LAST_LINE ? OCL-1 : OCL; // New cursor line
+//  const unsigned NLL = DELETING_LAST_LINE ? pfb->LineLen( NCL )
+//                                          : pfb->LineLen( NCL + 1 );
+//  // Deleting last line of file, so move to line above:
+//  if( DELETING_LAST_LINE )
+//  {
+//    crsRow--;
+//  }
+//  // Move cursor to new location if needed:
+//  if( 0 == NLL )
+//  {
+//    leftChar = 0;
+//    crsCol = 0;
+//  }
+//  else if( NLL <= OCP )
+//  {
+//    // Shift left char if needed, and move cursor to end of its new line:
+//    if( NLL <= leftChar ) leftChar = NLL-1;
+//    crsCol = NLL-1 - leftChar;
+//  }
+//  // Remove line from FileBuf and save in paste register:
+//  Line* lp = pfb->RemoveLineP( OCL );
+//  if( lp ) {
+//    // gl_pVis->reg will own nlp
+//    gl_pVis->reg.clear();
+//    gl_pVis->reg.push( lp );
+//
+//    gl_pVis->paste_mode = PM_LINE;
+//  }
+//  pfb->Update();
+//}
 void View::Do_dd()
 {
   Trace trace( __PRETTY_FUNCTION__ );
-  // If there is nothing to 'dd', just return:
-  if( pfb->NumLines() < 2 ) return;
 
+  const unsigned ONL = pfb->NumLines(); // Old number of lines
+
+  // If there is nothing to 'dd', just return:
+  if( 1 < ONL )
+  {
+    if( pfb == gl_pVis->views[0][ BE_FILE ]->pfb )
+    {
+      Do_dd_BufferEditor( ONL );
+    }
+    else {
+      Do_dd_Normal( ONL );
+    }
+  }
+}
+
+void View::Do_dd_BufferEditor( const unsigned ONL )
+{
+  const unsigned OCL = CrsLine(); // Old cursor line
+
+  // Can only delete one of the user files out of buffer editor
+  if( CMD_FILE < OCL )
+  {
+    Line* lp = pfb->GetLineP( OCL );
+
+    const char* fname = lp->c_str( 0 );
+
+    if( !gl_pVis->File_Is_Displayed( fname ) )
+    {
+      gl_pVis->ReleaseFileName( fname );
+
+      Do_dd_Normal( ONL );
+    }
+  }
+}
+
+void View::Do_dd_Normal( const unsigned ONL )
+{
   const unsigned OCL = CrsLine();           // Old cursor line
   const unsigned OCP = CrsChar();           // Old cursor position
-  const unsigned ONL = pfb->NumLines();     // Old number of lines
   const unsigned OLL = pfb->LineLen( OCL ); // Old line length
 
   const bool DELETING_LAST_LINE = OCL == ONL-1;
@@ -3067,32 +3153,18 @@ void View::Do_dd()
   const unsigned NCL = DELETING_LAST_LINE ? OCL-1 : OCL; // New cursor line
   const unsigned NLL = DELETING_LAST_LINE ? pfb->LineLen( NCL )
                                           : pfb->LineLen( NCL + 1 );
-  // Deleting last line of file, so move to line above:
-  if( DELETING_LAST_LINE )
-  {
-    crsRow--;
-  }
-  // Move cursor to new location if needed:
-  if( 0 == NLL )
-  {
-    leftChar = 0;
-    crsCol = 0;
-  }
-  else if( NLL <= OCP )
-  {
-    // Shift left char if needed, and move cursor to end of its new line:
-    if( NLL <= leftChar ) leftChar = NLL-1;
-    crsCol = NLL-1 - leftChar;
-  }
+  const unsigned NCP = Min( OCP, 0<NLL ? NLL-1 : 0 );
+
   // Remove line from FileBuf and save in paste register:
   Line* lp = pfb->RemoveLineP( OCL );
   if( lp ) {
     // gl_pVis->reg will own nlp
     gl_pVis->reg.clear();
     gl_pVis->reg.push( lp );
-
     gl_pVis->paste_mode = PM_LINE;
   }
+  GoToCrsPos_NoWrite( NCL, NCP );
+
   pfb->Update();
 }
 
@@ -3122,18 +3194,19 @@ void View::Do_yw()
   // Determine fn_line, fn_char:
   unsigned fn_line = 0;
   unsigned fn_char = 0;
-  Do_dw_get_fn( fn_line, fn_char );
-  if( fn_line == st_line && fn_char <= st_char ) return;
 
-  gl_pVis->reg.clear();
-  gl_pVis->reg.push( gl_pVis->BorrowLine( __FILE__,__LINE__ ) );
-
-  // st_line and fn_line should be the same
-  for( unsigned k=st_char; k<=fn_char; k++ )
+  if( Do_dw_get_fn( st_line, st_char, fn_line, fn_char ) )
   {
-    gl_pVis->reg[0]->push(__FILE__,__LINE__, pfb->Get( st_line, k ) );
+    gl_pVis->reg.clear();
+    gl_pVis->reg.push( gl_pVis->BorrowLine( __FILE__,__LINE__ ) );
+
+    // st_line and fn_line should be the same
+    for( unsigned k=st_char; k<=fn_char; k++ )
+    {
+      gl_pVis->reg[0]->push(__FILE__,__LINE__, pfb->Get( st_line, k ) );
+    }
+    gl_pVis->paste_mode = PM_ST_FN;
   }
-  gl_pVis->paste_mode = PM_ST_FN;
 }
 
 void View::Do_y_v()
@@ -3153,18 +3226,9 @@ void View::Do_y_v_st_fn()
   unsigned m_v_st_line = v_st_line;  unsigned m_v_st_char = v_st_char;
   unsigned m_v_fn_line = v_fn_line;  unsigned m_v_fn_char = v_fn_char;
 
-  if( m_v_fn_line < m_v_st_line )
-  {
-    // Visual mode went backwards over multiple lines
-    Swap( m_v_st_line, m_v_fn_line );
-    Swap( m_v_st_char, m_v_fn_char );
-  }
-  else if( m_v_fn_line == m_v_st_line
-        && m_v_fn_char <  m_v_st_char )
-  {
-    // Visual mode went backwards over one line
-    Swap( m_v_st_char, m_v_fn_char );
-  }
+  if( m_v_fn_line < m_v_st_line ) Swap( m_v_st_line, m_v_fn_line );
+  if( m_v_fn_char < m_v_st_char ) Swap( m_v_st_char, m_v_fn_char );
+
   for( unsigned L=m_v_st_line; L<=m_v_fn_line; L++ )
   {
     Line* nlp = gl_pVis->BorrowLine( __FILE__,__LINE__ );
@@ -3236,11 +3300,8 @@ void View::Do_Y_v_st_fn()
   unsigned m_v_st_line = v_st_line;
   unsigned m_v_fn_line = v_fn_line;
 
-  if( m_v_fn_line < m_v_st_line )
-  {
-    // Visual mode went backwards over multiple lines
-    Swap( m_v_st_line, m_v_fn_line );
-  }
+  if( m_v_fn_line < m_v_st_line ) Swap( m_v_st_line, m_v_fn_line );
+
   for( unsigned L=m_v_st_line; L<=m_v_fn_line; L++ )
   {
     Line* nlp = gl_pVis->BorrowLine( __FILE__,__LINE__ );
@@ -3564,12 +3625,9 @@ void View::Do_x_range_pre( unsigned& st_line, unsigned& st_char
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( fn_line < st_line
-   || (fn_line == st_line && fn_char < st_char) )
-  {
-    Swap( st_line, fn_line );
-    Swap( st_char, fn_char );
-  }
+  if( fn_line < st_line ) Swap( st_line, fn_line );
+  if( fn_char < st_char ) Swap( st_char, fn_char );
+
   gl_pVis->reg.clear();
 }
 

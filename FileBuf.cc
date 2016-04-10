@@ -50,7 +50,7 @@ extern Key* gl_pKey;
 extern MemLog<MEM_LOG_BUF_SIZE> Log;
 
 FileBuf::FileBuf( const char* const FILE_NAME
-                , const bool UNDOABLE
+                , const bool MUTABLE
                 , const File_Type FT )
   : file_name( FILE_NAME )
   , is_dir( false )
@@ -67,7 +67,7 @@ FileBuf::FileBuf( const char* const FILE_NAME
   , LF_at_EOF( true )
   , file_type( FT )
   , pHi( 0 )
-  , undoable( UNDOABLE )
+  , m_mutable( MUTABLE )
 {
   // Absolute byte offset of beginning of first line in file is always zero:
   lineOffsets.push(__FILE__,__LINE__, 0 );
@@ -93,7 +93,7 @@ FileBuf::FileBuf( const char* const FILE_NAME, const FileBuf& rfb )
   , LF_at_EOF( rfb.LF_at_EOF )
   , file_type( rfb.file_type )
   , pHi( 0 )
-  , undoable( true )
+  , m_mutable( true )
 {
   Find_File_Type_Suffix();
 
@@ -605,7 +605,7 @@ void FileBuf::BufferEditor_Sort()
   for( unsigned k=0; k<NUM_LINES; k++ ) PushChar( k, 0 );
 
   const unsigned NUM_BUILT_IN_FILES = 5;
-  const unsigned FNAME_START_CHAR   = 4;
+  const unsigned FNAME_START_CHAR   = 0;
 
   // Sort lines (file names), least to greatest:
   for( unsigned i=NUM_LINES-1; NUM_BUILT_IN_FILES<i; i-- )
@@ -1779,6 +1779,6 @@ bool FileBuf::HasStyle( const unsigned l_num, const unsigned c_num, const unsign
 
 bool FileBuf::SavingHist() const
 {
-  return undoable && save_history;
+  return m_mutable && save_history;
 }
 

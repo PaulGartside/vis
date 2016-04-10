@@ -230,7 +230,8 @@ public:
   void Do_s_v();
   void Do_cw();
   int  Do_dw();
-  void Do_dw_get_fn( unsigned& fn_line, unsigned& fn_char );
+  bool Do_dw_get_fn( const int st_line, const int st_char
+                   , unsigned& fn_line, unsigned& fn_char );
   void Do_Tilda_v(); void Do_Tilda_v_st_fn(); void Do_Tilda_v_block();
   void Do_dd();
   void Do_yy();
@@ -266,6 +267,9 @@ public:
   bool inReplaceMode;
 
 private:
+  void Do_dd_BufferEditor( const unsigned ONL );
+  void Do_dd_Normal( const unsigned ONL );
+
   bool  RV_Style( const Style s ) const;
   Style RV_Style_2_NonRV( const Style RVS ) const;
   Style Get_Style( const unsigned line, const unsigned pos );

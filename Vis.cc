@@ -143,7 +143,7 @@ void Vis::InitBufferEditor()
   Trace trace( __PRETTY_FUNCTION__ );
   // Buffer editor, 0
   const char* buf_edit_name = "BUFFER_EDITOR";
-  FileBuf* pfb = new(__FILE__,__LINE__) FileBuf( buf_edit_name, true, FT_TEXT );
+  FileBuf* pfb = new(__FILE__,__LINE__) FileBuf( buf_edit_name, false, FT_TEXT );
   files.push(__FILE__,__LINE__, pfb );
   for( unsigned w=0; w<MAX_WINS; w++ )
   {
@@ -160,7 +160,7 @@ void Vis::InitHelpBuffer()
   Trace trace( __PRETTY_FUNCTION__ );
   // Help buffer, 1
   const char* help_buf_name = "VIS_HELP";
-  FileBuf* pfb = new(__FILE__,__LINE__) FileBuf( help_buf_name, true, FT_TEXT );
+  FileBuf* pfb = new(__FILE__,__LINE__) FileBuf( help_buf_name, false, FT_TEXT );
   pfb->ReadString( HELP_STR );
   files.push(__FILE__,__LINE__, pfb );
   for( unsigned w=0; w<MAX_WINS; w++ )
@@ -178,7 +178,7 @@ void Vis::InitSearchEditor()
   Trace trace( __PRETTY_FUNCTION__ );
   // Search editor buffer, 2
   const char* search_buf_name = "SEARCH_EDITOR";
-  FileBuf* pfb = new(__FILE__,__LINE__) FileBuf( search_buf_name, true, FT_TEXT );
+  FileBuf* pfb = new(__FILE__,__LINE__) FileBuf( search_buf_name, false, FT_TEXT );
   files.push(__FILE__,__LINE__, pfb );
   for( unsigned w=0; w<MAX_WINS; w++ )
   {
@@ -195,7 +195,7 @@ void Vis::InitMsgBuffer()
   Trace trace( __PRETTY_FUNCTION__ );
   // Message buffer, 3
   const char* msg_buf_name = "MESSAGE_BUFFER";
-  FileBuf* pfb = new(__FILE__,__LINE__) FileBuf( msg_buf_name, true, FT_TEXT );
+  FileBuf* pfb = new(__FILE__,__LINE__) FileBuf( msg_buf_name, false, FT_TEXT );
   files.push(__FILE__,__LINE__, pfb );
   for( unsigned w=0; w<MAX_WINS; w++ )
   {
@@ -1123,11 +1123,11 @@ void Vis::NoDiff()
 void Vis::AddToBufferEditor( const char* fname )
 {
   Trace trace( __PRETTY_FUNCTION__ );
-  Line line(__FILE__, __LINE__);
-  unsigned NUM_BUFFERS = views[0].len();
-  char str[32]; 
-  sprintf( str, "%3u ", NUM_BUFFERS-1 );
-  for( const char* p=str  ; *p; p++ ) line.push(__FILE__,__LINE__, *p );
+  Line line(__FILE__, __LINE__, strlen( fname ) );
+//unsigned NUM_BUFFERS = views[0].len();
+//char str[32]; 
+//sprintf( str, "%3u ", NUM_BUFFERS-1 );
+//for( const char* p=str  ; *p; p++ ) line.push(__FILE__,__LINE__, *p );
   for( const char* p=fname; *p; p++ ) line.push(__FILE__,__LINE__, *p );
   FileBuf* pfb = views[0][ BE_FILE ]->pfb;
   pfb->PushLine( line );
@@ -2179,6 +2179,90 @@ bool Vis::HaveFile( const char* file_name, unsigned* file_index )
     }
   }
   return already_have_file;
+}
+
+bool Vis::FName_2_FNum( const String& full_fname, unsigned& file_num )
+{
+  bool found = false;
+
+  for( unsigned k=0; !found && k<files.len(); k++ )
+  {
+    if( full_fname == files[ k ]->file_name )
+    {
+      found = true;
+      file_num = k;
+    }
+  }
+  return found;
+}
+bool Vis::File_Is_Displayed( const String& full_fname )
+{
+  unsigned file_num = 0;
+
+  if( FName_2_FNum( full_fname, file_num ) )
+  {
+    return File_Is_Displayed( file_num );
+  }
+  return false;
+}
+bool Vis::File_Is_Displayed( const unsigned file_num )
+{
+  for( unsigned w=0; w<num_wins; w++ )
+  {
+    if( file_num == file_hist[ w ][ 0 ] )
+    {
+      return true;
+    }
+  }
+  return false;
+}
+void Vis::ReleaseFileName( const String& full_fname )
+{
+  unsigned file_num = 0;
+  if( FName_2_FNum( full_fname, file_num ) )
+  {
+    ReleaseFileNum( file_num );
+  }
+}
+void Vis::ReleaseFileNum( const unsigned file_num )
+{
+  bool ok = files.remove( file_num );
+
+  for( unsigned k=0; ok && k<MAX_WINS; k++ )
+  {
+    View* win_k_view_of_file_num;
+    views[k].remove( file_num, win_k_view_of_file_num );
+
+    if( 0==k ) {
+      // Delete the file:
+      MemMark(__FILE__,__LINE__);
+      delete win_k_view_of_file_num->pfb;
+    }
+    // Delete the view:
+    MemMark(__FILE__,__LINE__);
+    delete win_k_view_of_file_num;
+
+    unsList& file_hist_k = file_hist[k];
+
+    // Remove all file_num's from file_hist
+    for( unsigned i=0; i<file_hist_k.len(); i++ )
+    {
+      if( file_num == file_hist_k[ i ] )
+      {
+        file_hist_k.remove( i );
+      }
+    }
+    // Decrement all file_hist numbers greater than file_num
+    for( unsigned i=0; i<file_hist_k.len(); i++ )
+    {
+      const unsigned val = file_hist_k[ i ];
+
+      if( file_num < val )
+      {
+        file_hist_k[ i ] = val-1;
+      }
+    }
+  }
 }
 
 void Vis::Do_Star_PrintPatterns( const bool HIGHLIGHT )

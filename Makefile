@@ -70,7 +70,7 @@ $(NAME): $(DOT_O_DIR) $(DOT_O_FILES)
 	echo Done making $(NAME)
 
 install:
-	echo "Add you install command to the Makefile"
+	@echo "Add your own install command to the Makefile"
 
 preproc: $(PREPROC_FILES)
 
@@ -93,6 +93,8 @@ tar:
 	tar cf vis.tar Array_t.hh \
                 ChangeHist.cc \
                 ChangeHist.hh \
+                Colon.cc \
+                Colon.hh \
                 Console.cc \
                 Console.hh \
                 Console_Unix.cc \

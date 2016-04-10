@@ -3459,7 +3459,7 @@ void Diff::Do_y_v_st_fn()
   View*    pV  = gl_pVis->CV();
   FileBuf* pfb = pV->pfb;
 
-  Swap_Visual_St_Fn_If_Needed();
+  Swap_Visual_Block_If_Needed();
 
   for( unsigned L=v_st_line; L<=v_fn_line; L++ )
   {
@@ -3508,7 +3508,7 @@ void Diff::Do_Y_v_st_fn()
   View*    pV  = gl_pVis->CV();
   FileBuf* pfb = pV->pfb;
 
-  Swap_Visual_St_Fn_If_Needed();
+  Swap_Visual_Block_If_Needed();
 
   for( unsigned L=v_st_line; L<=v_fn_line; L++ )
   {
@@ -3543,7 +3543,7 @@ void Diff::Do_D_v()
   FileBuf* pfb = pV->pfb;
 
   gl_pVis->reg.clear();
-  Swap_Visual_St_Fn_If_Needed();
+  Swap_Visual_Block_If_Needed();
 
   bool removed_line = false;
   Array_t<Diff_Info>& cDI_List = (pV == pvS) ? DI_List_S : DI_List_L; // Current diff info list
@@ -3630,7 +3630,7 @@ void Diff::Do_Tilda_v()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  Swap_Visual_St_Fn_If_Needed();
+  Swap_Visual_Block_If_Needed();
 
   if( inVisualBlock ) Do_Tilda_v_block();
   else                Do_Tilda_v_st_fn();
@@ -3728,7 +3728,7 @@ void Diff::Do_x_range_pre()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  Swap_Visual_St_Fn_If_Needed();
+  Swap_Visual_Block_If_Needed();
 
   gl_pVis->reg.clear();
 }
@@ -4369,7 +4369,7 @@ void Diff::Do_v_Handle_gp()
     View*    pV  = gl_pVis->CV();
     FileBuf* pfb = pV->pfb;
 
-    Swap_Visual_St_Fn_If_Needed();
+    Swap_Visual_Block_If_Needed();
 
     const int VL = ViewLine( pV, v_st_line );
 
@@ -4821,27 +4821,10 @@ void Diff::Patch_Diff_Info_Deleted( View* pV, const unsigned DPL )
   }
 }
 
-void Diff::Swap_Visual_St_Fn_If_Needed()
-{
-  if( v_fn_line < v_st_line
-   || (v_fn_line == v_st_line && v_fn_char < v_st_char) )
-  {
-    // Visual mode went backwards over multiple lines, or
-    // Visual mode went backwards over one line
-    Swap( v_st_line, v_fn_line );
-    Swap( v_st_char, v_fn_char );
-  }
-}
 void Diff::Swap_Visual_Block_If_Needed()
 {
-  if( v_fn_line < v_st_line )
-  {
-    Swap( v_st_line, v_fn_line );
-  }
-  if( v_fn_char < v_st_char )
-  {
-    Swap( v_st_char, v_fn_char );
-  }
+  if( v_fn_line < v_st_line ) Swap( v_st_line, v_fn_line );
+  if( v_fn_char < v_st_char ) Swap( v_st_char, v_fn_char );
 }
 
 void Diff::Print_L()
