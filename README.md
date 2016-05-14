@@ -16,12 +16,13 @@ Here are some of the major features of VIS:
 * Does not use the control key, so works better on small keyboards
 * Works correctly out of the box and does not use configuration files
 * Has a simplified command set than VIM and is therefore easier to learn
-* Has built in buffer editor
-* Has built in file directory browser
+* Has built in buffer editor and has strong support for multiple files
 * Has split buffers
+* Has built in file directory browser
 * Has visual modes
 * Has a buffer to run shell commands
 * Has built in support for diffing files
+* Has undo since last save
 
 After starting VIS, type :help for help.
 

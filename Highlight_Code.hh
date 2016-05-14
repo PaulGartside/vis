@@ -56,10 +56,9 @@ private:
   typedef Highlight_Code ME;
   typedef void (ME::*HiStateFunc) ( unsigned&, unsigned& );
 
-  virtual void Find_Styles_Keys() = 0;
   virtual void Find_Styles_Keys_In_Range( const CrsPos st, const unsigned fn ) = 0;
 
-  HiStateFunc hi_state;
+  HiStateFunc m_state;
 };
 
 #endif

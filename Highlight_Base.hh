@@ -42,11 +42,10 @@ public:
 
   virtual void Run_Range( const CrsPos st, const unsigned fn ) = 0;
 
-  void Hi_FindKey( HiKeyVal* HiPairs );
   void Hi_FindKey_In_Range( HiKeyVal* HiPairs
                           , const CrsPos st, const unsigned fn );
 protected:
-  FileBuf& fb;
+  FileBuf& m_fb;
 };
 
 #endif

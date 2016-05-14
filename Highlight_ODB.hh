@@ -46,10 +46,9 @@ private:
   typedef Highlight_ODB ME;
   typedef void (Highlight_ODB::*HiStateFunc) ( unsigned&, unsigned& );
 
-  void Find_Styles_Keys();
   void Find_Styles_Keys_In_Range( const CrsPos st, const unsigned fn );
 
-  HiStateFunc hi_state;
+  HiStateFunc m_state;
 };
 
 #endif

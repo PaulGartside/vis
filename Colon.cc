@@ -167,8 +167,8 @@ void Colon::hi()
   m_cv = m_vis.CV();
   m_cv->pfb->ClearStyles();
 
-  if( m_vis.diff_mode ) m_vis.diff.Update();
-  else                       m_cv->Update();
+  if( m_vis.m_diff_mode ) m_vis.diff.Update();
+  else                         m_cv->Update();
 }
 
 void Colon::MapStart()
@@ -234,8 +234,8 @@ void Colon::MapShow()
     Console::Set( ROW, ST+offset+k, ' ', S_NORMAL );
   }
   Console::Update();
-  if( m_vis.diff_mode ) m_vis.diff.PrintCursor( m_cv );
-  else                       m_cv->PrintCursor();
+  if( m_vis.m_diff_mode ) m_vis.diff.PrintCursor( m_cv );
+  else                         m_cv->PrintCursor();
 }
 
 void Colon::Cover()

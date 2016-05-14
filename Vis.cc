@@ -84,7 +84,7 @@ Vis::Vis( const int ARGC, const char* const ARGV[] )
   , slash( false )
   , fast_char( -1 )
   , diff()
-  , diff_mode( false )
+  , m_diff_mode( false )
   , m_colon( *this )
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -108,7 +108,7 @@ Vis::Vis( const int ARGC, const char* const ARGV[] )
   if( run_diff && ( (CMD_FILE+1+2) == files.len()) )
   {
     // User supplied: "-d file1 file2", so run diff:
-    diff_mode = true;
+    m_diff_mode = true;
     num_wins = 2;
     file_hist[ 0 ][0] = 5;
     file_hist[ 1 ][0] = 6;
@@ -1019,7 +1019,7 @@ void Vis::DoDiff()
 #endif
       bool ok = diff.Run( pv0, pv1 );
       if( ok ) {
-        diff_mode = true;
+        m_diff_mode = true;
 
 #ifndef WIN32
         timeval tv2; gettimeofday( &tv2, 0 );
@@ -1112,9 +1112,9 @@ View* Vis::DoDiff_CheckPossibleFile( const int win_idx
 
 void Vis::NoDiff()
 {
-  if( true == diff_mode )
+  if( true == m_diff_mode )
   {
-    diff_mode = false;
+    m_diff_mode = false;
 
     UpdateAll();
   }
@@ -1248,7 +1248,7 @@ void Vis::Handle_i()
     gl_pKey->save_2_dot_buf = true;
   }
 
-  if( diff_mode ) diff.Do_i();
+  if( m_diff_mode ) diff.Do_i();
   else           CV()->Do_i();
 
   if( !gl_pKey->get_from_dot_buf )
@@ -1267,7 +1267,7 @@ void Vis::Handle_v()
     gl_pKey->vis_buf.push(__FILE__,__LINE__,'v');
     gl_pKey->save_2_vis_buf = true;
   }
-  const bool copy_vis_buf_2_dot_buf = diff_mode
+  const bool copy_vis_buf_2_dot_buf = m_diff_mode
                                     ? diff.Do_v()
                                     : CV()->Do_v();
   if( !gl_pKey->get_from_dot_buf )
@@ -1291,7 +1291,7 @@ void Vis::Handle_V()
     gl_pKey->vis_buf.push(__FILE__,__LINE__,'V');
     gl_pKey->save_2_vis_buf = true;
   }
-  const bool copy_vis_buf_2_dot_buf = diff_mode
+  const bool copy_vis_buf_2_dot_buf = m_diff_mode
                                     ? diff.Do_V()
                                     : CV()->Do_V();
   if( !gl_pKey->get_from_dot_buf )
@@ -1316,7 +1316,7 @@ void Vis::Handle_a()
     gl_pKey->save_2_dot_buf = true;
   }
 
-  if( diff_mode ) diff.Do_a();
+  if( m_diff_mode ) diff.Do_a();
   else           CV()->Do_a();
 
   if( !gl_pKey->get_from_dot_buf )
@@ -1336,7 +1336,7 @@ void Vis::Handle_A()
     gl_pKey->save_2_dot_buf = true;
   }
 
-  if( diff_mode ) diff.Do_A();
+  if( m_diff_mode ) diff.Do_A();
   else           CV()->Do_A();
 
   if( !gl_pKey->get_from_dot_buf )
@@ -1356,7 +1356,7 @@ void Vis::Handle_o()
     gl_pKey->save_2_dot_buf = true;
   }
 
-  if( diff_mode ) diff.Do_o();
+  if( m_diff_mode ) diff.Do_o();
   else           CV()->Do_o();
 
   if( !gl_pKey->get_from_dot_buf )
@@ -1376,7 +1376,7 @@ void Vis::Handle_O()
     gl_pKey->save_2_dot_buf = true;
   }
 
-  if( diff_mode ) diff.Do_O();
+  if( m_diff_mode ) diff.Do_O();
   else           CV()->Do_O();
 
   if( !gl_pKey->get_from_dot_buf )
@@ -1394,7 +1394,7 @@ void Vis::Handle_x()
     gl_pKey->dot_buf.clear();
     gl_pKey->dot_buf.push(__FILE__,__LINE__,'x');
   }
-  if( diff_mode ) diff.Do_x();
+  if( m_diff_mode ) diff.Do_x();
   else           CV()->Do_x();
 }
 
@@ -1409,7 +1409,7 @@ void Vis::Handle_s()
     gl_pKey->save_2_dot_buf = true;
   }
 
-  if( diff_mode ) diff.Do_s();
+  if( m_diff_mode ) diff.Do_s();
   else           CV()->Do_s();
 
   if( !gl_pKey->get_from_dot_buf )
@@ -1422,7 +1422,7 @@ void Vis::Handle_c()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( diff_mode ) return;
+  if( m_diff_mode ) return;
 
   const char C = gl_pKey->In();
   if( C == 'w' )
@@ -1469,85 +1469,85 @@ void Vis::Handle_Q()
 
 void Vis::Handle_k()
 {
-  if( diff_mode ) diff.GoUp(); 
+  if( m_diff_mode ) diff.GoUp(); 
   else           CV()->GoUp();
 }
 
 void Vis::Handle_j()
 {
-  if( diff_mode ) diff.GoDown();
+  if( m_diff_mode ) diff.GoDown();
   else           CV()->GoDown();
 }
 
 void Vis::Handle_h()
 {
-  if( diff_mode ) diff.GoLeft();
+  if( m_diff_mode ) diff.GoLeft();
   else           CV()->GoLeft();
 }
 
 void Vis::Handle_l()
 {
-  if( diff_mode ) diff.GoRight();
+  if( m_diff_mode ) diff.GoRight();
   else           CV()->GoRight();
 }
 
 void Vis::Handle_H()
 {
-  if( diff_mode ) diff.GoToTopLineInView();
+  if( m_diff_mode ) diff.GoToTopLineInView();
   else           CV()->GoToTopLineInView();
 }
 
 void Vis::Handle_L()
 {
-  if( diff_mode ) diff.GoToBotLineInView();
+  if( m_diff_mode ) diff.GoToBotLineInView();
   else           CV()->GoToBotLineInView();
 }
 
 void Vis::Handle_M()
 {
-  if( diff_mode ) diff.GoToMidLineInView();
+  if( m_diff_mode ) diff.GoToMidLineInView();
   else           CV()->GoToMidLineInView();
 }
 
 void Vis::Handle_0()
 {
-  if( diff_mode ) diff.GoToBegOfLine();
+  if( m_diff_mode ) diff.GoToBegOfLine();
   else           CV()->GoToBegOfLine();
 }
 
 void Vis::Handle_Dollar()
 {
-  if( diff_mode ) diff.GoToEndOfLine();
+  if( m_diff_mode ) diff.GoToEndOfLine();
   else           CV()->GoToEndOfLine();
 }
 
 void Vis::Handle_Return()
 {
-  if( diff_mode ) diff.GoToBegOfNextLine();
+  if( m_diff_mode ) diff.GoToBegOfNextLine();
   else           CV()->GoToBegOfNextLine();
 }
 
 void Vis::Handle_G()
 {
-  if( diff_mode ) diff.GoToEndOfFile();
+  if( m_diff_mode ) diff.GoToEndOfFile();
   else           CV()->GoToEndOfFile();
 }
 
 void Vis::Handle_b()
 {
-  if( diff_mode ) diff.GoToPrevWord();
+  if( m_diff_mode ) diff.GoToPrevWord();
   else           CV()->GoToPrevWord();
 }
 
 void Vis::Handle_w()
 {
-  if( diff_mode ) diff.GoToNextWord();
+  if( m_diff_mode ) diff.GoToNextWord();
   else           CV()->GoToNextWord();
 }
 
 void Vis::Handle_e()
 {
-  if( diff_mode ) diff.GoToEndOfWord();
+  if( m_diff_mode ) diff.GoToEndOfWord();
   else           CV()->GoToEndOfWord();
 }
 
@@ -1557,7 +1557,7 @@ void Vis::Handle_f()
 
   fast_char = gl_pKey->In();
 
-  if( diff_mode ) diff.Do_f( fast_char );
+  if( m_diff_mode ) diff.Do_f( fast_char );
   else           CV()->Do_f( fast_char );
 }
 
@@ -1565,40 +1565,40 @@ void Vis::Handle_SemiColon()
 {
   if( 0 <= fast_char )
   {
-    if( diff_mode ) diff.Do_f( fast_char );
+    if( m_diff_mode ) diff.Do_f( fast_char );
     else           CV()->Do_f( fast_char );
   }
 }
 
 void Vis::Handle_Percent()
 {
-  if( diff_mode ) diff.GoToOppositeBracket();
+  if( m_diff_mode ) diff.GoToOppositeBracket();
   else           CV()->GoToOppositeBracket();
 }
 
 // Left squiggly bracket
 void Vis::Handle_LeftSquigglyBracket()
 {
-  if( diff_mode ) diff.GoToLeftSquigglyBracket();
+  if( m_diff_mode ) diff.GoToLeftSquigglyBracket();
   else           CV()->GoToLeftSquigglyBracket();
 }
 
 // Right squiggly bracket
 void Vis::Handle_RightSquigglyBracket()
 {
-  if( diff_mode ) diff.GoToRightSquigglyBracket();
+  if( m_diff_mode ) diff.GoToRightSquigglyBracket();
   else           CV()->GoToRightSquigglyBracket();
 }
 
 void Vis::Handle_F()
 {
-  if( diff_mode )  diff.PageDown();
+  if( m_diff_mode )  diff.PageDown();
   else            CV()->PageDown();
 }
 
 void Vis::Handle_B()
 {
-  if( diff_mode )  diff.PageUp();
+  if( m_diff_mode )  diff.PageUp();
   else            CV()->PageUp();
 }
 
@@ -1625,6 +1625,7 @@ void Vis::Handle_Colon()
   else if( strcmp( m_cbuf,"cs4" )==0 ) { Console::Set_Color_Scheme_4(); }
   else if( strcmp( m_cbuf,"hi"  )==0 ) m_colon.hi();
   else if( strncmp(m_cbuf,"cd",2)==0 ) { Ch_Dir(); }
+  else if( strncmp(m_cbuf,"syn",3)==0) { Set_Syntax(); }
   else if( strcmp( m_cbuf,"pwd" )==0 ) { GetCWD(); }
   else if( strcmp( m_cbuf,"sh"  )==0
         || strcmp( m_cbuf,"shell")==0) { BufferShell(); }
@@ -1643,11 +1644,11 @@ void Vis::Handle_Colon()
   {
     // Move cursor to line:
     const unsigned line_num = atol( m_cbuf );
-    if( diff_mode ) diff.GoToLine( line_num );
+    if( m_diff_mode ) diff.GoToLine( line_num );
     else           CV()->GoToLine( line_num );
   }
   else { // Put cursor back to line and column in edit window:
-    if( diff_mode ) diff.PrintCursor( CV() );
+    if( m_diff_mode ) diff.PrintCursor( CV() );
     else           CV()->PrintCursor();
   }
 }
@@ -1676,9 +1677,9 @@ void Vis::Handle_Slash_GotPattern( const String& pattern
   }
   // Un-highlight old star patterns for windows displayed:
   if( star.len()  )
-  { // Since diff_mode does Console::Update(),
-    // no need to print patterns here if in diff_mode
-    if( !diff_mode ) Do_Star_PrintPatterns( false );
+  { // Since m_diff_mode does Console::Update(),
+    // no need to print patterns here if in m_diff_mode
+    if( !m_diff_mode ) Do_Star_PrintPatterns( false );
   }
   Do_Star_ClearPatterns();
 
@@ -1692,14 +1693,14 @@ void Vis::Handle_Slash_GotPattern( const String& pattern
     Do_Star_FindPatterns();
 
     // Highlight new star patterns for windows displayed:
-    if( !diff_mode ) Do_Star_PrintPatterns( true );
+    if( !m_diff_mode ) Do_Star_PrintPatterns( true );
 
     if( MOVE_TO_FIRST_PATTERN )
     {
-      if( diff_mode ) diff.Do_n(); // Move to first pattern
+      if( m_diff_mode ) diff.Do_n(); // Move to first pattern
       else           CV()->Do_n(); // Move to first pattern
     }
-    if( diff_mode ) diff.Update();
+    if( m_diff_mode ) diff.Update();
     else {
       // Print out all the changes:
       Console::Update();
@@ -1729,7 +1730,7 @@ void Vis::Handle_Dot()
       CmdFunc cf = CmdFuncs[ CC ];
       if( cf ) (this->*cf)();
     }
-    if( diff_mode ) {
+    if( m_diff_mode ) {
       // Diff does its own update every time a command is run
     }
     else {
@@ -1758,7 +1759,7 @@ void Vis::Handle_m()
     CmdFunc cf = CmdFuncs[ CC ];
     if( cf ) (this->*cf)();
   }
-  if( diff_mode ) {
+  if( m_diff_mode ) {
     // Diff does its own update every time a command is run
   }
   else {
@@ -1775,22 +1776,22 @@ void Vis::Handle_g()
 
   if( CC2 == 'g' )
   {
-    if( diff_mode ) diff.GoToTopOfFile();
+    if( m_diff_mode ) diff.GoToTopOfFile();
     else           CV()->GoToTopOfFile();
   }
   else if( CC2 == '0' )
   {
-    if( diff_mode ) diff.GoToStartOfRow();
+    if( m_diff_mode ) diff.GoToStartOfRow();
     else           CV()->GoToStartOfRow();
   }
   else if( CC2 == '$' )
   {
-    if( diff_mode ) diff.GoToEndOfRow();
+    if( m_diff_mode ) diff.GoToEndOfRow();
     else           CV()->GoToEndOfRow();
   }
   else if( CC2 == 'f' )
   {
-    if( !diff_mode ) GoToFile();
+    if( !m_diff_mode ) GoToFile();
   }
 }
 
@@ -1821,12 +1822,12 @@ void Vis::Handle_d()
       gl_pKey->dot_buf.push(__FILE__,__LINE__,'d');
       gl_pKey->dot_buf.push(__FILE__,__LINE__,'d');
     }
-    if( diff_mode ) diff.Do_dd();
+    if( m_diff_mode ) diff.Do_dd();
     else           CV()->Do_dd();
   }
   else if( C == 'w' )
   {
-    if( diff_mode ) return;
+    if( m_diff_mode ) return;
 
     if( !gl_pKey->get_from_dot_buf )
     {
@@ -1834,7 +1835,7 @@ void Vis::Handle_d()
       gl_pKey->dot_buf.push(__FILE__,__LINE__,'d');
       gl_pKey->dot_buf.push(__FILE__,__LINE__,'w');
     }
-    if( diff_mode ) diff.Do_dw();
+    if( m_diff_mode ) diff.Do_dw();
     else           CV()->Do_dw();
   }
 }
@@ -1847,12 +1848,12 @@ void Vis::Handle_y()
 
   if( C == 'y' )
   {
-    if( diff_mode ) diff.Do_yy();
+    if( m_diff_mode ) diff.Do_yy();
     else           CV()->Do_yy();
   }
   else if( C == 'w' )
   {
-    if( diff_mode ) return;
+    if( m_diff_mode ) return;
 
     CV()->Do_yw();
   }
@@ -1867,7 +1868,7 @@ void Vis::Handle_D()
     gl_pKey->dot_buf.clear();
     gl_pKey->dot_buf.push(__FILE__,__LINE__,'D');
   }
-  if( diff_mode ) diff.Do_D();
+  if( m_diff_mode ) diff.Do_D();
   else           CV()->Do_D();
 }
 
@@ -1880,7 +1881,7 @@ void Vis::Handle_p()
     gl_pKey->dot_buf.clear();
     gl_pKey->dot_buf.push(__FILE__,__LINE__,'p');
   }
-  if( diff_mode ) diff.Do_p();
+  if( m_diff_mode ) diff.Do_p();
   else           CV()->Do_p();
 }
 
@@ -1893,7 +1894,7 @@ void Vis::Handle_P()
     gl_pKey->dot_buf.clear();
     gl_pKey->dot_buf.push(__FILE__,__LINE__,'P');
   }
-  if( diff_mode ) diff.Do_P();
+  if( m_diff_mode ) diff.Do_P();
   else           CV()->Do_P();
 }
 
@@ -1907,7 +1908,7 @@ void Vis::Handle_R()
     gl_pKey->dot_buf.push(__FILE__,__LINE__,'R');
     gl_pKey->save_2_dot_buf = true;
   }
-  if( diff_mode ) diff.Do_R();
+  if( m_diff_mode ) diff.Do_R();
   else           CV()->Do_R();
 
   if( !gl_pKey->get_from_dot_buf )
@@ -1925,7 +1926,7 @@ void Vis::Handle_J()
     gl_pKey->dot_buf.clear();
     gl_pKey->dot_buf.push(__FILE__,__LINE__,'J');
   }
-  if( diff_mode ) diff.Do_J();
+  if( m_diff_mode ) diff.Do_J();
   else           CV()->Do_J();
 }
 
@@ -1938,7 +1939,7 @@ void Vis::Handle_Tilda()
     gl_pKey->dot_buf.clear();
     gl_pKey->dot_buf.push(__FILE__,__LINE__,'~');
   }
-  if( diff_mode ) diff.Do_Tilda();
+  if( m_diff_mode ) diff.Do_Tilda();
   else           CV()->Do_Tilda();
 }
 
@@ -1946,16 +1947,16 @@ void Vis::Handle_Star()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  String new_star = diff_mode ?  diff.Do_Star_GetNewPattern()
+  String new_star = m_diff_mode ?  diff.Do_Star_GetNewPattern()
                               : CV()->Do_Star_GetNewPattern();
 
   if( !slash && new_star == star ) return;
 
   // Un-highlight old star patterns for windows displayed:
   if( star.len() )
-  { // Since diff_mode does Console::Update(),
-    // no need to print patterns here if in diff_mode
-    if( !diff_mode ) Do_Star_PrintPatterns( false );
+  { // Since m_diff_mode does Console::Update(),
+    // no need to print patterns here if in m_diff_mode
+    if( !m_diff_mode ) Do_Star_PrintPatterns( false );
   }
   Do_Star_ClearPatterns();
 
@@ -1969,9 +1970,9 @@ void Vis::Handle_Star()
     Do_Star_FindPatterns();
  
     // Highlight new star patterns for windows displayed:
-    if( !diff_mode ) Do_Star_PrintPatterns( true );
+    if( !m_diff_mode ) Do_Star_PrintPatterns( true );
   }
-  if( diff_mode ) diff.Update();
+  if( m_diff_mode ) diff.Update();
   else {
     // Print out all the changes:
     Console::Update();
@@ -1984,7 +1985,7 @@ void Vis::Handle_n()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( diff_mode ) diff.Do_n();
+  if( m_diff_mode ) diff.Do_n();
   else           CV()->Do_n();
 }
 
@@ -1992,7 +1993,7 @@ void Vis::Handle_N()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( diff_mode ) diff.Do_N();
+  if( m_diff_mode ) diff.Do_N();
   else           CV()->Do_N();
 }
 
@@ -2000,7 +2001,7 @@ void Vis::Handle_u()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( diff_mode ) return; // Need to implement
+  if( m_diff_mode ) return; // Need to implement
   else            CV()->Do_u();
 }
 
@@ -2008,7 +2009,7 @@ void Vis::Handle_U()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( diff_mode ) return; // Need to implement
+  if( m_diff_mode ) return; // Need to implement
   else            CV()->Do_U();
 }
 
@@ -2020,17 +2021,17 @@ void Vis::Handle_z()
 
   if( CC2 == 't' || IsEndOfLineDelim( CC2 ) )
   {
-    if( diff_mode ) diff.MoveCurrLineToTop();
+    if( m_diff_mode ) diff.MoveCurrLineToTop();
     else           CV()->MoveCurrLineToTop();
   }
   else if( CC2 == 'z' )
   {
-    if( diff_mode ) diff.MoveCurrLineCenter();
+    if( m_diff_mode ) diff.MoveCurrLineCenter();
     else           CV()->MoveCurrLineCenter();
   }
   else if( CC2 == 'b' )
   {
-    if( diff_mode ) diff.MoveCurrLineToBottom();
+    if( m_diff_mode ) diff.MoveCurrLineToBottom();
     else           CV()->MoveCurrLineToBottom();
   }
 }
@@ -2039,7 +2040,7 @@ void Vis::UpdateAll()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( !diff_mode )
+  if( !m_diff_mode )
   {
     for( unsigned k=0; k<num_wins; k++ )
     {
@@ -2626,6 +2627,22 @@ void Vis::GetCWD()
   CV()->PrintCursor();
 }
 
+void Vis::Set_Syntax()
+{
+  const char* syn = strchr( m_cbuf, '=' );
+
+  if( NULL != syn )
+  {
+    // Move past '='
+    syn++;
+    if( 0 != *syn )
+    {
+      // Something after the '=' 
+      CV()->pfb->Set_File_Type( syn );
+    }
+  }
+}
+
 void Vis::SearchEditor()
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -2809,7 +2826,7 @@ void Vis::GoToNextWindow()
 
     Console::Update();
 
-    diff_mode ? diff.PrintCursor( pV ) : pV->PrintCursor();
+    m_diff_mode ? diff.PrintCursor( pV ) : pV->PrintCursor();
   }
 }
 
@@ -2833,7 +2850,7 @@ void Vis::GoToNextWindow_l()
 
       Console::Update();
 
-      diff_mode ? diff.PrintCursor( pV ) : pV->PrintCursor();
+      m_diff_mode ? diff.PrintCursor( pV ) : pV->PrintCursor();
     }
   }
 }
@@ -3062,7 +3079,7 @@ void Vis::GoToNextWindow_h()
 
       Console::Update();
 
-      diff_mode ? diff.PrintCursor( pV ) : pV->PrintCursor();
+      m_diff_mode ? diff.PrintCursor( pV ) : pV->PrintCursor();
     }
   }
 }
@@ -3293,7 +3310,7 @@ void Vis::GoToNextWindow_jk()
 
       Console::Update();
 
-      diff_mode ? diff.PrintCursor( pV ) : pV->PrintCursor();
+      m_diff_mode ? diff.PrintCursor( pV ) : pV->PrintCursor();
     }
   }
 }
@@ -3493,7 +3510,33 @@ void Vis::RunCommand()
     CV()->PrintCursor();
   }
   else {
-    RunCommand_RunCommand( cmd );
+    FileBuf* pfb = CV()->pfb;
+    // Add ######################################
+    pfb->PushLine();
+    for( unsigned k=0; k<40; k++ ) pfb->PushChar( '#' );
+
+    int exit_val = 0;
+    bool ran_cmd = RunCommand_RunCommand( cmd, pfb, exit_val );
+
+    if( ran_cmd )
+    {
+      char exit_msg[128];
+      sprintf( exit_msg, "Exit_Value=%i", exit_val );
+
+      // Append exit_msg:
+      if( 0<pfb->LineLen( pfb->NumLines()-1 ) ) pfb->PushLine();
+      const unsigned EXIT_MSG_LEN = strlen( exit_msg );
+      for( unsigned k=0; k<EXIT_MSG_LEN; k++ ) pfb->PushChar( exit_msg[k] );
+    }
+    // Add ###.. line followed by empty line
+    pfb->PushLine();
+    for( unsigned k=0; k<40; k++ ) pfb->PushChar( '#' );
+    pfb->PushLine();
+
+    // Move cursor to bottom of file
+    const unsigned NUM_LINES = pfb->NumLines();
+    CV()->GoToCrsPos_NoWrite( NUM_LINES-1, 0 );
+    pfb->Update();
   }
 }
 
@@ -3545,50 +3588,46 @@ bool Vis::RunCommand_GetCommand( String& cmd )
   return cmd.len() ? true : false;
 }
 
-void Vis::RunCommand_RunCommand( String& cmd )
+// Returns true of ran command, else false
+bool Vis::RunCommand_RunCommand( const String& cmd
+                               , FileBuf* pfb
+                               , int& exit_val )
 {
   Trace trace( __PRETTY_FUNCTION__ );
-
-  FileBuf* pfb = CV()->pfb;
-  // Add ######################################
-  pfb->PushLine();
-  for( unsigned k=0; k<40; k++ ) pfb->PushChar( '#' );
 
   pid_t child_pid = 0;
   FILE* fp = POpenRead( cmd.c_str(), child_pid );
   if( NULL == fp )
   {
-    Window_Message("\npopen( %s ) failed\n\n", cmd.c_str() );
-    return;
+    Window_Message("\nPOpenRead( %s ) failed\n\n", cmd.c_str() );
+    return false;
   }
   pfb->PushLine();
-
-  int C;
-  while( EOF != (C = fgetc( fp )) )
-  {
-    if( '\n' == C ) pfb->PushLine(); 
-    else            pfb->PushChar( C );
-  }
-  int exit_val = PClose( fp, child_pid );
-  char exit_msg[128];
-  sprintf( exit_msg, "Exit_Value=%i", exit_val );
-
-  // Append exit_msg:
-  if( pfb->LineLen( pfb->NumLines()-1 ) ) pfb->PushLine();
-  const unsigned EXIT_MSG_LEN = strlen( exit_msg );
-  for( unsigned k=0; k<EXIT_MSG_LEN; k++ ) pfb->PushChar( exit_msg[k] );
-
-  // Add ###.. line followed by empty line
-  pfb->PushLine();
-  for( unsigned k=0; k<40; k++ ) pfb->PushChar( '#' );
-  pfb->PushLine();
-
+  m_run_mode = true;
   // Move cursor to bottom of file
   const unsigned NUM_LINES = pfb->NumLines();
-
   CV()->GoToCrsPos_NoWrite( NUM_LINES-1, 0 );
+  pfb->Update(); 
 
-  pfb->Update();
+  double T1 = GetTimeSeconds();
+  for( int C = fgetc( fp ); EOF != C; C = fgetc( fp ) )
+  {
+    if( '\n' != C ) pfb->PushChar( C );
+    else {
+      pfb->PushLine(); 
+      double T2 = GetTimeSeconds();
+      if( 0.5 < (T2-T1) ) {
+        T1 = T2;
+        // Move cursor to bottom of file
+        const unsigned NUM_LINES = pfb->NumLines();
+        CV()->GoToCrsPos_NoWrite( NUM_LINES-1, 0 );
+        pfb->Update(); 
+      }
+    }
+  }
+  exit_val = PClose( fp, child_pid );
+  m_run_mode = false;
+  return true;
 }
 #endif
 

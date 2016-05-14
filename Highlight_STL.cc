@@ -62,11 +62,6 @@ Highlight_STL::Highlight_STL( FileBuf& rfb )
 {
 }
 
-void Highlight_STL::Find_Styles_Keys()
-{
-  Hi_FindKey( HiPairs );
-}
-
 void Highlight_STL::
      Find_Styles_Keys_In_Range( const CrsPos   st
                               , const unsigned fn )

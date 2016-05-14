@@ -191,7 +191,7 @@ Color VARTYPE_FG = Green;    Color VARTYPE_FG_RV = White;
 Color VARTYPE_BG = Black;    Color VARTYPE_BG_RV = Green;
 
 Color BORDER_HI_FG = White;  Color BORDER_HI_FG_RV = Green;
-Color BORDER_HI_BG = Green;  Color BORDER_HI_BG_RV = White;
+Color BORDER_HI_BG = Green;  Color BORDER_HI_BG_RV = Blue;
 
 Color NONASCII_FG = Red;     Color NONASCII_FG_RV = Blue;
 Color NONASCII_BG = Blue;    Color NONASCII_BG_RV = Red;
@@ -410,6 +410,8 @@ void Console::SetS( const unsigned ROW
 
 bool Console::Update()
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   bool output_something = false;
   unsigned crs_row = ~0; // Cursor row
   unsigned crs_col = ~0; // Cursor col
@@ -455,6 +457,8 @@ bool Console::Update()
 
 void Console::Invalidate()
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   // Invalidate all written styles:
   for( unsigned row=0; row<num_rows; row++ )
   {
@@ -468,6 +472,8 @@ void Console::Invalidate()
 
 void Console::Refresh()
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   Invalidate();
 
   Update();
@@ -482,6 +488,8 @@ void Console::NewLine()
 
 void Console::Set_Color_Scheme_1()
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   NORMAL_FG = White;       NORMAL_FG_RV = Black;
   NORMAL_BG = Black;       NORMAL_BG_RV = White;
 
@@ -554,6 +562,8 @@ void Console::Set_Color_Scheme_1()
 
 void Console::Set_Color_Scheme_2()
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   NORMAL_FG = White;       NORMAL_FG_RV = Black;
   NORMAL_BG = Black;       NORMAL_BG_RV = White;
 
@@ -626,6 +636,8 @@ void Console::Set_Color_Scheme_2()
 
 void Console::Set_Color_Scheme_3()
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   NORMAL_FG = Black;       NORMAL_FG_RV = White;
   NORMAL_BG = White;       NORMAL_BG_RV = Black;
 
@@ -697,6 +709,8 @@ void Console::Set_Color_Scheme_3()
 
 void Console::Set_Color_Scheme_4()
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   NORMAL_FG = Black;       NORMAL_FG_RV = White;
   NORMAL_BG = White;       NORMAL_BG_RV = Black;
 
@@ -768,6 +782,8 @@ void Console::Set_Color_Scheme_4()
 
 void Console::Set_Color_Scheme_5()
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   STATUS_FG = White;
   STATUS_BG = Blue;
 
@@ -800,6 +816,8 @@ void Console::Set_Color_Scheme_5()
 
 Color Console::Style_2_BG( const uint8_t S )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   Color c = Black; // Default
 
   switch( S )
@@ -848,6 +866,8 @@ Color Console::Style_2_BG( const uint8_t S )
 
 Color Console::Style_2_FG( const uint8_t S )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   Color c = White; // Default
 
   switch( S )
@@ -1150,6 +1170,8 @@ unsigned Console::Num_Cols()
 
 char Console::KeyIn()
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   static Vis&  vis = *gl_pVis;
   static Diff& dif = vis.diff;
   static unsigned count = 0;
@@ -1162,15 +1184,15 @@ char Console::KeyIn()
     if( 0==count ) vis.CheckWindowSize(); // If window has resized, update window
     if( 4==count ) vis.CheckFileModTime();
 
-    bool updated_sts_line = vis.diff_mode ? dif.Update_Status_Lines()
-                                          : vis.Update_Status_Lines();
+    bool updated_sts_line = vis.m_diff_mode ? dif.Update_Status_Lines()
+                                            : vis.Update_Status_Lines();
     bool updated_chg_sts  = vis.Update_Change_Statuses();
 
     if( updated_sts_line || updated_chg_sts )
     {
       Console::Update();
-      vis.diff_mode ? dif.PrintCursor( vis.CV() )
-                    : vis.CV()->PrintCursor();
+      vis.m_diff_mode ? dif.PrintCursor( vis.CV() )
+                      : vis.CV()->PrintCursor();
     }
     count++;
     if( 8==count ) count=0;

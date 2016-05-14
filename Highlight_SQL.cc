@@ -28,17 +28,56 @@
 #include "Utilities.hh"
 #include "FileBuf.hh"
 #include "MemLog.hh"
-#include "Highlight_Code.hh"
+#include "Highlight_SQL.hh"
 
 extern MemLog<MEM_LOG_BUF_SIZE> Log;
 
-Highlight_Code::Highlight_Code( FileBuf& rfb )
+static HiKeyVal HiPairs[] =
+{
+  { "AUTOINCREMENT", HI_CONTROL },
+  { "CASCADE"      , HI_CONTROL },
+  { "CHECK"        , HI_CONTROL },
+  { "CREATE"       , HI_CONTROL },
+  { "DEFAULT"      , HI_CONTROL },
+  { "DELETE"       , HI_CONTROL },
+  { "DROP"         , HI_CONTROL },
+  { "EXISTS"       , HI_CONTROL },
+  { "IF"           , HI_CONTROL },
+  { "INSERT"       , HI_CONTROL },
+  { "INTO"         , HI_CONTROL },
+  { "NOT"          , HI_CONTROL },
+  { "ON"           , HI_CONTROL },
+  { "UPDATE"       , HI_CONTROL },
+  { "VALUES"       , HI_CONTROL },
+
+  { "FOREIGN"   , HI_VARTYPE },
+  { "KEY"       , HI_VARTYPE },
+  { "INTEGER"   , HI_VARTYPE },
+  { "PRIMARY"   , HI_VARTYPE },
+  { "REFERENCES", HI_VARTYPE },
+  { "TABLE"     , HI_VARTYPE },
+  { "TEXT"      , HI_VARTYPE },
+
+  { "NULL", HI_CONST },
+  { 0 }
+};
+
+Highlight_SQL::Highlight_SQL( FileBuf& rfb )
   : Highlight_Base( rfb )
   , m_state( &ME::Hi_In_None )
 {
 }
 
-void Highlight_Code::Run_Range( const CrsPos st, const unsigned fn )
+void Highlight_SQL::
+     Find_Styles_Keys_In_Range( const CrsPos   st
+                              , const unsigned fn )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  Hi_FindKey_In_Range( HiPairs, st, fn );
+}
+
+void Highlight_SQL::Run_Range( const CrsPos st, const unsigned fn )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -54,7 +93,7 @@ void Highlight_Code::Run_Range( const CrsPos st, const unsigned fn )
   Find_Styles_Keys_In_Range( st, fn );
 }
 
-void Highlight_Code::Hi_In_None( unsigned& l, unsigned& p )
+void Highlight_SQL::Hi_In_None( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   for( ; l<m_fb.NumLines(); l++ )
@@ -68,9 +107,7 @@ void Highlight_Code::Hi_In_None( unsigned& l, unsigned& p )
 
       const char* s = lr.c_str( p );
 
-      if     ( p<LL-1 && 0==strncmp( s, "//", 2 ) ) { m_state = &ME::Hi_BegCPP_Comment; }
-      else if( p<LL-1 && 0==strncmp( s, "/*", 2 ) ) { m_state = &ME::Hi_BegC_Comment; }
-      else if(           0==strncmp( s, "#" , 1 ) ) { m_state = &ME::Hi_In_Define; }
+      if     ( p<LL-1 && 0==strncmp( s, "--", 2 ) ) { m_state = &ME::Hi_Beg_Comment; }
       else if(           0==strncmp( s, "\'", 1 ) ) { m_state = &ME::Hi_BegSingleQuote; }
       else if(           0==strncmp( s, "\"", 1 ) ) { m_state = &ME::Hi_BegDoubleQuote; }
       else if( 0<p && !IsIdent((s-1)[0])
@@ -114,85 +151,15 @@ void Highlight_Code::Hi_In_None( unsigned& l, unsigned& p )
   m_state = 0;
 }
 
-void Highlight_Code::Hi_In_Define( unsigned& l, unsigned& p )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-  const unsigned LL = m_fb.LineLen( l );
-
-  for( ; p<LL; p++ )
-  {
-    const char c1 = p ? m_fb.Get( l, p-1 ) : m_fb.Get( l, p );
-    const char c0 = p ? m_fb.Get( l, p   ) : 0;
-
-    if( c1=='/' && c0=='/' )
-    {
-      m_state = &ME::Hi_BegCPP_Comment;
-      p--;
-    }
-    else if( c1=='/' && c0=='*' )
-    {
-      m_state = &ME::Hi_BegC_Comment;
-      p--;
-    }
-    else {
-      m_fb.SetSyntaxStyle( l, p, HI_DEFINE );
-    }
-    if( &ME::Hi_In_Define != m_state ) return;
-  }
-  p=0; l++;
-  m_state = &ME::Hi_In_None;
-}
-
-void Highlight_Code::Hi_BegC_Comment( unsigned& l, unsigned& p )
+void Highlight_SQL::Hi_Beg_Comment( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   m_fb.SetSyntaxStyle( l, p, HI_COMMENT );
   p++;
-  m_state = &ME::Hi_In_C_Comment;
+  m_state = &ME::Hi_In__Comment;
 }
 
-void Highlight_Code::Hi_In_C_Comment( unsigned& l, unsigned& p )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-  for( ; l<m_fb.NumLines(); l++ )
-  {
-    const unsigned LL = m_fb.LineLen( l );
-
-    for( ; p<LL; p++ )
-    {
-      const char c1 = p ? m_fb.Get( l, p-1 ) : m_fb.Get( l, p );
-      const char c0 = p ? m_fb.Get( l, p   ) : 0;
-
-      if( c1=='*' && c0=='/' )
-      {
-        m_state = &ME::Hi_EndC_Comment;
-      }
-      else m_fb.SetSyntaxStyle( l, p, HI_COMMENT );
-
-      if( &ME::Hi_In_C_Comment != m_state ) return;
-    }
-    p = 0;
-  }
-  m_state = 0;
-}
-
-void Highlight_Code::Hi_EndC_Comment( unsigned& l, unsigned& p )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-  m_fb.SetSyntaxStyle( l, p, HI_COMMENT );
-  p++;
-  m_state = &ME::Hi_In_None;
-}
-
-void Highlight_Code::Hi_BegCPP_Comment( unsigned& l, unsigned& p )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-  m_fb.SetSyntaxStyle( l, p, HI_COMMENT );
-  p++;
-  m_state = &ME::Hi_In_CPP_Comment;
-}
-
-void Highlight_Code::Hi_In_CPP_Comment( unsigned& l, unsigned& p )
+void Highlight_SQL::Hi_In__Comment( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   const unsigned LL = m_fb.LineLen( l );
@@ -202,10 +169,10 @@ void Highlight_Code::Hi_In_CPP_Comment( unsigned& l, unsigned& p )
     m_fb.SetSyntaxStyle( l, p, HI_COMMENT );
   }
   p--;
-  m_state = &ME::Hi_EndCPP_Comment;
+  m_state = &ME::Hi_End_Comment;
 }
 
-void Highlight_Code::Hi_EndCPP_Comment( unsigned& l, unsigned& p )
+void Highlight_SQL::Hi_End_Comment( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   m_fb.SetSyntaxStyle( l, p, HI_COMMENT );
@@ -213,7 +180,7 @@ void Highlight_Code::Hi_EndCPP_Comment( unsigned& l, unsigned& p )
   m_state = &ME::Hi_In_None;
 }
 
-void Highlight_Code::Hi_BegSingleQuote( unsigned& l, unsigned& p )
+void Highlight_SQL::Hi_BegSingleQuote( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   m_fb.SetSyntaxStyle( l, p, HI_CONST );
@@ -221,7 +188,7 @@ void Highlight_Code::Hi_BegSingleQuote( unsigned& l, unsigned& p )
   m_state = &ME::Hi_In_SingleQuote;
 }
 
-void Highlight_Code::Hi_In_SingleQuote( unsigned& l, unsigned& p )
+void Highlight_SQL::Hi_In_SingleQuote( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   for( ; l<m_fb.NumLines(); l++ )
@@ -254,7 +221,7 @@ void Highlight_Code::Hi_In_SingleQuote( unsigned& l, unsigned& p )
   m_state = 0;
 }
 
-void Highlight_Code::Hi_EndSingleQuote( unsigned& l, unsigned& p )
+void Highlight_SQL::Hi_EndSingleQuote( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   m_fb.SetSyntaxStyle( l, p, HI_CONST );
@@ -262,7 +229,7 @@ void Highlight_Code::Hi_EndSingleQuote( unsigned& l, unsigned& p )
   m_state = &ME::Hi_In_None;
 }
 
-void Highlight_Code::Hi_BegDoubleQuote( unsigned& l, unsigned& p )
+void Highlight_SQL::Hi_BegDoubleQuote( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   m_fb.SetSyntaxStyle( l, p, HI_CONST );
@@ -270,7 +237,7 @@ void Highlight_Code::Hi_BegDoubleQuote( unsigned& l, unsigned& p )
   m_state = &ME::Hi_In_DoubleQuote;
 }
 
-void Highlight_Code::Hi_In_DoubleQuote( unsigned& l, unsigned& p )
+void Highlight_SQL::Hi_In_DoubleQuote( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   for( ; l<m_fb.NumLines(); l++ )
@@ -303,7 +270,7 @@ void Highlight_Code::Hi_In_DoubleQuote( unsigned& l, unsigned& p )
   m_state = 0;
 }
 
-void Highlight_Code::Hi_EndDoubleQuote( unsigned& l, unsigned& p )
+void Highlight_SQL::Hi_EndDoubleQuote( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   m_fb.SetSyntaxStyle( l, p, HI_CONST );
@@ -311,7 +278,7 @@ void Highlight_Code::Hi_EndDoubleQuote( unsigned& l, unsigned& p )
   m_state = &ME::Hi_In_None;
 }
 
-void Highlight_Code::Hi_NumberBeg( unsigned& l, unsigned& p )
+void Highlight_SQL::Hi_NumberBeg( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   m_fb.SetSyntaxStyle( l, p, HI_CONST );
@@ -332,7 +299,7 @@ void Highlight_Code::Hi_NumberBeg( unsigned& l, unsigned& p )
   }
 }
 
-void Highlight_Code::Hi_NumberIn( unsigned& l, unsigned& p )
+void Highlight_SQL::Hi_NumberIn( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   const unsigned LL = m_fb.LineLen( l );
@@ -371,7 +338,7 @@ void Highlight_Code::Hi_NumberIn( unsigned& l, unsigned& p )
   }
 }
 
-void Highlight_Code::Hi_NumberHex( unsigned& l, unsigned& p )
+void Highlight_SQL::Hi_NumberHex( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   const unsigned LL = m_fb.LineLen( l );
@@ -389,7 +356,7 @@ void Highlight_Code::Hi_NumberHex( unsigned& l, unsigned& p )
   }
 }
 
-void Highlight_Code::Hi_NumberFraction( unsigned& l, unsigned& p )
+void Highlight_SQL::Hi_NumberFraction( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   const unsigned LL = m_fb.LineLen( l );
@@ -421,7 +388,7 @@ void Highlight_Code::Hi_NumberFraction( unsigned& l, unsigned& p )
   }
 }
 
-void Highlight_Code::Hi_NumberExponent( unsigned& l, unsigned& p )
+void Highlight_SQL::Hi_NumberExponent( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   const unsigned LL = m_fb.LineLen( l );

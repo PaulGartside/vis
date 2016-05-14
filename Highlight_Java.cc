@@ -103,11 +103,6 @@ Highlight_Java::Highlight_Java( FileBuf& rfb )
 {
 }
 
-void Highlight_Java::Find_Styles_Keys()
-{
-  Hi_FindKey( HiPairs );
-}
-
 void Highlight_Java::
      Find_Styles_Keys_In_Range( const CrsPos   st
                               , const unsigned fn )

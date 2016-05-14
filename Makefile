@@ -13,12 +13,15 @@ NAME = vis
 DOT_O_DIR = OBJS/osx
 DEPS_DIR  = DEPS/osx
 PP_DIR    = PP/osx
+
 #DOT_O_DIR = OBJS/linux
 #DEPS_DIR  = DEPS/linux
 #PP_DIR    = PP/linux
+
 #DOT_O_DIR = OBJS/win32
 #DEPS_DIR  = DEPS/win32
 #PP_DIR    = PP/win32
+
 #DOT_O_DIR = OBJS/sunos
 #DEPS_DIR  = DEPS/sunos
 #PP_DIR    = PP/sunos
@@ -38,6 +41,7 @@ SOURCES = ChangeHist \
           Highlight_Java \
           Highlight_JS \
           Highlight_ODB \
+          Highlight_SQL \
           Highlight_STL \
           Highlight_Swift \
           Highlight_TCL \
@@ -90,7 +94,8 @@ $(PP_DIR)/%.pp.cc : %.cc $(PP_DIR)
 -include $(DOT_DEP_FILES)
 
 tar:
-	tar cf vis.tar Array_t.hh \
+	tar cf vis.tar Makefile \
+                Array_t.hh \
                 ChangeHist.cc \
                 ChangeHist.hh \
                 Colon.cc \
@@ -124,6 +129,8 @@ tar:
                 Highlight_Java.hh \
                 Highlight_ODB.cc \
                 Highlight_ODB.hh \
+                Highlight_SQL.hh \
+                Highlight_SQL.cc \
                 Highlight_STL.cc \
                 Highlight_STL.hh \
                 Highlight_Swift.cc \

@@ -134,6 +134,7 @@ struct Vis
   void BufferShell();
   void Ch_Dir();
   void GetCWD();
+  void Set_Syntax();
   void SearchEditor();
   void VSplitWindow();
   void HSplitWindow();
@@ -149,7 +150,7 @@ struct Vis
 #ifndef WIN32
   void RunCommand();
   bool RunCommand_GetCommand( String& cmd );
-  void RunCommand_RunCommand( String& cmd );
+  bool RunCommand_RunCommand( const String& cmd, FileBuf* pfb, int& exit_val );
 #endif
 
   void Do_Star_Update_Search_Editor();
@@ -241,7 +242,8 @@ struct Vis
   String   m_sbuf;   // General purpose string buffer
   int      fast_char; // Char on line to goto when ';' is entered
   Diff     diff;
-  bool     diff_mode; // true if displaying diff
+  bool     m_diff_mode; // true if displaying diff
+  bool     m_run_mode;  // true if running a shell command
   Colon    m_colon;
 
   typedef void (Vis::*CmdFunc) ();

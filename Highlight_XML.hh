@@ -31,32 +31,29 @@ class Highlight_XML : public Highlight_Base
 public:
   Highlight_XML( FileBuf& rfb );
 
-  void Run();
   void Run_Range( const CrsPos st, const unsigned fn );
-  void Hi_In_None( unsigned& l, unsigned& p );
-  void Hi_Beg_Comment( unsigned& l, unsigned& p );
-  void Hi_In__Comment( unsigned& l, unsigned& p );
-  void Hi_End_Comment( unsigned& l, unsigned& p );
-  void Hi_BegSingleQuote( unsigned& l, unsigned& p );
-  void Hi_In_SingleQuote( unsigned& l, unsigned& p );
-  void Hi_EndSingleQuote( unsigned& l, unsigned& p );
-  void Hi_BegDoubleQuote( unsigned& l, unsigned& p );
-  void Hi_In_DoubleQuote( unsigned& l, unsigned& p );
-  void Hi_EndDoubleQuote( unsigned& l, unsigned& p );
-  void Hi_NumberBeg     ( unsigned& l, unsigned& p );
-  void Hi_NumberIn      ( unsigned& l, unsigned& p );
-  void Hi_NumberHex     ( unsigned& l, unsigned& p );
-  void Hi_NumberFraction( unsigned& l, unsigned& p );
-  void Hi_NumberExponent( unsigned& l, unsigned& p );
+  void Hi_In_None         ( unsigned& l, unsigned& p );
+  void Hi_OpenTag_ElemName( unsigned& l, unsigned& p );
+  void Hi_OpenTag_AttrName( unsigned& l, unsigned& p );
+  void Hi_OpenTag_AttrVal ( unsigned& l, unsigned& p );
+  void Hi_CloseTag        ( unsigned& l, unsigned& p );
+  void Hi_Comment         ( unsigned& l, unsigned& p );
+  void Hi_In_SingleQuote  ( unsigned& l, unsigned& p );
+  void Hi_In_DoubleQuote  ( unsigned& l, unsigned& p );
+  void Hi_NumberBeg       ( unsigned& l, unsigned& p );
+  void Hi_NumberIn        ( unsigned& l, unsigned& p );
+  void Hi_NumberHex       ( unsigned& l, unsigned& p );
+  void Hi_NumberFraction  ( unsigned& l, unsigned& p );
+  void Hi_NumberExponent  ( unsigned& l, unsigned& p );
 
 private:
   typedef Highlight_XML ME;
   typedef void (ME::*HiStateFunc) ( unsigned&, unsigned& );
 
-  void Find_Styles_Keys();
   void Find_Styles_Keys_In_Range( const CrsPos st, const unsigned fn );
 
-  HiStateFunc hi_state;
+  HiStateFunc m_state;
+  HiStateFunc m_qtXSt;
 };
 
 #endif

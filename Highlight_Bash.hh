@@ -50,10 +50,9 @@ private:
   typedef Highlight_Bash ME;
   typedef void (ME::*HiStateFunc) ( unsigned&, unsigned& );
 
-  virtual void Find_Styles_Keys();
   virtual void Find_Styles_Keys_In_Range( const CrsPos st, const unsigned fn );
 
-  HiStateFunc hi_state;
+  HiStateFunc m_state;
 };
 
 #endif

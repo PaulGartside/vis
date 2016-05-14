@@ -38,7 +38,7 @@ private:
   typedef Highlight_Text ME;
   typedef void (Highlight_Text::*HiStateFunc) ( unsigned&, unsigned& );
 
-  HiStateFunc hi_state;
+  HiStateFunc m_state;
 };
 
 #endif

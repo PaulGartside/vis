@@ -49,6 +49,7 @@ void EnvKeys2Vals( String& in_out_fname );
 FILE* POpenRead( const char* cmd, pid_t& child_pid );
 int   PClose( FILE* fp, const pid_t child_pid );
 void  ExecShell( const char* cmd );
+double GetTimeSeconds();
 #endif
 
 // The built in cast functions are too long, so create shorter versions:
@@ -80,12 +81,12 @@ bool IsWord_NonIdent( const int C );
 bool IsSpace( const int C );
 bool NotSpace( const int C );
 bool IsIdent( const int C );
+bool IsXML_Ident( const char C );
 bool IsFileNameChar( const int C );
 bool IsEndOfLineDelim( const int C );
 
-bool line_start_or_non_ident( const Line& line
-                            , const unsigned LL
-                            , const unsigned p );
+bool line_start_or_prev_C_non_ident( const Line& line
+                                   , const unsigned p );
 bool line_end_or_non_ident( const Line& line
                           , const unsigned LL
                           , const unsigned p );

@@ -35,15 +35,17 @@
 #include "FileBuf.hh"
 #include "Highlight_Bash.hh"
 #include "Highlight_CPP.hh"
-#include "Highlight_Java.hh"
-#include "Highlight_ODB.hh"
-#include "Highlight_STL.hh"
-#include "Highlight_Text.hh"
 #include "Highlight_HTML.hh"
-#include "Highlight_XML.hh"
+#include "Highlight_IDL.hh"
+#include "Highlight_Java.hh"
 #include "Highlight_JS.hh"
+#include "Highlight_ODB.hh"
+#include "Highlight_SQL.hh"
+#include "Highlight_STL.hh"
 #include "Highlight_Swift.hh"
 #include "Highlight_TCL.hh"
+#include "Highlight_Text.hh"
+#include "Highlight_XML.hh"
 
 extern Vis* gl_pVis;
 extern Key* gl_pKey;
@@ -131,12 +133,14 @@ void FileBuf::Find_File_Type_Suffix()
 {
   if( Find_File_Type_Bash ()
    || Find_File_Type_CPP  ()
+   || Find_File_Type_IDL  ()
    || Find_File_Type_Java ()
    || Find_File_Type_HTML ()
    || Find_File_Type_XML  ()
    || Find_File_Type_JS   ()
-   || Find_File_Type_STL  ()
    || Find_File_Type_ODB  ()
+   || Find_File_Type_SQL  ()
+   || Find_File_Type_STL  ()
    || Find_File_Type_Swift()
    || Find_File_Type_TCL  () )
   {
@@ -190,10 +194,28 @@ bool FileBuf::Find_File_Type_CPP()
    || ( 8 < LEN && file_name.has_at(".hpp.old", LEN-8 ) )
    || ( 4 < LEN && file_name.has_at(".cpp"    , LEN-4 ) )
    || ( 8 < LEN && file_name.has_at(".cpp.new", LEN-8 ) )
-   || ( 8 < LEN && file_name.has_at(".cpp.old", LEN-8 ) ) )
+   || ( 8 < LEN && file_name.has_at(".cpp.old", LEN-8 ) )
+   || ( 4 < LEN && file_name.has_at(".cxx"    , LEN-4 ) )
+   || ( 8 < LEN && file_name.has_at(".cxx.new", LEN-8 ) )
+   || ( 8 < LEN && file_name.has_at(".cxx.old", LEN-8 ) ) )
   {
     file_type = FT_CPP;
     pHi = new(__FILE__,__LINE__) Highlight_CPP( *this );
+    return true;
+  }
+  return false;
+}
+
+bool FileBuf::Find_File_Type_IDL()
+{
+  const unsigned LEN = file_name.len();
+
+  if( ( 4 < LEN && file_name.has_at(".idl"      , LEN-4 ) )
+   || ( 8 < LEN && file_name.has_at(".idl.new"  , LEN-8 ) )
+   || ( 8 < LEN && file_name.has_at(".idl.old"  , LEN-8 ) ) )
+  {
+    file_type = FT_IDL;
+    pHi = new(__FILE__,__LINE__) Highlight_IDL( *this );
     return true;
   }
   return false;
@@ -204,8 +226,8 @@ bool FileBuf::Find_File_Type_Java()
   const unsigned LEN = file_name.len();
 
   if( ( 5 < LEN && file_name.has_at(".java"      , LEN-5 ) )
-   || ( 8 < LEN && file_name.has_at(".java.new"  , LEN-9 ) )
-   || ( 8 < LEN && file_name.has_at(".java.old"  , LEN-9 ) ) )
+   || ( 9 < LEN && file_name.has_at(".java.new"  , LEN-9 ) )
+   || ( 9 < LEN && file_name.has_at(".java.old"  , LEN-9 ) ) )
   {
     file_type = FT_JAVA;
     pHi = new(__FILE__,__LINE__) Highlight_Java( *this );
@@ -257,6 +279,21 @@ bool FileBuf::Find_File_Type_JS()
   {
     file_type = FT_JS;
     pHi = new(__FILE__,__LINE__) Highlight_JS( *this );
+    return true;
+  }
+  return false;
+}
+
+bool FileBuf::Find_File_Type_SQL()
+{
+  const unsigned LEN = file_name.len();
+
+  if( ( 4 < LEN && file_name.has_at(".sql"    , LEN-4 ) )
+   || ( 8 < LEN && file_name.has_at(".sql.new", LEN-8 ) )
+   || ( 8 < LEN && file_name.has_at(".sql.old", LEN-8 ) ) )
+  {
+    file_type = FT_SQL;
+    pHi = new(__FILE__,__LINE__) Highlight_SQL( *this );
     return true;
   }
   return false;
@@ -362,6 +399,106 @@ void FileBuf::Find_File_Type_FirstLine()
     // File type NOT found, so default to TEXT
     file_type = FT_TEXT;
     pHi = new(__FILE__,__LINE__) Highlight_Text( *this );
+  }
+}
+
+void FileBuf::Set_File_Type( const char* syn )
+{
+  if( !is_dir )
+  {
+    bool found_syntax_type = true;
+    Highlight_Base* p_new_Hi = 0;
+
+    if( 0==strcmp( syn, "sh")
+     || 0==strcmp( syn, "bash") )
+    {
+      file_type = FT_BASH;
+      p_new_Hi = new(__FILE__,__LINE__) Highlight_Bash( *this );
+    }
+  //else if( 0==strcmp( syn, "cmake") )
+  //{
+  //  file_type = FT_CMAKE;
+  //  p_new_Hi = new(__FILE__,__LINE__) Highlight_CMAKE( this );
+  //}
+    else if( 0==strcmp( syn, "c")
+          || 0==strcmp( syn, "cpp") )
+    {
+      file_type = FT_CPP;
+      p_new_Hi = new(__FILE__,__LINE__) Highlight_CPP( *this );
+    }
+    else if( 0==strcmp( syn, "htm")
+          || 0==strcmp( syn, "html") )
+    {
+      file_type = FT_HTML;
+      p_new_Hi = new(__FILE__,__LINE__) Highlight_HTML( *this );
+    }
+    else if( 0==strcmp( syn, "idl") )
+    {
+      file_type = FT_IDL;
+      p_new_Hi = new(__FILE__,__LINE__) Highlight_IDL( *this );
+    }
+    else if( 0==strcmp( syn, "java") )
+    {
+      file_type = FT_JAVA;
+      p_new_Hi = new(__FILE__,__LINE__) Highlight_Java( *this );
+    }
+    else if( 0==strcmp( syn, "js") )
+    {
+      file_type = FT_JS;
+      p_new_Hi = new(__FILE__,__LINE__) Highlight_JS( *this );
+    }
+    else if( 0==strcmp( syn, "odb") )
+    {
+      file_type = FT_ODB;
+      p_new_Hi = new(__FILE__,__LINE__) Highlight_ODB( *this );
+    }
+    else if( 0==strcmp( syn, "sql") )
+    {
+      file_type = FT_SQL;
+      p_new_Hi = new(__FILE__,__LINE__) Highlight_SQL( *this );
+    }
+    else if( 0==strcmp( syn, "ste")
+          || 0==strcmp( syn, "stl") )
+    {
+      file_type = FT_STL;
+      p_new_Hi = new(__FILE__,__LINE__) Highlight_STL( *this );
+    }
+    else if( 0==strcmp( syn, "swift") )
+    {
+      file_type = FT_SWIFT;
+      p_new_Hi = new(__FILE__,__LINE__) Highlight_Swift( *this );
+    }
+    else if( 0==strcmp( syn, "tcl") )
+    {
+      file_type = FT_TCL;
+      p_new_Hi = new(__FILE__,__LINE__) Highlight_TCL( *this );
+    }
+    else if( 0==strcmp( syn, "text") )
+    {
+      file_type = FT_TEXT;
+      p_new_Hi = new(__FILE__,__LINE__) Highlight_Text( *this );
+    }
+    else if( 0==strcmp( syn, "xml") )
+    {
+      file_type = FT_XML;
+      p_new_Hi = new(__FILE__,__LINE__) Highlight_XML( *this );
+    }
+    else {
+      found_syntax_type = false;
+    }
+    if( found_syntax_type )
+    {
+      if( 0 != pHi )
+      {
+        MemMark(__FILE__,__LINE__);
+        delete pHi;
+      }
+      pHi = p_new_Hi;
+
+      hi_touched_line = 0;
+
+      Update();
+    }
   }
 }
 
@@ -1556,7 +1693,7 @@ void FileBuf::Find_Stars_In_Range( const CrsPos st, const int fn )
 
     for( unsigned p=st_pos; p<LL; p++ )
     {
-      bool matches = SLASH || line_start_or_non_ident( *lp, LL, p );
+      bool matches = SLASH || line_start_or_prev_C_non_ident( *lp, p );
       for( unsigned k=0; matches && (p+k)<LL && k<STAR_LEN; k++ )
       {
         if( star_str[k] != lp->get(p+k) ) matches = false;
@@ -1582,22 +1719,29 @@ void FileBuf::Find_Styles( const unsigned up_to_line )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( hi_touched_line < up_to_line )
+  const unsigned NUM_LINES = NumLines();
+
+  if( 0<NUM_LINES )
   {
-    // Find styles for some EXTRA_LINES beyond where we need to find
-    // styles for the moment, so that when the user is scrolling down
-    // through an area of a file that has not yet been syntax highlighed,
-    // Find_Styles() does not need to be called every time the user
-    // scrolls down another line.  Find_Styles() will only be called
-    // once for every EXTRA_LINES scrolled down.
-    const unsigned EXTRA_LINES = 10;
+    hi_touched_line = Min( hi_touched_line, NUM_LINES-1 );
 
-    CrsPos   st = Update_Styles_Find_St( hi_touched_line );
-    unsigned fn = Min( up_to_line+EXTRA_LINES, NumLines() );
+    if( hi_touched_line < up_to_line )
+    {
+      // Find styles for some EXTRA_LINES beyond where we need to find
+      // styles for the moment, so that when the user is scrolling down
+      // through an area of a file that has not yet been syntax highlighed,
+      // Find_Styles() does not need to be called every time the user
+      // scrolls down another line.  Find_Styles() will only be called
+      // once for every EXTRA_LINES scrolled down.
+      const unsigned EXTRA_LINES = 10;
 
-    Find_Styles_In_Range( st, fn );
+      CrsPos   st = Update_Styles_Find_St( hi_touched_line );
+      unsigned fn = Min( up_to_line+EXTRA_LINES, NUM_LINES );
 
-    hi_touched_line = fn;
+      Find_Styles_In_Range( st, fn );
+
+      hi_touched_line = fn;
+    }
   }
 }
 
@@ -1619,7 +1763,7 @@ void FileBuf::Find_Stars()
 
     for( unsigned p=0; p<LL; p++ )
     {
-      bool matches = SLASH || line_start_or_non_ident( *lp, LL, p );
+      bool matches = SLASH || line_start_or_prev_C_non_ident( *lp, p );
       for( unsigned k=0; matches && (p+k)<LL && k<STAR_LEN; k++ )
       {
         if( star_str[k] != lp->get(p+k) ) matches = false;

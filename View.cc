@@ -1124,23 +1124,28 @@ void View::PrintCmdLine()
   // Assumes you are already at the command line,
   // and just prints "--INSERT--" banner, and/or clears command line
 
-  unsigned i=0;
+  unsigned col=0;
   // Draw insert banner if needed
   if( inInsertMode )
   {
-    i=10; // Strlen of "--INSERT--"
+    col=10; // Strlen of "--INSERT--"
     Console::SetS( Cmd__Line_Row(), Col_Win_2_GL( 0 ), "--INSERT--", S_BANNER );
   }
   else if( inReplaceMode )
   {
-    i=11; // Strlen of "--REPLACE--"
+    col=11; // Strlen of "--REPLACE--"
     Console::SetS( Cmd__Line_Row(), Col_Win_2_GL( 0 ), "--REPLACE--", S_BANNER );
+  }
+  else if( gl_pVis->m_run_mode && gl_pVis->CV() == this )
+  {
+    col=11; // Strlen of "--RUNNING--"
+    Console::SetS( Cmd__Line_Row(), Col_Win_2_GL( 0 ), "--RUNNING--", S_BANNER );
   }
   const unsigned WC = WorkingCols();
 
-  for( ; i<WC; i++ )
+  for( ; col<WC; col++ )
   {
-    Console::Set( Cmd__Line_Row(), Col_Win_2_GL( i ), ' ', S_NORMAL );
+    Console::Set( Cmd__Line_Row(), Col_Win_2_GL( col ), ' ', S_NORMAL );
   }
 }
 

@@ -31,7 +31,6 @@ class Highlight_HTML : public Highlight_Base
 public:
   Highlight_HTML( FileBuf& rfb );
 
-  void Run();
   void Run_Range( const CrsPos st, const unsigned fn );
 
 private:
@@ -56,10 +55,9 @@ private:
   typedef Highlight_HTML ME;
   typedef void (ME::*HiStateFunc) ( unsigned&, unsigned& );
 
-  void Find_Styles_Keys();
   void Find_Styles_Keys_In_Range( const CrsPos st, const unsigned fn );
 
-  HiStateFunc  hi_state; // Current state
+  HiStateFunc  m_state; // Current state
 };
 
 #endif

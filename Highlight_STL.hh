@@ -32,7 +32,6 @@ public:
   Highlight_STL( FileBuf& rfb );
 
 private:
-  void Find_Styles_Keys();
   void Find_Styles_Keys_In_Range( const CrsPos st, const unsigned fn );
 };
 

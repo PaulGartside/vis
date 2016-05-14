@@ -128,11 +128,6 @@ Highlight_TCL::Highlight_TCL( FileBuf& rfb )
 {
 }
 
-void Highlight_TCL::Find_Styles_Keys()
-{
-  Hi_FindKey( HiPairs );
-}
-
 void Highlight_TCL::
      Find_Styles_Keys_In_Range( const CrsPos   st
                               , const unsigned fn )

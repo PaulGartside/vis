@@ -26,6 +26,7 @@
 #include <string.h>    // memcpy, memset
 #include <sys/stat.h>  // lstat
 #include <sys/types.h>
+#include <sys/time.h>  // gettimeofday
 #ifndef WIN32
 #include <sys/wait.h>
 #endif
@@ -367,6 +368,15 @@ void ExecShell( const char* cmd )
  
   execl( shell_prog, shell_prog, "-c", cmd, (char*) 0 );
 }
+
+double GetTimeSeconds()
+{
+  timeval tv;
+
+  gettimeofday( &tv, 0 );
+
+  return tv.tv_sec + double(tv.tv_usec)/1e6;
+}
 #endif
 
 bool IsWord_Ident( const int C )
@@ -392,6 +402,15 @@ bool NotSpace( const int C )
 bool IsIdent( const int C )
 {
   return isalnum( C ) || C == '_';
+}
+
+bool IsXML_Ident( const char C )
+{
+  return isalnum( C )
+      || C == '_'
+      || C == '-'
+      || C == '.'
+      || C == ':';
 }
 
 bool IsFileNameChar( const int C )
@@ -421,14 +440,13 @@ bool IsEndOfLineDelim( const int C )
   return false;
 }
 
-bool line_start_or_non_ident( const Line& line
-                            , const unsigned LL
-                            , const unsigned p )
+bool line_start_or_prev_C_non_ident( const Line& line
+                                   , const unsigned p )
 {
   if( 0==p ) return true; // p is on line start
 
   // At this point 0 < p
-  const uint8_t C = line.get(p-1);
+  const uint8_t C = line.get( p-1 );
   if( !isalnum( C ) && C!='_' )
   {
     // C is not an identifier

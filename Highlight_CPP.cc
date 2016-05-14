@@ -105,13 +105,6 @@ Highlight_CPP::Highlight_CPP( FileBuf& rfb )
 {
 }
 
-void Highlight_CPP::Find_Styles_Keys()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  Hi_FindKey( HiPairs );
-}
-
 void Highlight_CPP::
      Find_Styles_Keys_In_Range( const CrsPos   st
                               , const unsigned fn )

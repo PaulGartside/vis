@@ -73,16 +73,19 @@ public:
   void Find_File_Type_Suffix();
   bool Find_File_Type_Bash();
   bool Find_File_Type_CPP();
+  bool Find_File_Type_IDL();
   bool Find_File_Type_Java();
   bool Find_File_Type_HTML();
   bool Find_File_Type_XML();
   bool Find_File_Type_JS();
-  bool Find_File_Type_STL();
   bool Find_File_Type_ODB();
+  bool Find_File_Type_SQL();
+  bool Find_File_Type_STL();
   bool Find_File_Type_Swift();
   bool Find_File_Type_TCL();
 
   void Find_File_Type_FirstLine();
+  void Set_File_Type( const char* syn );
 
   void AddView( View* v );
 

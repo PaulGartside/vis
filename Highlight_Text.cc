@@ -27,62 +27,62 @@
 
 Highlight_Text::Highlight_Text( FileBuf& rfb )
   : Highlight_Base( rfb )
-  , hi_state( &ME::Hi_In_None )
+  , m_state( &ME::Hi_In_None )
 {
 }
 
 void Highlight_Text::Run_Range( const CrsPos   st
                               , const unsigned fn )
 {
-  hi_state = &ME::Hi_In_None;
+  m_state = &ME::Hi_In_None;
 
   unsigned l=st.crsLine;
   unsigned p=st.crsChar;
 
-  while( hi_state && l<fn )
+  while( m_state && l<fn )
   {
-    (this->*hi_state)( l, p );
+    (this->*m_state)( l, p );
   }
 }
 
 void Highlight_Text::Hi_In_None( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
-  for( ; l<fb.NumLines(); l++ )
+  for( ; l<m_fb.NumLines(); l++ )
   {
-    const unsigned LL = fb.LineLen( l );
+    const unsigned LL = m_fb.LineLen( l );
 
     for( ; p<LL; p++ )
     {
-      fb.ClearSyntaxStyles( l, p );
+      m_fb.ClearSyntaxStyles( l, p );
 
-      const char C = fb.Get( l, p );
+      const char C = m_fb.Get( l, p );
 
       if( C=='#' )
       {
-        hi_state = &ME::Hi_In_Define;
+        m_state = &ME::Hi_In_Define;
       }
       else if( C < 32 || 126 < C )
       {
-        fb.SetSyntaxStyle( l, p, HI_NONASCII );
+        m_fb.SetSyntaxStyle( l, p, HI_NONASCII );
       }
-      if( &ME::Hi_In_None != hi_state ) return;
+      if( &ME::Hi_In_None != m_state ) return;
     }
     p = 0;
   }
-  hi_state = 0;
+  m_state = 0;
 }
 
 void Highlight_Text::Hi_In_Define( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
-  const unsigned LL = fb.LineLen( l );
+  const unsigned LL = m_fb.LineLen( l );
 
   for( ; p<LL; p++ )
   {
-    fb.SetSyntaxStyle( l, p, HI_DEFINE );
+    m_fb.SetSyntaxStyle( l, p, HI_DEFINE );
   }
   p=0; l++;
-  hi_state = &ME::Hi_In_None;
+  m_state = &ME::Hi_In_None;
 }
 
