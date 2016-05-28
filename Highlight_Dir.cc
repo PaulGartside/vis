@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 // VI-Simplified (vis) C++ Implementation                                     //
-// Copyright (c) 07 Sep 2015 Paul J. Gartside                                 //
+// Copyright (c) 24 May 2016 Paul J. Gartside                                 //
 ////////////////////////////////////////////////////////////////////////////////
 // Permission is hereby granted, free of charge, to any person obtaining a    //
 // copy of this software and associated documentation files (the "Software"), //
@@ -21,34 +21,76 @@
 // DEALINGS IN THE SOFTWARE.                                                  //
 ////////////////////////////////////////////////////////////////////////////////
 
-#ifndef __KEY_HH__
-#define __KEY_HH__
+#include "Utilities.hh"
+#include "FileBuf.hh"
+#include "Highlight_Dir.hh"
 
-#include "Types.hh"
-
-class Key
+Highlight_Dir::Highlight_Dir( FileBuf& rfb )
+  : Highlight_Base( rfb )
+  , m_state( &ME::Hi_In_None )
 {
-public:
-  Key();
+}
 
-  char In();
+void Highlight_Dir::Run_Range( const CrsPos   st
+                             , const unsigned fn )
+{
+  m_state = &ME::Hi_In_None;
 
-  bool save_2_dot_buf;
-  bool save_2_vis_buf;
-  bool save_2_map_buf;
-  bool get_from_dot_buf;
-  bool get_from_map_buf;
-  Line dot_buf;
-  Line vis_buf;
-  Line map_buf;
+  unsigned l=st.crsLine;
+  unsigned p=st.crsChar;
 
-private:
-  char In_DotBuf();
-  char In_MapBuf();
+  while( m_state && l<fn )
+  {
+    (this->*m_state)( l, p );
+  }
+}
 
-  unsigned dot_buf_index;
-  unsigned map_buf_index;
-};
+void Highlight_Dir::Hi_In_None( unsigned& l, unsigned& p )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+  for( ; l<m_fb.NumLines(); l++ )
+  {
+    const Line&    lr = m_fb.GetLine( l );
+    const unsigned LL = m_fb.LineLen( l );
 
-#endif
+    if( 0<LL )
+    {
+      const char c_end = m_fb.Get( l, LL-1 );
+
+      if( c_end == DIR_DELIM )
+      {
+        for( int k=0; k<LL-1; k++ )
+        {
+          const char C = m_fb.Get( l, k );
+          if( C == '.' )
+            m_fb.SetSyntaxStyle( l, k, HI_VARTYPE );
+          else
+            m_fb.SetSyntaxStyle( l, k, HI_CONTROL );
+        }
+        m_fb.SetSyntaxStyle( l, LL-1, HI_CONST );
+      }
+      else if( 1<LL )
+      {
+        const char c0 = m_fb.Get( l, 0 );
+        const char c1 = m_fb.Get( l, 1 );
+
+        if( c0=='.' && c1=='.' )
+        {
+          m_fb.SetSyntaxStyle( l, 0, HI_DEFINE );
+          m_fb.SetSyntaxStyle( l, 1, HI_DEFINE );
+        }
+        else {
+          for( int k=0; k<LL; k++ )
+          {
+            const char C = m_fb.Get( l, k );
+            if( C == '.' )
+              m_fb.SetSyntaxStyle( l, k, HI_VARTYPE );
+          }
+        }
+      }
+    }
+    p = 0;
+  }
+  m_state = 0;
+}
 

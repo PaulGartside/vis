@@ -36,7 +36,7 @@ const unsigned SE_FILE    = 2;    // Search editor file
 const unsigned MSG_FILE   = 3;    // Message       file
 const unsigned CMD_FILE   = 4;    // Command Shell file
 
-typedef gArray_t<String*>     StringList;
+typedef gArray_t<String*> StringList;
 
 struct Vis
 {

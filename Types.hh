@@ -168,7 +168,9 @@ enum File_Type
 {
   FT_UNKNOWN,
   FT_BASH,
+  FT_BUFFER_EDITOR,
   FT_CPP,
+  FT_DIR,
   FT_HTML,
   FT_IDL,
   FT_JAVA,

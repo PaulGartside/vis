@@ -56,6 +56,12 @@ const int FD_IO = 0; // read/write file descriptor
 extern const char* DIR_DELIM_STR;
 extern MemLog<MEM_LOG_BUF_SIZE> Log;
 
+const char* EDIT_BUF_NAME = "BUFFER_EDITOR";
+const char* HELP_BUF_NAME = "VIS_HELP";
+const char* SRCH_BUF_NAME = "SEARCH_EDITOR";
+const char* MSG__BUF_NAME = "MESSAGE_BUFFER";
+const char* CMD__BUF_NAME = "SHELL_BUFFER";
+
 void WARN( const char* msg )
 {
   printf("%s: %s\n", PROG_NAME, msg );
@@ -142,8 +148,8 @@ void Vis::InitBufferEditor()
 {
   Trace trace( __PRETTY_FUNCTION__ );
   // Buffer editor, 0
-  const char* buf_edit_name = "BUFFER_EDITOR";
-  FileBuf* pfb = new(__FILE__,__LINE__) FileBuf( buf_edit_name, false, FT_TEXT );
+  const char* buf_edit_name = EDIT_BUF_NAME;
+  FileBuf* pfb = new(__FILE__,__LINE__) FileBuf( buf_edit_name, false, FT_BUFFER_EDITOR );
   files.push(__FILE__,__LINE__, pfb );
   for( unsigned w=0; w<MAX_WINS; w++ )
   {
@@ -159,7 +165,7 @@ void Vis::InitHelpBuffer()
 {
   Trace trace( __PRETTY_FUNCTION__ );
   // Help buffer, 1
-  const char* help_buf_name = "VIS_HELP";
+  const char* help_buf_name = HELP_BUF_NAME;
   FileBuf* pfb = new(__FILE__,__LINE__) FileBuf( help_buf_name, false, FT_TEXT );
   pfb->ReadString( HELP_STR );
   files.push(__FILE__,__LINE__, pfb );
@@ -177,7 +183,7 @@ void Vis::InitSearchEditor()
 {
   Trace trace( __PRETTY_FUNCTION__ );
   // Search editor buffer, 2
-  const char* search_buf_name = "SEARCH_EDITOR";
+  const char* search_buf_name = SRCH_BUF_NAME;
   FileBuf* pfb = new(__FILE__,__LINE__) FileBuf( search_buf_name, false, FT_TEXT );
   files.push(__FILE__,__LINE__, pfb );
   for( unsigned w=0; w<MAX_WINS; w++ )
@@ -194,7 +200,7 @@ void Vis::InitMsgBuffer()
 {
   Trace trace( __PRETTY_FUNCTION__ );
   // Message buffer, 3
-  const char* msg_buf_name = "MESSAGE_BUFFER";
+  const char* msg_buf_name = MSG__BUF_NAME;
   FileBuf* pfb = new(__FILE__,__LINE__) FileBuf( msg_buf_name, false, FT_TEXT );
   files.push(__FILE__,__LINE__, pfb );
   for( unsigned w=0; w<MAX_WINS; w++ )
@@ -211,7 +217,7 @@ void Vis::InitCmdBuffer()
 {
   Trace trace( __PRETTY_FUNCTION__ );
   // Command buffer, CMD_FILE(4)
-  const char* cmd_buf_name = "SHELL_BUFFER";
+  const char* cmd_buf_name = CMD__BUF_NAME;
   FileBuf* pfb = new(__FILE__,__LINE__) FileBuf( cmd_buf_name, false, FT_TEXT );
   pfb->PushLine(); // Add an empty line
   files.push(__FILE__,__LINE__, pfb );

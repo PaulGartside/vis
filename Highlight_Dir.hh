@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 // VI-Simplified (vis) C++ Implementation                                     //
-// Copyright (c) 07 Sep 2015 Paul J. Gartside                                 //
+// Copyright (c) 24 May 2016 Paul J. Gartside                                 //
 ////////////////////////////////////////////////////////////////////////////////
 // Permission is hereby granted, free of charge, to any person obtaining a    //
 // copy of this software and associated documentation files (the "Software"), //
@@ -21,33 +21,23 @@
 // DEALINGS IN THE SOFTWARE.                                                  //
 ////////////////////////////////////////////////////////////////////////////////
 
-#ifndef __KEY_HH__
-#define __KEY_HH__
+#ifndef __HIGHLIGHT_DIR_HH__
+#define __HIGHLIGHT_DIR_HH__
 
-#include "Types.hh"
+#include "Highlight_Base.hh"
 
-class Key
+class Highlight_Dir : public Highlight_Base
 {
 public:
-  Key();
+  Highlight_Dir( FileBuf& rfb );
 
-  char In();
-
-  bool save_2_dot_buf;
-  bool save_2_vis_buf;
-  bool save_2_map_buf;
-  bool get_from_dot_buf;
-  bool get_from_map_buf;
-  Line dot_buf;
-  Line vis_buf;
-  Line map_buf;
-
+  void Run_Range( const CrsPos st, const unsigned fn );
+  void Hi_In_None( unsigned& l, unsigned& p );
 private:
-  char In_DotBuf();
-  char In_MapBuf();
+  typedef Highlight_Dir ME;
+  typedef void (Highlight_Dir::*HiStateFunc) ( unsigned&, unsigned& );
 
-  unsigned dot_buf_index;
-  unsigned map_buf_index;
+  HiStateFunc m_state;
 };
 
 #endif

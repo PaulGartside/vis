@@ -55,9 +55,30 @@ void Line::set( const unsigned i, const uint8_t C )
   m_data[i] = C;
 }
 
+//const char* Line::c_str( const unsigned i ) const
+//{
+//  const unsigned LEN = len();
+//  if( i < LEN )
+//  {
+//    if( LEN < sz() )
+//    {
+//      // Do the user of c_str() a favor and make sure m_data is
+//      // null terminated so strcmp() will work right, else the
+//      // user would have to use strncmp().
+//      m_data[LEN] = 0;
+//    }
+//    return RCast<const char*>( m_data.get(i) );
+//  }
+//  return 0;
+//}
+
 const char* Line::c_str( const unsigned i ) const
 {
-  return RCast<const char*>( m_data.get(i) );
+  if( i < len() )
+  {
+    return RCast<const char*>( m_data.get(i) );
+  }
+  return 0;
 }
 
 bool Line::insert( const char* _FILE_, const unsigned _LINE_

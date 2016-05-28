@@ -34,7 +34,9 @@
 #include "Vis.hh"
 #include "FileBuf.hh"
 #include "Highlight_Bash.hh"
+#include "Highlight_BufferEditor.hh"
 #include "Highlight_CPP.hh"
+#include "Highlight_Dir.hh"
 #include "Highlight_HTML.hh"
 #include "Highlight_IDL.hh"
 #include "Highlight_Java.hh"
@@ -76,7 +78,12 @@ FileBuf::FileBuf( const char* const FILE_NAME
 
   if( file_name.get_end() == DIR_DELIM ) is_dir = true;
 
-  if( FT_UNKNOWN == file_type ) Find_File_Type_Suffix();
+  if( FT == FT_BUFFER_EDITOR )
+  {
+    file_type = FT_BUFFER_EDITOR;
+    pHi = new(__FILE__,__LINE__) Highlight_BufferEditor( *this );
+  }
+  else if( FT_UNKNOWN == file_type ) Find_File_Type_Suffix();
 }
 
 FileBuf::FileBuf( const char* const FILE_NAME, const FileBuf& rfb )
@@ -129,29 +136,57 @@ FileBuf::~FileBuf()
   delete pHi;
 }
 
+//void FileBuf::Find_File_Type_Suffix()
+//{
+//  if( Find_File_Type_Bash ()
+//   || Find_File_Type_CPP  ()
+//   || Find_File_Type_IDL  ()
+//   || Find_File_Type_Java ()
+//   || Find_File_Type_HTML ()
+//   || Find_File_Type_XML  ()
+//   || Find_File_Type_JS   ()
+//   || Find_File_Type_ODB  ()
+//   || Find_File_Type_SQL  ()
+//   || Find_File_Type_STL  ()
+//   || Find_File_Type_Swift()
+//   || Find_File_Type_TCL  () )
+//  {
+//    // File type found
+//  }
+//  else if( is_dir )
+//  {
+//    // File type NOT found, so for directories default to TEXT.
+//    // For files, the file type will be found in Find_File_Type_FirstLine()
+//    file_type = FT_TEXT;
+//    pHi = new(__FILE__,__LINE__) Highlight_Text( *this );
+//  }
+//}
+
 void FileBuf::Find_File_Type_Suffix()
 {
-  if( Find_File_Type_Bash ()
-   || Find_File_Type_CPP  ()
-   || Find_File_Type_IDL  ()
-   || Find_File_Type_Java ()
-   || Find_File_Type_HTML ()
-   || Find_File_Type_XML  ()
-   || Find_File_Type_JS   ()
-   || Find_File_Type_ODB  ()
-   || Find_File_Type_SQL  ()
-   || Find_File_Type_STL  ()
-   || Find_File_Type_Swift()
-   || Find_File_Type_TCL  () )
+  if( is_dir )
+  {
+    file_type = FT_DIR;
+    pHi = new(__FILE__,__LINE__) Highlight_Dir( *this );
+  }
+  else if( Find_File_Type_Bash ()
+        || Find_File_Type_CPP  ()
+        || Find_File_Type_IDL  ()
+        || Find_File_Type_Java ()
+        || Find_File_Type_HTML ()
+        || Find_File_Type_XML  ()
+        || Find_File_Type_JS   ()
+        || Find_File_Type_ODB  ()
+        || Find_File_Type_SQL  ()
+        || Find_File_Type_STL  ()
+        || Find_File_Type_Swift()
+        || Find_File_Type_TCL  () )
   {
     // File type found
   }
-  else if( is_dir )
-  {
-    // File type NOT found, so for directories default to TEXT.
-    // For files, the file type will be found in Find_File_Type_FirstLine()
-    file_type = FT_TEXT;
-    pHi = new(__FILE__,__LINE__) Highlight_Text( *this );
+  else {
+    // File type NOT found based on suffix.
+    // File type will be found in Find_File_Type_FirstLine()
   }
 }
 

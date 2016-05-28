@@ -34,8 +34,10 @@ SOURCES = ChangeHist \
           FileBuf \
           Highlight_Base \
           Highlight_Bash \
+          Highlight_BufferEditor \
           Highlight_Code \
           Highlight_CPP \
+          Highlight_Dir \
           Highlight_HTML \
           Highlight_IDL \
           Highlight_Java \
@@ -115,10 +117,14 @@ tar:
                 Highlight_Base.hh \
                 Highlight_Bash.cc \
                 Highlight_Bash.hh \
+                Highlight_BufferEditor.cc \
+                Highlight_BufferEditor.hh \
                 Highlight_CPP.cc \
                 Highlight_CPP.hh \
                 Highlight_Code.cc \
                 Highlight_Code.hh \
+                Highlight_Dir.cc \
+                Highlight_Dir.hh \
                 Highlight_HTML.cc \
                 Highlight_HTML.hh \
                 Highlight_IDL.cc \
