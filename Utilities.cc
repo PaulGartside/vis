@@ -478,19 +478,31 @@ bool line_end_or_non_ident( const Line& line
   return false;
 }
 
+ConstCharList* Trace::mp_Call_Stack = 0;
+
+void Trace::Allocate()
+{
+  mp_Call_Stack = new(__FILE__,__LINE__) ConstCharList(__FILE__,__LINE__);
+}
+
+void Trace::Cleanup()
+{
+  MemMark(__FILE__,__LINE__); delete mp_Call_Stack; mp_Call_Stack = 0;
+}
+
 Trace::Trace( const char* func_name )
 {
-  gl_pCall_Stack->push(__FILE__,__LINE__, func_name );
+  mp_Call_Stack->push(__FILE__,__LINE__, func_name );
 }
 
 Trace::~Trace()
 {
-  gl_pCall_Stack->pop();
+  mp_Call_Stack->pop();
 }
 
 void Trace::Print()
 {
-  if( gl_pCall_Stack->len() )
+  if( mp_Call_Stack->len() )
   {
     Console::Set_Normal();
     Console::Move_2_Row_Col( Console::Num_Rows()-1, 0 );
@@ -500,11 +512,11 @@ void Trace::Print()
     Console::Flush();
 
     printf("\n");
-    for( unsigned k=0; k<gl_pCall_Stack->len(); k++ )
+    for( unsigned k=0; k<mp_Call_Stack->len(); k++ )
     {
-      printf( "Call Stack: %s\n", (*gl_pCall_Stack)[k] );
+      printf( "Call Stack: %s\n", (*mp_Call_Stack)[k] );
     }
-    gl_pCall_Stack->clear();
+    mp_Call_Stack->clear();
   }
 }
 

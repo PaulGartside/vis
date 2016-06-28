@@ -24,25 +24,86 @@
 #include <string.h>  // strncmp
 #include <unistd.h>  // getcwd
 
+#include "String.hh"
 #include "Cover_Array.hh"
 #include "Key.hh"
 #include "MemLog.hh"
 #include "Utilities.hh"
 #include "View.hh"
+#include "Diff.hh"
 #include "FileBuf.hh"
 #include "Vis.hh"
 #include "Console.hh"
 #include "Colon.hh"
 
-extern Key* gl_pKey;
 extern MemLog<MEM_LOG_BUF_SIZE> Log;
 
-Colon::Colon( Vis& vis )
+struct ColonOp
+{
+  enum E
+  { 
+    unknown,
+    e,
+    w
+  };
+};
+
+struct Colon::Imp
+{
+  Imp( Vis& vis, Key& key, Diff& diff, char* cbuf, String& sbuf );
+
+  void GetCommand( const unsigned MSG_LEN, const bool HIDE=false );
+//void b();
+//void e();
+//void w();
+  void hi();
+  void MapStart();
+  void MapEnd();
+  void MapShow();
+  void Cover();
+  void CoverKey();
+
+private:
+  void Reset_File_Name_Completion_Variables();
+
+  void HandleNormal( const unsigned MSG_LEN
+                   , const bool     HIDE
+                   , const uint8_t  c
+                   ,       char*&   p );
+
+  void HandleTab( const unsigned  MSG_LEN
+                ,       char*&    p );
+
+  bool Find_File_Name_Completion_Variables();
+  bool Have_File_Name_Completion_Variables();
+
+  bool FindFileBuf();
+
+  void DisplaySbuf( char*& p );
+
+  Vis&       m_vis;
+  Key&       m_key;
+  Diff&      m_diff;
+  View*      m_cv;
+  FileBuf*   m_fb;
+  char*      m_cbuf;
+  String&    m_sbuf;
+  String     m_cover_key;
+  Line       m_cover_buf;
+  unsigned   m_file_index;
+  String     m_partial_path;
+  String     m_search__head;
+  ColonOp::E m_colon_op;
+};
+
+Colon::Imp::Imp( Vis& vis, Key& key, Diff& diff, char* cbuf, String& sbuf )
   : m_vis( vis )
+  , m_key( key )
+  , m_diff( diff )
   , m_cv( 0 )
   , m_fb( 0 )
-  , m_cbuf( m_vis.m_cbuf )
-  , m_sbuf( m_vis.m_sbuf )
+  , m_cbuf( cbuf )
+  , m_sbuf( sbuf )
   , m_cover_key()
   , m_cover_buf()
   , m_file_index( 0 )
@@ -51,155 +112,150 @@ Colon::Colon( Vis& vis )
 {
 }
 
-void Colon::b()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
+//void Colon::Imp::b()
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//
+//  if( 0 == m_cbuf[1] ) // :b
+//  {
+//    m_vis.GoToPrevBuffer();
+//  }
+//  else {
+//    // Switch to a different buffer:
+//    if( '#' == m_cbuf[1] ) // :b#
+//    {
+//      m_vis.GoToPoundBuffer();
+//    }
+//    else if( 'c' == m_cbuf[1] ) m_vis.GoToCurrBuffer(); // :bc
+//    else if( 'e' == m_cbuf[1] ) m_vis.BufferEditor();   // :be
+//    else if( 'm' == m_cbuf[1] ) m_vis.BufferMessage();  // :bm
+//    else {
+//      unsigned buffer_num = atol( m_cbuf+1 ); // :b<number>
+//      m_vis.GoToBuffer( buffer_num );
+//    }
+//  }
+//}
 
-  if( 0 == m_cbuf[1] ) // :b
-  {
-    m_vis.GoToPrevBuffer();
-  }
-  else {
-    // Switch to a different buffer:
-    if( '#' == m_cbuf[1] ) // :b#
-    {
-      if( BE_FILE == m_vis.file_hist[m_vis.win][1] )
-      {
-        m_vis.GoToBuffer( m_vis.file_hist[m_vis.win][2] );
-      }
-      else m_vis.GoToBuffer( m_vis.file_hist[m_vis.win][1] );
-    }
-    else if( 'c' == m_cbuf[1] ) m_vis.GoToCurrBuffer(); // :bc
-    else if( 'e' == m_cbuf[1] ) m_vis.BufferEditor();   // :be
-    else if( 'm' == m_cbuf[1] ) m_vis.BufferMessage();  // :bm
-    else {
-      unsigned buffer_num = atol( m_cbuf+1 ); // :b<number>
-      m_vis.GoToBuffer( buffer_num );
-    }
-  }
-}
+//void Colon::Imp::e()
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//
+//  m_cv = m_vis.CV();
+//  if( 0 == m_cbuf[1] ) // :e
+//  {
+//    m_fb = m_cv->GetFB();
+//    m_fb->ReReadFile();
+//
+//    for( unsigned w=0; w<m_vis.num_wins; w++ )
+//    {
+//      if( m_fb == m_vis.views[w][ m_vis.file_hist[w][0] ]->GetFB() )
+//      {
+//        // View is currently displayed, perform needed update:
+//        m_vis.views[w][ m_vis.file_hist[w][0] ]->Update();
+//      }
+//    }
+//  }
+//  else // :e file_name
+//  {
+//    // Edit file of supplied file name:
+//    String fname( m_cbuf + 1 );
+//    if( m_cv->GoToDir() && FindFullFileName( fname ) )
+//    {
+//      unsigned file_index = 0;
+//      if( m_vis.HaveFile( fname.c_str(), &file_index ) )
+//      {
+//        m_vis.GoToBuffer( file_index );
+//      }
+//      else {
+//        FileBuf* p_fb = new(__FILE__,__LINE__) FileBuf( m_vis, fname.c_str(), true, FT_UNKNOWN );
+//        p_fb->ReadFile();
+//        m_vis.GoToBuffer( m_vis.views[m_vis.win].len()-1 );
+//      }
+//    }
+//  }
+//}
 
-void Colon::e()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
+//void Colon::Imp::w()
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//
+//  m_cv = m_vis.CV();
+//
+//  if( 0 == m_cbuf[1] ) // :w
+//  {
+//    if( m_cv == m_vis.views[m_vis.win][ CMD_FILE ] )
+//    {
+//      // Dont allow SHELL_BUFFER to be save with :w.
+//      // Require :w filename.
+//      m_cv->PrintCursor();
+//    }
+//    else {
+//      m_cv->GetFB()->Write();
+//
+//      // If Write fails, current view will be message buffer, in which case
+//      // we dont want to PrintCursor with the original view, because that
+//      // would put the cursor in the wrong position:
+//      if( m_vis.CV() == m_cv ) m_cv->PrintCursor();
+//    }
+//  }
+//  else // :w file_name
+//  {
+//    // Edit file of supplied file name:
+//    String fname( m_cbuf + 1 );
+//    if( m_cv->GoToDir() && FindFullFileName( fname ) )
+//    {
+//      unsigned file_index = 0;
+//      if( m_vis.HaveFile( fname.c_str(), &file_index ) )
+//      {
+//        m_vis.GetFileBuf( file_index )->Write();
+//      }
+//      else if( fname.get_end() != DIR_DELIM )
+//      {
+//        FileBuf* p_fb = new(__FILE__,__LINE__) FileBuf( m_vis, fname.c_str(), *m_cv->GetFB() );
+//        p_fb->Write();
+//      }
+//    }
+//  }
+//}
 
-  m_cv = m_vis.CV();
-  if( 0 == m_cbuf[1] ) // :e
-  {
-    m_fb = m_cv->pfb;
-    m_fb->ReReadFile();
-
-    for( unsigned w=0; w<m_vis.num_wins; w++ )
-    {
-      if( m_fb == m_vis.views[w][ m_vis.file_hist[w][0] ]->pfb )
-      {
-        // View is currently displayed, perform needed update:
-        m_vis.views[w][ m_vis.file_hist[w][0] ]->Update();
-      }
-    }
-  }
-  else // :e file_name
-  {
-    // Edit file of supplied file name:
-    String fname( m_cbuf + 1 );
-    if( m_cv->GoToDir() && FindFullFileName( fname ) )
-    {
-      unsigned file_index = 0;
-      if( m_vis.HaveFile( fname.c_str(), &file_index ) )
-      {
-        m_vis.GoToBuffer( file_index );
-      }
-      else {
-        FileBuf* p_fb = new(__FILE__,__LINE__) FileBuf( fname.c_str(), true, FT_UNKNOWN );
-        p_fb->ReadFile();
-        m_vis.GoToBuffer( m_vis.views[m_vis.win].len()-1 );
-      }
-    }
-  }
-}
-
-void Colon::w()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  m_cv = m_vis.CV();
-
-  if( 0 == m_cbuf[1] ) // :w
-  {
-    if( m_cv == m_vis.views[m_vis.win][ CMD_FILE ] )
-    {
-      // Dont allow SHELL_BUFFER to be save with :w.
-      // Require :w filename.
-      m_cv->PrintCursor();
-    }
-    else {
-      m_cv->pfb->Write();
-
-      // If Write fails, current view will be message buffer, in which case
-      // we dont want to PrintCursor with the original view, because that
-      // would put the cursor in the wrong position:
-      if( m_vis.CV() == m_cv ) m_cv->PrintCursor();
-    }
-  }
-  else // :w file_name
-  {
-    // Edit file of supplied file name:
-    String fname( m_cbuf + 1 );
-    if( m_cv->GoToDir() && FindFullFileName( fname ) )
-    {
-      unsigned file_index = 0;
-      if( m_vis.HaveFile( fname.c_str(), &file_index ) )
-      {
-        m_vis.files[ file_index ]->Write();
-      //m_vis.GoToBuffer( file_index );
-      }
-      else if( fname.get_end() != DIR_DELIM )
-      {
-        FileBuf* p_fb = new(__FILE__,__LINE__) FileBuf( fname.c_str(), *m_cv->pfb );
-        p_fb->Write();
-      }
-    }
-  }
-}
-
-void Colon::hi()
+void Colon::Imp::hi()
 {
   m_cv = m_vis.CV();
-  m_cv->pfb->ClearStyles();
+  m_cv->GetFB()->ClearStyles();
 
-  if( m_vis.m_diff_mode ) m_vis.diff.Update();
-  else                         m_cv->Update();
+  if( m_vis.InDiffMode() ) m_diff.Update();
+  else                      m_cv->Update();
 }
 
-void Colon::MapStart()
+void Colon::Imp::MapStart()
 {
   m_cv = m_vis.CV();
 
-  gl_pKey->map_buf.clear();
-  gl_pKey->save_2_map_buf = true;
+  m_key.map_buf.clear();
+  m_key.save_2_map_buf = true;
   m_cv->DisplayMapping();
 }
 
-void Colon::MapEnd()
+void Colon::Imp::MapEnd()
 {
-  if( gl_pKey->save_2_map_buf )
+  if( m_key.save_2_map_buf )
   {
-    gl_pKey->save_2_map_buf = false;
-    // Remove trailing ':' from gl_pKey->map_buf:
-    Line& map_buf = gl_pKey->map_buf;
+    m_key.save_2_map_buf = false;
+    // Remove trailing ':' from m_key.map_buf:
+    Line& map_buf = m_key.map_buf;
     map_buf.pop(); // '\n'
     map_buf.pop(); // ':'
   }
 }
 
-void Colon::MapShow()
+void Colon::Imp::MapShow()
 {
   Trace trace( __PRETTY_FUNCTION__ );
   m_cv = m_vis.CV();
   const unsigned ROW = m_cv->Cmd__Line_Row();
   const unsigned ST  = m_cv->Col_Win_2_GL( 0 );
   const unsigned WC  = m_cv->WorkingCols();
-  const unsigned MAP_LEN = gl_pKey->map_buf.len();
+  const unsigned MAP_LEN = m_key.map_buf.len();
 
   // Print :
   Console::Set( ROW, ST, ':', S_NORMAL );
@@ -208,7 +264,7 @@ void Colon::MapShow()
   unsigned offset = 1;
   for( unsigned k=0; k<MAP_LEN && offset+k<WC; k++ )
   {
-    const char C = gl_pKey->map_buf.get( k );
+    const char C = m_key.map_buf.get( k );
     if( C == '\n' )
     {
       Console::Set( ROW, ST+offset+k, '<', S_NORMAL ); offset++;
@@ -234,16 +290,16 @@ void Colon::MapShow()
     Console::Set( ROW, ST+offset+k, ' ', S_NORMAL );
   }
   Console::Update();
-  if( m_vis.m_diff_mode ) m_vis.diff.PrintCursor( m_cv );
-  else                         m_cv->PrintCursor();
+  if( m_vis.InDiffMode() ) m_diff.PrintCursor( m_cv );
+  else                      m_cv->PrintCursor();
 }
 
-void Colon::Cover()
+void Colon::Imp::Cover()
 {
   m_cv = m_vis.CV();
-  m_fb = m_cv->pfb;
+  m_fb = m_cv->GetFB();
 
-  if( m_fb->is_dir )
+  if( m_fb->IsDir() )
   {
     m_cv->PrintCursor();
   }
@@ -260,16 +316,16 @@ void Colon::Cover()
     m_fb->ReadArray( m_cover_buf );
 
     // Reset view position:
-    m_cv->topLine  = 0;
-    m_cv->leftChar = 0;
-    m_cv->crsRow = 0;
-    m_cv->crsCol = 0;
+    m_cv->SetTopLine( 0 );
+    m_cv->SetLeftChar( 0 );
+    m_cv->SetCrsRow( 0 );
+    m_cv->SetCrsCol( 0 );
 
     m_cv->Update();
   }
 }
 
-void Colon::CoverKey()
+void Colon::Imp::CoverKey()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -286,17 +342,17 @@ void Colon::CoverKey()
   m_cv->PrintCursor();
 }
 
-void Colon::Reset_File_Name_Completion_Variables()
+void Colon::Imp::Reset_File_Name_Completion_Variables()
 {
   m_cv          = m_vis.CV();
   m_fb          = 0;
   m_file_index  = 0;
-  m_colon_op    = OP_unknown;
+  m_colon_op    = ColonOp::unknown;
   m_partial_path.clear();
   m_search__head.clear();
 }
 
-void Colon::GetCommand( const unsigned MSG_LEN, const bool HIDE )
+void Colon::Imp::GetCommand( const unsigned MSG_LEN, const bool HIDE )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -304,7 +360,7 @@ void Colon::GetCommand( const unsigned MSG_LEN, const bool HIDE )
 
   char* p = m_cbuf;
 
-  for( uint8_t c=gl_pKey->In(); !IsEndOfLineDelim( c ); c=gl_pKey->In() )
+  for( uint8_t c=m_key.In(); !IsEndOfLineDelim( c ); c=m_key.In() )
   {
     if( !HIDE && '\t' == c && m_cbuf < p )
     {
@@ -338,7 +394,7 @@ void Colon::GetCommand( const unsigned MSG_LEN, const bool HIDE )
   *p++ = 0;
 }
 
-void Colon::HandleNormal( const unsigned MSG_LEN
+void Colon::Imp::HandleNormal( const unsigned MSG_LEN
                         , const bool     HIDE
                         , const uint8_t  c
                         ,       char*&   p )
@@ -363,7 +419,7 @@ void Colon::HandleNormal( const unsigned MSG_LEN
   }
 }
 
-void Colon::HandleTab( const unsigned  MSG_LEN
+void Colon::Imp::HandleTab( const unsigned  MSG_LEN
                      ,       char*&    p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -388,7 +444,7 @@ void Colon::HandleTab( const unsigned  MSG_LEN
 }
 
 // Returns true if found tab filename, else false
-bool Colon::Find_File_Name_Completion_Variables()
+bool Colon::Imp::Find_File_Name_Completion_Variables()
 {
   bool found_tab_fname = false;
 
@@ -397,16 +453,16 @@ bool Colon::Find_File_Name_Completion_Variables()
   if( m_sbuf.has_at("e ", 0)
    || m_sbuf=="e" )
   {
-    m_colon_op = OP_e;
+    m_colon_op = ColonOp::e;
   }
   else if( m_sbuf.has_at("w ", 0)
         || m_sbuf=="w" )
   {
-    m_colon_op = OP_w;
+    m_colon_op = ColonOp::w;
   }
 
-  if( OP_e == m_colon_op
-   || OP_w == m_colon_op )
+  if( ColonOp::e == m_colon_op
+   || ColonOp::w == m_colon_op )
   {
     m_sbuf.shift(1); m_sbuf.trim_beg(); // Remove initial 'e' and space after 'e'
 
@@ -433,14 +489,14 @@ bool Colon::Find_File_Name_Completion_Variables()
       }
     }
     // Removed "e" above, so add it back here:
-    if( OP_e == m_colon_op ) m_sbuf.insert( 0, "e ");
-    else                     m_sbuf.insert( 0, "w ");
+    if( ColonOp::e == m_colon_op ) m_sbuf.insert( 0, "e ");
+    else                           m_sbuf.insert( 0, "w ");
   }
   return found_tab_fname;
 }
 
 // Returns true if found tab filename, else false
-bool Colon::Have_File_Name_Completion_Variables()
+bool Colon::Imp::Have_File_Name_Completion_Variables()
 {
   bool found_tab_fname = false;
 
@@ -462,8 +518,8 @@ bool Colon::Have_File_Name_Completion_Variables()
       }
       // Cant use m_sbuf.append here because Line is not NULL terminated:
       for( unsigned i=0; i<l.len(); i++ ) m_sbuf.push( l.get(i) );
-      if( OP_e == m_colon_op ) m_sbuf.insert( 0, "e ");
-      else                     m_sbuf.insert( 0, "w ");
+      if( ColonOp::e == m_colon_op ) m_sbuf.insert( 0, "e ");
+      else                           m_sbuf.insert( 0, "w ");
     }
   }
   return found_tab_fname;
@@ -472,7 +528,7 @@ bool Colon::Have_File_Name_Completion_Variables()
 // in_out_fname goes in as         some/path/partial_file_name
 // and if successful, comes out as some/path
 // the relative path to the files
-bool Colon::FindFileBuf()
+bool Colon::Imp::FindFileBuf()
 {
   const char*    in_fname     = m_sbuf.c_str();
   const unsigned in_fname_len = strlen( in_fname );
@@ -510,10 +566,10 @@ bool Colon::FindFileBuf()
     unsigned file_index = 0;
     if( m_vis.HaveFile( f_full_path.c_str(), &file_index ) )
     {
-      m_fb = m_vis.files[ file_index ];
+      m_fb = m_vis.GetFileBuf( file_index );
     }
     else {
-      m_fb = new(__FILE__,__LINE__) FileBuf( f_full_path.c_str(), true, FT_UNKNOWN );
+      m_fb = new(__FILE__,__LINE__) FileBuf( m_vis, f_full_path.c_str(), true, FT_UNKNOWN );
       m_fb->ReadFile();
     }
     // Restore original directory, for next call to FindFullFileName()
@@ -523,7 +579,7 @@ bool Colon::FindFileBuf()
   return false;
 }
 
-void Colon::DisplaySbuf( char*& p )
+void Colon::Imp::DisplaySbuf( char*& p )
 {
   // Display m_cbuf on command line:
   const unsigned ROW = m_cv->Cmd__Line_Row();
@@ -558,4 +614,30 @@ void Colon::DisplaySbuf( char*& p )
   Console::Update();
   Console::Move_2_Row_Col( ROW, m_cv->Col_Win_2_GL( S_LEN+1 ) );
 }
+
+Colon::Colon( Vis& vis, Key& key, Diff& diff, char* cbuf, String& sbuf )
+  : m( *new(__FILE__, __LINE__)
+        Colon::Imp( vis, key, diff, cbuf, sbuf ) )
+{
+}
+
+Colon::~Colon()
+{
+  delete &m;
+}
+
+void Colon::GetCommand( const unsigned MSG_LEN, const bool HIDE )
+{
+  m.GetCommand( MSG_LEN, HIDE );
+}
+
+//void Colon::b()        { return m.b();        }
+//void Colon::e()        { return m.e();        }
+//void Colon::w()        { return m.w();        }
+void Colon::hi()       { return m.hi();       }
+void Colon::MapStart() { return m.MapStart(); }
+void Colon::MapEnd()   { return m.MapEnd();   }
+void Colon::MapShow()  { return m.MapShow();  }
+void Colon::Cover()    { return m.Cover();    }
+void Colon::CoverKey() { return m.CoverKey(); }
 

@@ -31,7 +31,9 @@ class Highlight_SQL : public Highlight_Base
 public:
   Highlight_SQL( FileBuf& rfb );
 
+private:
   void Run_Range( const CrsPos st, const unsigned fn );
+
   void Hi_In_None( unsigned& l, unsigned& p );
   void Hi_Beg_Comment( unsigned& l, unsigned& p );
   void Hi_In__Comment( unsigned& l, unsigned& p );
@@ -48,7 +50,6 @@ public:
   void Hi_NumberFraction( unsigned& l, unsigned& p );
   void Hi_NumberExponent( unsigned& l, unsigned& p );
 
-private:
   typedef Highlight_SQL ME;
   typedef void (ME::*HiStateFunc) ( unsigned&, unsigned& );
 

@@ -38,14 +38,21 @@
 #include "Utilities.hh"
 #include "Vis.hh"
 #include "View.hh"
-#include "Key.hh"
 #include "Console.hh"
 
-extern Vis* gl_pVis;
-extern Key* gl_pKey;
-extern ConstCharList* gl_pCall_Stack;
-
 extern MemLog<MEM_LOG_BUF_SIZE> Log;
+
+#if defined(OSX)
+static termios m_origTTyState;
+#else
+static termio m_origTTyState;
+#endif
+
+unsigned gl_bytes_out = 0;
+
+static Vis*     mp_vis   = 0;
+static unsigned m_num_rows = 0;
+static unsigned m_num_cols = 0;
 
 const int FD_IO = 0; // read/write file descriptor
 
@@ -227,9 +234,6 @@ Color VISUAL_DIFF_BG = Red;
 Color DELETED_DIFF_FG = White;
 Color DELETED_DIFF_BG = Red;
 
-unsigned Console::num_rows = 0;
-unsigned Console::num_cols = 0;
-
 static LinesList* lines__p = 0; // list of screen lines  pending to be written.
 static LinesList* lines__w = 0; // list of screen lines  already written.
 static LinesList* styles_p = 0; // list of screen styles pending to be written.
@@ -237,16 +241,8 @@ static LinesList* styles_w = 0; // list of screen styles already written.
 static Line*      touched  = 0; // list of screen lines that have been changed.
 static Line*      out_buf  = 0; // output buffer to reduce number of write calls.
 
-#if defined(OSX)
-static termios origTTyState;
-#else
-static termio origTTyState;
-#endif
-
-unsigned gl_bytes_out = 0;
-
 #if defined( SUNOS )
-uint8_t Console::Byte2out( uint8_t C )
+uint8_t Byte2out( uint8_t C )
 {
   char C_out = '?';
 
@@ -268,7 +264,7 @@ uint8_t Console::Byte2out( uint8_t C )
   return C_out;
 }
 #else
-uint8_t Console::Byte2out( uint8_t C )
+uint8_t Byte2out( uint8_t C )
 {
   char C_out = '?';
 
@@ -290,6 +286,262 @@ uint8_t Console::Byte2out( uint8_t C )
   return C_out;
 }
 #endif
+
+void Screen_Save()
+{
+  for( unsigned k=0; k<LEN_SCREEN_SAVE; k++ )
+  {
+    out_buf->push(__FILE__,__LINE__, STR_SCREEN_SAVE[k] );
+  }
+  Console::Flush();
+}
+
+void Screen_Restore()
+{
+  for( unsigned k=0; k<LEN_SCREEN_RESTORE; k++ )
+  {
+    out_buf->push(__FILE__,__LINE__, STR_SCREEN_RESTORE[k] );
+  }
+  Console::Flush();
+}
+
+unsigned PrintB( Line& B )
+{
+  // Needed only by Win32
+  return 0;
+}
+
+unsigned PrintC( uint8_t C )
+{
+  unsigned bytes_written = 1;
+
+  out_buf->push(__FILE__,__LINE__, Byte2out( C ) );
+
+  return bytes_written;
+}
+
+void Move_2_Home()
+{
+  for( unsigned k=0; k<LEN_HOME; k++ )
+  {
+    out_buf->push(__FILE__,__LINE__, STR_HOME[k] );
+  }
+}
+
+int Background_2_Code( const Color BG )
+{
+  int code = 49;
+
+  if     ( BG == Black  ) code = 40;
+  else if( BG == Red    ) code = 41;
+  else if( BG == Green  ) code = 42;
+  else if( BG == Yellow ) code = 43;
+  else if( BG == Blue   ) code = 44;
+  else if( BG == Magenta) code = 45;
+  else if( BG == Cyan   ) code = 46;
+  else if( BG == White  ) code = 47;
+
+  return code;
+}
+
+int Foreground_2_Code( const Color FG )
+{
+  int code = 39;
+
+  if     ( FG == Black  ) code = 30;
+  else if( FG == Red    ) code = 31;
+  else if( FG == Green  ) code = 32;
+  else if( FG == Yellow ) code = 33;
+  else if( FG == Blue   ) code = 34;
+  else if( FG == Magenta) code = 35;
+  else if( FG == Cyan   ) code = 36;
+  else if( FG == White  ) code = 37;
+
+  return code;
+}
+
+void Set_Style( const Color BG, const Color FG, const bool BB )
+{
+  char s[32];
+  const unsigned LEN = sprintf( s, "\E[%i;%i;%im"
+                                 , BB ? 1 : 0
+                                 , Background_2_Code( BG )
+                                 , Foreground_2_Code( FG ) );
+  for( unsigned k=0; k<LEN; k++ )
+  {
+    out_buf->push(__FILE__,__LINE__, s[k] );
+  }
+}
+
+Color Style_2_BG( const uint8_t S )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  Color c = Black; // Default
+
+  switch( S )
+  {
+  case S_NORMAL   : c = NORMAL_BG;    break;
+  case S_STATUS   : c = STATUS_BG;    break;
+  case S_BORDER   : c = STATUS_BG;    break;
+  case S_BORDER_HI: c = BORDER_HI_BG; break;
+  case S_BANNER   : c = BANNER_BG;    break;
+  case S_STAR     : c = STAR_BG;      break;
+  case S_COMMENT  : c = COMMENT_BG;   break;
+  case S_DEFINE   : c = DEFINE_BG;    break;
+  case S_CONST    : c = QUOTE_BG;     break;
+  case S_CONTROL  : c = CONTROL_BG;   break;
+  case S_VARTYPE  : c = VARTYPE_BG;   break;
+  case S_VISUAL   : c = VISUAL_BG;    break;
+  case S_NONASCII : c = NONASCII_BG;  break;
+  case S_EMPTY    : c = EMPTY_BG;     break;
+
+  case S_RV_NORMAL   : c = NORMAL_BG_RV;    break;
+  case S_RV_STATUS   : c = STATUS_BG_RV;    break;
+  case S_RV_BORDER   : c = STATUS_BG_RV;    break;
+  case S_RV_BORDER_HI: c = BORDER_HI_BG_RV; break;
+  case S_RV_BANNER   : c = BANNER_BG_RV;    break;
+  case S_RV_STAR     : c = STAR_BG_RV;      break;
+  case S_RV_COMMENT  : c = COMMENT_BG_RV;   break;
+  case S_RV_DEFINE   : c = DEFINE_BG_RV;    break;
+  case S_RV_CONST    : c = QUOTE_BG_RV;     break;
+  case S_RV_CONTROL  : c = CONTROL_BG_RV;   break;
+  case S_RV_VARTYPE  : c = VARTYPE_BG_RV;   break;
+  case S_RV_VISUAL   : c = VISUAL_BG_RV;    break;
+  case S_RV_NONASCII : c = NONASCII_BG_RV;  break;
+
+  case S_DIFF_NORMAL : c = NORMAL_DIFF_BG;  break;
+  case S_DIFF_STAR   : c = STAR_DIFF_BG;    break;
+  case S_DIFF_COMMENT: c = COMMENT_DIFF_BG; break;
+  case S_DIFF_DEFINE : c = DEFINE_DIFF_BG;  break;
+  case S_DIFF_CONST  : c = QUOTE_DIFF_BG;   break;
+  case S_DIFF_CONTROL: c = CONTROL_DIFF_BG; break;
+  case S_DIFF_VARTYPE: c = VARTYPE_DIFF_BG; break;
+  case S_DIFF_VISUAL : c = VISUAL_DIFF_BG;  break;
+  case S_DIFF_DEL    : c = DELETED_DIFF_BG; break;
+  }
+  return c;
+}
+
+Color Style_2_FG( const uint8_t S )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  Color c = White; // Default
+
+  switch( S )
+  {
+  case S_NORMAL   : c = NORMAL_FG;    break;
+  case S_STATUS   : c = STATUS_FG;    break;
+  case S_BORDER   : c = STATUS_FG;    break;
+  case S_BORDER_HI: c = BORDER_HI_FG; break;
+  case S_BANNER   : c = BANNER_FG;    break;
+  case S_STAR     : c = STAR_FG;      break;
+  case S_COMMENT  : c = COMMENT_FG;   break;
+  case S_DEFINE   : c = DEFINE_FG;    break;
+  case S_CONST    : c = QUOTE_FG;     break;
+  case S_CONTROL  : c = CONTROL_FG;   break;
+  case S_VARTYPE  : c = VARTYPE_FG;   break;
+  case S_VISUAL   : c = VISUAL_FG;    break;
+  case S_NONASCII : c = NONASCII_FG;  break;
+  case S_EMPTY    : c = EMPTY_FG;     break;
+
+  case S_RV_NORMAL   : c = NORMAL_FG_RV;    break;
+  case S_RV_STATUS   : c = STATUS_FG_RV;    break;
+  case S_RV_BORDER   : c = STATUS_FG_RV;    break;
+  case S_RV_BORDER_HI: c = BORDER_HI_FG_RV; break;
+  case S_RV_BANNER   : c = BANNER_FG_RV;    break;
+  case S_RV_STAR     : c = STAR_FG_RV;      break;
+  case S_RV_COMMENT  : c = COMMENT_FG_RV;   break;
+  case S_RV_DEFINE   : c = DEFINE_FG_RV;    break;
+  case S_RV_CONST    : c = QUOTE_FG_RV;     break;
+  case S_RV_CONTROL  : c = CONTROL_FG_RV;   break;
+  case S_RV_VARTYPE  : c = VARTYPE_FG_RV;   break;
+  case S_RV_VISUAL   : c = VISUAL_FG_RV;    break;
+  case S_RV_NONASCII : c = NONASCII_FG_RV;  break;
+
+  case S_DIFF_NORMAL : c = NORMAL_DIFF_FG;  break;
+  case S_DIFF_STAR   : c = STAR_DIFF_FG;    break;
+  case S_DIFF_COMMENT: c = COMMENT_DIFF_FG; break;
+  case S_DIFF_DEFINE : c = DEFINE_DIFF_FG;  break;
+  case S_DIFF_CONST  : c = QUOTE_DIFF_FG;   break;
+  case S_DIFF_CONTROL: c = CONTROL_DIFF_FG; break;
+  case S_DIFF_VARTYPE: c = VARTYPE_DIFF_FG; break;
+  case S_DIFF_VISUAL : c = VISUAL_DIFF_FG;  break;
+  case S_DIFF_DEL    : c = DELETED_DIFF_FG; break;
+  }
+  return c;
+}
+
+bool Style_2_BB( const uint8_t S )
+{
+  return true;
+}
+
+void Reset_tty()
+{
+#if defined(OSX)
+  int err = ioctl( FD_IO, TIOCSETA, &m_origTTyState );
+#else
+  int err = ioctl( FD_IO, TCSETA, &m_origTTyState );
+#endif
+  if( err ) {
+    printf("\nFailed to reset tty.\n"
+           "Type \"stty sane\" to reset tty.\n\n");
+  }
+}
+
+void Sig_Handle_SIGCONT( int signo )
+{
+#ifdef OSX
+  termios t;
+#else
+  termio t;
+#endif
+
+  t.c_cc[VMIN ] = 0;
+  t.c_cc[VTIME] = 1;   // reads time out after 100 ms
+
+  t.c_lflag &= ~( ICANON | ECHO | ECHONL | PENDIN );
+  t.c_lflag |= ECHOK ;
+
+  t.c_iflag &= ~( IXON | IXANY | IMAXBEL | IGNCR );
+  t.c_iflag |= ICRNL;
+
+  t.c_oflag |= OPOST | ONLCR;
+
+  t.c_cflag &= ~( HUPCL );
+
+#ifdef OSX
+  ioctl( FD_IO, TIOCSETA, &t );
+#else
+  ioctl( FD_IO, TCSETA, &t );
+#endif
+
+  mp_vis->UpdateAll();
+}
+
+void Sig_Handle_HW( int signo )
+{
+  if( SIGBUS  == signo ) Log.Log("Received SIGBUS \n");
+  if( SIGIOT  == signo ) Log.Log("Received SIGIOT \n");
+  if( SIGTRAP == signo ) Log.Log("Received SIGTRAP\n");
+  if( SIGSEGV == signo ) Log.Log("Received SIGSEGV\n");
+
+  mp_vis->Stop();
+
+  Trace::Print();
+
+  MemMark(__FILE__,__LINE__); delete mp_vis; mp_vis = 0;
+
+  Trace  ::Cleanup();
+  Console::Cleanup();
+
+  MemClean();
+  Log.Dump();
+
+  exit( signo );
+}
 
 void Console::Allocate()
 {
@@ -320,92 +572,80 @@ void Console::Cleanup()
   }
 }
 
-unsigned Console::PrintB( Line& B )
+void Console::AtExit()
 {
-  // Needed only by Win32
-  return 0;
+  Reset_tty();
 }
 
-unsigned Console::PrintC( uint8_t C )
+#if defined(OSX)
+bool Console::Set_tty()
 {
-  unsigned bytes_written = 1;
+  termios t;
+  if( -1 == ioctl( FD_IO, TIOCGETA, &t ) ) return false;
 
-  out_buf->push(__FILE__,__LINE__, Byte2out( C ) );
+  memcpy( &m_origTTyState, &t, sizeof(t) );
 
-  return bytes_written;
+  t.c_cc[VMIN ] = 0;
+  t.c_cc[VTIME] = 1;   // reads time out after 100 ms
+
+  t.c_lflag &= ~( ICANON | ECHO | ECHONL | PENDIN );
+  t.c_lflag |= ECHOK ;
+
+  t.c_iflag &= ~( IXON | IXANY | IMAXBEL | IGNCR );
+  t.c_iflag |= ICRNL;
+
+  t.c_oflag |= OPOST | ONLCR;
+
+  t.c_cflag &= ~( HUPCL );
+
+  ioctl( FD_IO, TIOCSETA, &t );
+
+  return true;
+}
+#else
+bool Console::Set_tty()
+{
+  termio t;
+  if( -1 == ioctl( FD_IO, TCGETA, &t ) ) return false;
+
+  memcpy( &m_origTTyState, &t, sizeof(t) );
+
+  t.c_cc[VMIN ] = 0;
+  t.c_cc[VTIME] = 1;   // reads time out after 100 ms
+
+  t.c_lflag &= ~( ICANON | ECHO | ECHONL | PENDIN );
+  t.c_lflag |= ECHOK ;
+
+  t.c_iflag &= ~( IXON | IXANY | IMAXBEL | IGNCR );
+  t.c_iflag |= ICRNL;
+
+  t.c_oflag |= OPOST | ONLCR;
+
+  t.c_cflag &= ~( HUPCL );
+
+  ioctl( FD_IO, TCSETA, &t );
+
+  return true;
+}
+#endif
+
+void Console::SetConsoleCursor()
+{
+  // Used only in WIN32
 }
 
-void Console::Flush()
+void Console::SetSignals()
 {
-  // Needed only by UNIX
-  const unsigned LEN = out_buf->len();
-
-  if( 0<LEN )
-  {
-    gl_bytes_out += write( FD_IO, out_buf->c_str(0), LEN );
-
-    out_buf->clear();
-  }
+  signal( SIGCONT, Sig_Handle_SIGCONT );
+  signal( SIGBUS , Sig_Handle_HW );
+  signal( SIGIOT , Sig_Handle_HW );
+  signal( SIGTRAP, Sig_Handle_HW );
+  signal( SIGSEGV, Sig_Handle_HW );
 }
 
-void Console::Move_2_Home()
+void Console::SetVis( Vis* p_vis )
 {
-  for( unsigned k=0; k<LEN_HOME; k++ )
-  {
-    out_buf->push(__FILE__,__LINE__, STR_HOME[k] );
-  }
-}
-
-void Console::Move_2_Row_Col( const unsigned ROW, const unsigned COL )
-{
-  char buf[32];
-  const unsigned LEN = sprintf( buf, STR_ROW_COL, ROW+1, COL+1 );
-
-  for( unsigned k=0; k<LEN; k++ )
-  {
-    out_buf->push(__FILE__,__LINE__, buf[k] );
-  }
-}
-
-void Console::Screen_Save()
-{
-  for( unsigned k=0; k<LEN_SCREEN_SAVE; k++ )
-  {
-    out_buf->push(__FILE__,__LINE__, STR_SCREEN_SAVE[k] );
-  }
-  Flush();
-}
-
-void Console::Screen_Restore()
-{
-  for( unsigned k=0; k<LEN_SCREEN_RESTORE; k++ )
-  {
-    out_buf->push(__FILE__,__LINE__, STR_SCREEN_RESTORE[k] );
-  }
-  Flush();
-}
-
-void Console::Set( const unsigned ROW
-                 , const unsigned COL
-                 , const uint8_t  C
-                 , const Style    S )
-{
-  ((*lines__p)[ ROW ])->set( COL, C );
-  ((*styles_p)[ ROW ])->set( COL, S );
-  touched->set( ROW, 1 );
-}
-
-void Console::SetS( const unsigned ROW
-                  , const unsigned COL
-                  , const char*    str
-                  , const Style    S )
-{
-  const unsigned str_len = strlen( str );
-
-  for( unsigned k=0; k<str_len; k++ )
-  {
-    Set( ROW, COL+k, str[k], S );
-  }
+  mp_vis = p_vis;
 }
 
 bool Console::Update()
@@ -417,13 +657,13 @@ bool Console::Update()
   unsigned crs_col = ~0; // Cursor col
   static uint8_t crs_style = S_UNKNOWN;
 
-  for( unsigned row=0; row<num_rows; row++ )
+  for( unsigned row=0; row<m_num_rows; row++ )
   {
     if( touched->get( row ) )
-    for( unsigned col=0; col<num_cols; col++ )
+    for( unsigned col=0; col<m_num_cols; col++ )
     {
       // Dont print bottom right cell of screen:
-      if( row == num_rows-1 && col == num_cols-1 ) continue;
+      if( row == m_num_rows-1 && col == m_num_cols-1 ) continue;
 
       const uint8_t c_p = ((*lines__p)[row])->get( col ); // char pending
       const uint8_t c_w = ((*lines__w)[row])->get( col ); // char written
@@ -455,21 +695,6 @@ bool Console::Update()
   return output_something;
 }
 
-void Console::Invalidate()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  // Invalidate all written styles:
-  for( unsigned row=0; row<num_rows; row++ )
-  {
-    touched->set( row, 1 );
-    for( unsigned col=0; col<num_cols; col++ )
-    {
-      ((*styles_w)[row])->set( col, S_UNKNOWN );
-    }
-  }
-}
-
 void Console::Refresh()
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -478,12 +703,171 @@ void Console::Refresh()
 
   Update();
 
-  gl_pVis->CV()->PrintCursor();
+  mp_vis->CV()->PrintCursor();
+}
+
+void Console::Invalidate()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  // Invalidate all written styles:
+  for( unsigned row=0; row<m_num_rows; row++ )
+  {
+    touched->set( row, 1 );
+    for( unsigned col=0; col<m_num_cols; col++ )
+    {
+      ((*styles_w)[row])->set( col, S_UNKNOWN );
+    }
+  }
+}
+
+void Console::Flush()
+{
+  // Needed only by UNIX
+  const unsigned LEN = out_buf->len();
+
+  if( 0<LEN )
+  {
+    gl_bytes_out += write( FD_IO, out_buf->c_str(0), LEN );
+
+    out_buf->clear();
+  }
+}
+
+bool Console::GetWindowSize()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  winsize ws;
+  int err = ioctl( FD_IO, TIOCGWINSZ, &ws );
+  if( err < 0 )
+  {
+    DBG(__LINE__,"ioctl(%i, TIOCGWINSZ) returned %s", FD_IO, strerror(err) );
+    return false;
+  }
+  else {
+    bool changed_size = m_num_rows != ws.ws_row
+                     || m_num_cols != ws.ws_col
+                     || m_num_rows != lines__p->len();
+
+    m_num_rows = ws.ws_row;
+    m_num_cols = ws.ws_col;
+
+    if( changed_size )
+    {
+      while( lines__p->len() < m_num_rows )
+      {
+        lines__p->push( mp_vis->BorrowLine(__FILE__,__LINE__) );
+        lines__w->push( mp_vis->BorrowLine(__FILE__,__LINE__) );
+        styles_p->push( mp_vis->BorrowLine(__FILE__,__LINE__) );
+        styles_w->push( mp_vis->BorrowLine(__FILE__,__LINE__) );
+      }
+      while( m_num_rows < lines__p->len() )
+      {
+        Line* lp = 0;
+        lines__p->pop( lp ); mp_vis->ReturnLine( lp );
+        lines__w->pop( lp ); mp_vis->ReturnLine( lp );
+        styles_p->pop( lp ); mp_vis->ReturnLine( lp );
+        styles_w->pop( lp ); mp_vis->ReturnLine( lp );
+      }
+      for( unsigned k=0; k<m_num_rows; k++ )
+      {
+        (*lines__p)[k]->set_len(__FILE__,__LINE__, m_num_cols );
+        (*lines__w)[k]->set_len(__FILE__,__LINE__, m_num_cols );
+        (*styles_p)[k]->set_len(__FILE__,__LINE__, m_num_cols );
+        (*styles_w)[k]->set_len(__FILE__,__LINE__, m_num_cols );
+      }
+      touched->set_len(__FILE__,__LINE__, m_num_rows );
+    }
+  }
+  return true;
+}
+
+unsigned Console::Num_Rows()
+{
+  return m_num_rows;
+}
+
+unsigned Console::Num_Cols()
+{
+  return m_num_cols;
+}
+
+char Console::KeyIn()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  static Vis&     vis   = *mp_vis;
+  static unsigned count = 0;
+
+  // Ignore read errors, and escaped keys.
+  // Return the first single char read.
+  char str[16]; // Maximum F1-F12 and arrow key interpretation
+  while( read( FD_IO, str, 1 ) != 1 )
+  {
+    // Try to use less CPU time while waiting:
+    if( 0==count ) vis.CheckWindowSize(); // If window has resized, update window
+    if( 4==count ) vis.CheckFileModTime();
+
+    bool updated_sts_line = vis.Update_Status_Lines();
+    bool updated_chg_sts  = vis.Update_Change_Statuses();
+
+    if( updated_sts_line || updated_chg_sts )
+    {
+      Console::Update();
+      vis.PrintCursor();
+    }
+    count++;
+    if( 8==count ) count=0;
+  }
+  return str[0];
+}
+
+void Console::Set_Normal()
+{
+  for( unsigned k=0; k<LEN_NORMAL; k++ )
+  {
+    out_buf->push(__FILE__,__LINE__, STR_NORMAL[k] );
+  }
 }
 
 void Console::NewLine()
 {
   PrintC('\n');
+}
+
+void Console::Move_2_Row_Col( const unsigned ROW, const unsigned COL )
+{
+  char buf[32];
+  const unsigned LEN = sprintf( buf, STR_ROW_COL, ROW+1, COL+1 );
+
+  for( unsigned k=0; k<LEN; k++ )
+  {
+    out_buf->push(__FILE__,__LINE__, buf[k] );
+  }
+}
+
+void Console::Set( const unsigned ROW
+                 , const unsigned COL
+                 , const uint8_t  C
+                 , const Style    S )
+{
+  ((*lines__p)[ ROW ])->set( COL, C );
+  ((*styles_p)[ ROW ])->set( COL, S );
+  touched->set( ROW, 1 );
+}
+
+void Console::SetS( const unsigned ROW
+                  , const unsigned COL
+                  , const char*    str
+                  , const Style    S )
+{
+  const unsigned str_len = strlen( str );
+
+  for( unsigned k=0; k<str_len; k++ )
+  {
+    Set( ROW, COL+k, str[k], S );
+  }
 }
 
 void Console::Set_Color_Scheme_1()
@@ -812,391 +1196,5 @@ void Console::Set_Color_Scheme_5()
   VARTYPE_BG = Black;
 
   Refresh();
-}
-
-Color Console::Style_2_BG( const uint8_t S )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  Color c = Black; // Default
-
-  switch( S )
-  {
-  case S_NORMAL   : c = NORMAL_BG;    break;
-  case S_STATUS   : c = STATUS_BG;    break;
-  case S_BORDER   : c = STATUS_BG;    break;
-  case S_BORDER_HI: c = BORDER_HI_BG; break;
-  case S_BANNER   : c = BANNER_BG;    break;
-  case S_STAR     : c = STAR_BG;      break;
-  case S_COMMENT  : c = COMMENT_BG;   break;
-  case S_DEFINE   : c = DEFINE_BG;    break;
-  case S_CONST    : c = QUOTE_BG;     break;
-  case S_CONTROL  : c = CONTROL_BG;   break;
-  case S_VARTYPE  : c = VARTYPE_BG;   break;
-  case S_VISUAL   : c = VISUAL_BG;    break;
-  case S_NONASCII : c = NONASCII_BG;  break;
-  case S_EMPTY    : c = EMPTY_BG;     break;
-
-  case S_RV_NORMAL   : c = NORMAL_BG_RV;    break;
-  case S_RV_STATUS   : c = STATUS_BG_RV;    break;
-  case S_RV_BORDER   : c = STATUS_BG_RV;    break;
-  case S_RV_BORDER_HI: c = BORDER_HI_BG_RV; break;
-  case S_RV_BANNER   : c = BANNER_BG_RV;    break;
-  case S_RV_STAR     : c = STAR_BG_RV;      break;
-  case S_RV_COMMENT  : c = COMMENT_BG_RV;   break;
-  case S_RV_DEFINE   : c = DEFINE_BG_RV;    break;
-  case S_RV_CONST    : c = QUOTE_BG_RV;     break;
-  case S_RV_CONTROL  : c = CONTROL_BG_RV;   break;
-  case S_RV_VARTYPE  : c = VARTYPE_BG_RV;   break;
-  case S_RV_VISUAL   : c = VISUAL_BG_RV;    break;
-  case S_RV_NONASCII : c = NONASCII_BG_RV;  break;
-
-  case S_DIFF_NORMAL : c = NORMAL_DIFF_BG;  break;
-  case S_DIFF_STAR   : c = STAR_DIFF_BG;    break;
-  case S_DIFF_COMMENT: c = COMMENT_DIFF_BG; break;
-  case S_DIFF_DEFINE : c = DEFINE_DIFF_BG;  break;
-  case S_DIFF_CONST  : c = QUOTE_DIFF_BG;   break;
-  case S_DIFF_CONTROL: c = CONTROL_DIFF_BG; break;
-  case S_DIFF_VARTYPE: c = VARTYPE_DIFF_BG; break;
-  case S_DIFF_VISUAL : c = VISUAL_DIFF_BG;  break;
-  case S_DIFF_DEL    : c = DELETED_DIFF_BG; break;
-  }
-  return c;
-}
-
-Color Console::Style_2_FG( const uint8_t S )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  Color c = White; // Default
-
-  switch( S )
-  {
-  case S_NORMAL   : c = NORMAL_FG;    break;
-  case S_STATUS   : c = STATUS_FG;    break;
-  case S_BORDER   : c = STATUS_FG;    break;
-  case S_BORDER_HI: c = BORDER_HI_FG; break;
-  case S_BANNER   : c = BANNER_FG;    break;
-  case S_STAR     : c = STAR_FG;      break;
-  case S_COMMENT  : c = COMMENT_FG;   break;
-  case S_DEFINE   : c = DEFINE_FG;    break;
-  case S_CONST    : c = QUOTE_FG;     break;
-  case S_CONTROL  : c = CONTROL_FG;   break;
-  case S_VARTYPE  : c = VARTYPE_FG;   break;
-  case S_VISUAL   : c = VISUAL_FG;    break;
-  case S_NONASCII : c = NONASCII_FG;  break;
-  case S_EMPTY    : c = EMPTY_FG;     break;
-
-  case S_RV_NORMAL   : c = NORMAL_FG_RV;    break;
-  case S_RV_STATUS   : c = STATUS_FG_RV;    break;
-  case S_RV_BORDER   : c = STATUS_FG_RV;    break;
-  case S_RV_BORDER_HI: c = BORDER_HI_FG_RV; break;
-  case S_RV_BANNER   : c = BANNER_FG_RV;    break;
-  case S_RV_STAR     : c = STAR_FG_RV;      break;
-  case S_RV_COMMENT  : c = COMMENT_FG_RV;   break;
-  case S_RV_DEFINE   : c = DEFINE_FG_RV;    break;
-  case S_RV_CONST    : c = QUOTE_FG_RV;     break;
-  case S_RV_CONTROL  : c = CONTROL_FG_RV;   break;
-  case S_RV_VARTYPE  : c = VARTYPE_FG_RV;   break;
-  case S_RV_VISUAL   : c = VISUAL_FG_RV;    break;
-  case S_RV_NONASCII : c = NONASCII_FG_RV;  break;
-
-  case S_DIFF_NORMAL : c = NORMAL_DIFF_FG;  break;
-  case S_DIFF_STAR   : c = STAR_DIFF_FG;    break;
-  case S_DIFF_COMMENT: c = COMMENT_DIFF_FG; break;
-  case S_DIFF_DEFINE : c = DEFINE_DIFF_FG;  break;
-  case S_DIFF_CONST  : c = QUOTE_DIFF_FG;   break;
-  case S_DIFF_CONTROL: c = CONTROL_DIFF_FG; break;
-  case S_DIFF_VARTYPE: c = VARTYPE_DIFF_FG; break;
-  case S_DIFF_VISUAL : c = VISUAL_DIFF_FG;  break;
-  case S_DIFF_DEL    : c = DELETED_DIFF_FG; break;
-  }
-  return c;
-}
-
-bool Console::Style_2_BB( const uint8_t S )
-{
-  return true;
-}
-
-void Console::Set_Normal()
-{
-  for( unsigned k=0; k<LEN_NORMAL; k++ )
-  {
-    out_buf->push(__FILE__,__LINE__, STR_NORMAL[k] );
-  }
-}
-
-void Console::Set_Style( const Color BG, const Color FG, const bool BB )
-{
-  char s[32];
-  const unsigned LEN = sprintf( s, "\E[%i;%i;%im"
-                                 , BB ? 1 : 0
-                                 , Background_2_Code( BG )
-                                 , Foreground_2_Code( FG ) );
-  for( unsigned k=0; k<LEN; k++ )
-  {
-    out_buf->push(__FILE__,__LINE__, s[k] );
-  }
-}
-
-int Console::Background_2_Code( const Color BG )
-{
-  int code = 49;
-
-  if     ( BG == Black  ) code = 40;
-  else if( BG == Red    ) code = 41;
-  else if( BG == Green  ) code = 42;
-  else if( BG == Yellow ) code = 43;
-  else if( BG == Blue   ) code = 44;
-  else if( BG == Magenta) code = 45;
-  else if( BG == Cyan   ) code = 46;
-  else if( BG == White  ) code = 47;
-
-  return code;
-}
-
-int Console::Foreground_2_Code( const Color FG )
-{
-  int code = 39;
-
-  if     ( FG == Black  ) code = 30;
-  else if( FG == Red    ) code = 31;
-  else if( FG == Green  ) code = 32;
-  else if( FG == Yellow ) code = 33;
-  else if( FG == Blue   ) code = 34;
-  else if( FG == Magenta) code = 35;
-  else if( FG == Cyan   ) code = 36;
-  else if( FG == White  ) code = 37;
-
-  return code;
-}
-
-void Console::AtExit()
-{
-  Reset_tty();
-}
-
-#if defined(OSX)
-bool Console::Set_tty()
-{
-  termios t;
-  if( -1 == ioctl( FD_IO, TIOCGETA, &t ) ) return false;
-
-  memcpy( &origTTyState, &t, sizeof(t) );
-
-  t.c_cc[VMIN ] = 0;
-  t.c_cc[VTIME] = 1;   // reads time out after 100 ms
-
-  t.c_lflag &= ~( ICANON | ECHO | ECHONL | PENDIN );
-  t.c_lflag |= ECHOK ;
-
-  t.c_iflag &= ~( IXON | IXANY | IMAXBEL | IGNCR );
-  t.c_iflag |= ICRNL;
-
-  t.c_oflag |= OPOST | ONLCR;
-
-  t.c_cflag &= ~( HUPCL );
-
-  ioctl( FD_IO, TIOCSETA, &t );
-
-  return true;
-}
-#else
-bool Console::Set_tty()
-{
-  termio t;
-  if( -1 == ioctl( FD_IO, TCGETA, &t ) ) return false;
-
-  memcpy( &origTTyState, &t, sizeof(t) );
-
-  t.c_cc[VMIN ] = 0;
-  t.c_cc[VTIME] = 1;   // reads time out after 100 ms
-
-  t.c_lflag &= ~( ICANON | ECHO | ECHONL | PENDIN );
-  t.c_lflag |= ECHOK ;
-
-  t.c_iflag &= ~( IXON | IXANY | IMAXBEL | IGNCR );
-  t.c_iflag |= ICRNL;
-
-  t.c_oflag |= OPOST | ONLCR;
-
-  t.c_cflag &= ~( HUPCL );
-
-  ioctl( FD_IO, TCSETA, &t );
-
-  return true;
-}
-#endif
-
-void Console::Reset_tty()
-{
-#if defined(OSX)
-  int err = ioctl( FD_IO, TIOCSETA, &origTTyState );
-#else
-  int err = ioctl( FD_IO, TCSETA, &origTTyState );
-#endif
-  if( err ) {
-    printf("\nFailed to reset tty.\n"
-           "Type \"stty sane\" to reset tty.\n\n");
-  }
-}
-
-void Console::Sig_Handle_SIGCONT( int signo )
-{
-#ifdef OSX
-  termios t;
-#else
-  termio t;
-#endif
-
-  t.c_cc[VMIN ] = 0;
-  t.c_cc[VTIME] = 1;   // reads time out after 100 ms
-
-  t.c_lflag &= ~( ICANON | ECHO | ECHONL | PENDIN );
-  t.c_lflag |= ECHOK ;
-
-  t.c_iflag &= ~( IXON | IXANY | IMAXBEL | IGNCR );
-  t.c_iflag |= ICRNL;
-
-  t.c_oflag |= OPOST | ONLCR;
-
-  t.c_cflag &= ~( HUPCL );
-
-#ifdef OSX
-  ioctl( FD_IO, TIOCSETA, &t );
-#else
-  ioctl( FD_IO, TCSETA, &t );
-#endif
-
-  gl_pVis->UpdateAll();
-}
-
-void Console::Sig_Handle_HW( int signo )
-{
-  if( SIGBUS  == signo ) Log.Log("Received SIGBUS \n");
-  if( SIGIOT  == signo ) Log.Log("Received SIGIOT \n");
-  if( SIGTRAP == signo ) Log.Log("Received SIGTRAP\n");
-  if( SIGSEGV == signo ) Log.Log("Received SIGSEGV\n");
-
-  gl_pVis->running = false;
-
-  Trace::Print();
-
-  MemMark(__FILE__,__LINE__); delete gl_pVis       ; gl_pVis        = 0;
-  MemMark(__FILE__,__LINE__); delete gl_pKey       ; gl_pKey        = 0;
-  MemMark(__FILE__,__LINE__); delete gl_pCall_Stack; gl_pCall_Stack = 0;
-
-  Console::Cleanup();
-
-  MemClean();
-  Log.Dump();
-
-  exit( signo );
-}
-
-bool Console::GetWindowSize()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  winsize ws;
-  int err = ioctl( FD_IO, TIOCGWINSZ, &ws );
-  if( err < 0 )
-  {
-    DBG(__LINE__,"ioctl(%i, TIOCGWINSZ) returned %s", FD_IO, strerror(err) );
-    return false;
-  }
-  else {
-    bool changed_size = num_rows != ws.ws_row
-                     || num_cols != ws.ws_col
-                     || num_rows != lines__p->len();
-
-    num_rows = ws.ws_row;
-    num_cols = ws.ws_col;
-
-    if( changed_size )
-    {
-      while( lines__p->len() < num_rows )
-      {
-        lines__p->push( gl_pVis->BorrowLine(__FILE__,__LINE__) );
-        lines__w->push( gl_pVis->BorrowLine(__FILE__,__LINE__) );
-        styles_p->push( gl_pVis->BorrowLine(__FILE__,__LINE__) );
-        styles_w->push( gl_pVis->BorrowLine(__FILE__,__LINE__) );
-      }
-      while( num_rows < lines__p->len() )
-      {
-        Line* lp = 0;
-        lines__p->pop( lp ); gl_pVis->ReturnLine( lp );
-        lines__w->pop( lp ); gl_pVis->ReturnLine( lp );
-        styles_p->pop( lp ); gl_pVis->ReturnLine( lp );
-        styles_w->pop( lp ); gl_pVis->ReturnLine( lp );
-      }
-      for( unsigned k=0; k<num_rows; k++ )
-      {
-        (*lines__p)[k]->set_len(__FILE__,__LINE__, num_cols );
-        (*lines__w)[k]->set_len(__FILE__,__LINE__, num_cols );
-        (*styles_p)[k]->set_len(__FILE__,__LINE__, num_cols );
-        (*styles_w)[k]->set_len(__FILE__,__LINE__, num_cols );
-      }
-      touched->set_len(__FILE__,__LINE__, num_rows );
-    }
-  }
-  return true;
-}
-
-void Console::SetConsoleCursor()
-{
-  // Used only in WIN32
-}
-
-void Console::SetSignals()
-{
-  signal( SIGCONT, Console::Sig_Handle_SIGCONT );
-  signal( SIGBUS , Console::Sig_Handle_HW );
-  signal( SIGIOT , Console::Sig_Handle_HW );
-  signal( SIGTRAP, Console::Sig_Handle_HW );
-  signal( SIGSEGV, Console::Sig_Handle_HW );
-}
-
-unsigned Console::Num_Rows()
-{
-  return num_rows;
-}
-
-unsigned Console::Num_Cols()
-{
-  return num_cols;
-}
-
-char Console::KeyIn()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  static Vis&  vis = *gl_pVis;
-  static Diff& dif = vis.diff;
-  static unsigned count = 0;
-  // Ignore read errors, and escaped keys.
-  // Return the first single char read.
-  char str[16]; // Maximum F1-F12 and arrow key interpretation
-  while( read( FD_IO, str, 1 ) != 1 )
-  {
-    // Try to use less CPU time while waiting:
-    if( 0==count ) vis.CheckWindowSize(); // If window has resized, update window
-    if( 4==count ) vis.CheckFileModTime();
-
-    bool updated_sts_line = vis.m_diff_mode ? dif.Update_Status_Lines()
-                                            : vis.Update_Status_Lines();
-    bool updated_chg_sts  = vis.Update_Change_Statuses();
-
-    if( updated_sts_line || updated_chg_sts )
-    {
-      Console::Update();
-      vis.m_diff_mode ? dif.PrintCursor( vis.CV() )
-                      : vis.CV()->PrintCursor();
-    }
-    count++;
-    if( 8==count ) count=0;
-  }
-  return str[0];
 }
 

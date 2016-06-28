@@ -31,7 +31,9 @@ class Highlight_XML : public Highlight_Base
 public:
   Highlight_XML( FileBuf& rfb );
 
+private:
   void Run_Range( const CrsPos st, const unsigned fn );
+
   void Hi_In_None         ( unsigned& l, unsigned& p );
   void Hi_OpenTag_ElemName( unsigned& l, unsigned& p );
   void Hi_OpenTag_AttrName( unsigned& l, unsigned& p );
@@ -46,7 +48,6 @@ public:
   void Hi_NumberFraction  ( unsigned& l, unsigned& p );
   void Hi_NumberExponent  ( unsigned& l, unsigned& p );
 
-private:
   typedef Highlight_XML ME;
   typedef void (ME::*HiStateFunc) ( unsigned&, unsigned& );
 

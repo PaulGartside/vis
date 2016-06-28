@@ -103,7 +103,7 @@ public:
   bool split( const char* delim, String& part );
 
 private:
-  char*  data  ;
+  char*    data  ;
   unsigned size  ;  // size of buffer pointed to by data
   unsigned length;  // length of data
 
@@ -114,5 +114,5 @@ private:
   bool copy( const String& s ) { return copy( s.c_str() ); }
 };
 
-#endif /* !__STRING__HH__ */
+#endif // __STRING__HH__
 

@@ -135,8 +135,8 @@ tar:
                 Highlight_Java.hh \
                 Highlight_ODB.cc \
                 Highlight_ODB.hh \
-                Highlight_SQL.hh \
                 Highlight_SQL.cc \
+                Highlight_SQL.hh \
                 Highlight_STL.cc \
                 Highlight_STL.hh \
                 Highlight_Swift.cc \

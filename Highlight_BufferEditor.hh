@@ -31,9 +31,11 @@ class Highlight_BufferEditor : public Highlight_Base
 public:
   Highlight_BufferEditor( FileBuf& rfb );
 
-  void Run_Range( const CrsPos st, const unsigned fn );
-  void Hi_In_None( unsigned& l, unsigned& p );
 private:
+  void Run_Range( const CrsPos st, const unsigned fn );
+
+  void Hi_In_None( unsigned& l, unsigned& p );
+
   typedef Highlight_BufferEditor ME;
   typedef void (Highlight_BufferEditor::*HiStateFunc) ( unsigned&, unsigned& );
 

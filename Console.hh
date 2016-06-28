@@ -24,82 +24,47 @@
 #ifndef __CONSOLE_HH__
 #define __CONSOLE_HH__
 
-#ifdef WIN32
-#include <windows.h>
-#include <tchar.h>
-#endif
-
 #include "Types.hh"
-
-typedef unsigned char  uint8_t;
 
 const char BS  =   8; // Backspace
 const char ESC =  27; // Escape
 const char DEL = 127; // Delete
+
+class Vis;
 
 class Console
 {
 public:
   static void Allocate();
   static void Cleanup();
-  static void Move_2_Home();
-  static void Move_2_Row_Col( const unsigned ROW, const unsigned COL );
-  static void Screen_Save();
-  static void Screen_Restore();
+  static void AtExit();
+  static bool Set_tty();
+  static void SetConsoleCursor(); // Win32
+  static void SetSignals();       // Unix
+  static void SetVis( Vis* p_vis );
+
+  static bool Update();
+  static void Refresh();
+  static void Invalidate();
+  static void Flush();
+
+  static bool     GetWindowSize();
+  static unsigned Num_Rows();
+  static unsigned Num_Cols();
+
+  static char KeyIn();
+
+  static void Set_Normal();
+  static void NewLine();
+  static void Move_2_Row_Col( const unsigned ROW, const unsigned COL ); // Not used
   static void Set( const unsigned ROW, const unsigned COL, const uint8_t C, const Style S );
   static void SetS( const unsigned ROW, const unsigned COL, const char* str, const Style S );
-  static bool Update();
-  static void Invalidate();
-  static void Refresh();
-  static void Flush();
-  static void NewLine();
-  static void Set_Normal();
 
   static void Set_Color_Scheme_1();
   static void Set_Color_Scheme_2();
   static void Set_Color_Scheme_3();
   static void Set_Color_Scheme_4();
   static void Set_Color_Scheme_5();
-
-  static void AtExit();
-  static bool Set_tty();
-#ifndef WIN32
-  static void Reset_tty();
-  static void Sig_Handle_SIGCONT( int signo );
-  static void Sig_Handle_HW     ( int signo );
-#endif
-  static bool GetWindowSize();
-  static void SetConsoleCursor();
-  static void SetSignals();
-
-  static unsigned Num_Rows();
-  static unsigned Num_Cols();
-
-  static char KeyIn();
-
-private:
-  static Color Style_2_BG( const uint8_t S );
-  static Color Style_2_FG( const uint8_t S );
-  static bool  Style_2_BB( const uint8_t S );
-
-  static void Set_Style( const Color BG, const Color FG, const bool BB=false );
-
-  static uint8_t  Byte2out( uint8_t C );
-  static unsigned PrintC( const uint8_t C );
-  static unsigned PrintB( Line& B );
-
-  static int Background_2_Code( const Color BG );
-  static int Foreground_2_Code( const Color FG );
-
-  static unsigned num_rows;
-  static unsigned num_cols;
-
-#ifdef WIN32
-  static HANDLE m_stdin;
-  static HANDLE m_stdout;
-  static HANDLE m_stderr;
-  static DWORD  orig_console_mode;
-#endif
 };
 
 #endif

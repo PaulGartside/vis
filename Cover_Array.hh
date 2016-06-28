@@ -22,7 +22,9 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "Types.hh"
-#include "FileBuf.hh"
+
+class FileBuf;
+class String;
 
 void Cover_Array( FileBuf& in
                 , Line& out

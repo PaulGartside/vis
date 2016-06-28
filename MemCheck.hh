@@ -24,7 +24,7 @@
 #ifndef __MEMCHECK_HH__
 #define __MEMCHECK_HH__
 
-#include <stdlib.h>    // free, malloc
+#include <stdlib.h>    // free, malloc, size_t
 
 void  MemClean();
 void  MemMark( const char* file, const unsigned line );

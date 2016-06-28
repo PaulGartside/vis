@@ -24,6 +24,10 @@
 #ifndef __CHANGE_HIST_HH__
 #define __CHANGE_HIST_HH__
 
+class Vis;
+class View;
+class FileBuf;
+
 #include "Types.hh"
 
 struct LineChange
@@ -46,13 +50,13 @@ struct LineChange
 class ChangeHist 
 {
 public:
-  ChangeHist( FileBuf& fb );
+  ChangeHist( Vis& vis, FileBuf& fb );
 
   void Clear();
   bool Has_Changes() const;
 
-  void Undo( View* const pV );
-  void UndoAll( View* const pV );
+  void Undo( View& rV );
+  void UndoAll( View& rV );
 
   void Save_Set( const unsigned l_num
                , const unsigned c_pos
@@ -70,18 +74,19 @@ public:
   void Save_SwapLines( const unsigned l_num_1
                      , const unsigned l_num_2 );
 private:
-  void Undo_InsertLine( LineChange* plc, View* const pV );
-  void Undo_RemoveLine( LineChange* plc, View* const pV );
-  void Undo_InsertChar( LineChange* plc, View* const pV );
-  void Undo_RemoveChar( LineChange* plc, View* const pV );
-  void Undo_Set       ( LineChange* plc, View* const pV );
+  void Undo_InsertLine( LineChange* plc, View& rV );
+  void Undo_RemoveLine( LineChange* plc, View& rV );
+  void Undo_InsertChar( LineChange* plc, View& rV );
+  void Undo_RemoveChar( LineChange* plc, View& rV );
+  void Undo_Set       ( LineChange* plc, View& rV );
 
   LineChange* BorrowLineChange( const ChangeType type
                               , const unsigned   lnum
                               , const unsigned   cpos );
   void  ReturnLineChange( LineChange* lcp );
 
-  FileBuf&   fb;
+  Vis&       m_vis;
+  FileBuf&   m_fb;
   ChangeList changes;
 };
 

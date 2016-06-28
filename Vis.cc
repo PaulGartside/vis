@@ -40,21 +40,26 @@
 #include "FileBuf.hh"
 #include "Utilities.hh"
 #include "Console.hh"
+#include "Colon.hh"
 #include "ChangeHist.hh"
+#include "Diff.hh"
 #include "View.hh"
 #include "Key.hh"
 #include "Vis.hh"
 
 const char* PROG_NAME;
 
-Vis*           gl_pVis        = 0;
-Key*           gl_pKey        = 0;
-ConstCharList* gl_pCall_Stack = 0;
-
 const int FD_IO = 0; // read/write file descriptor
 
-extern const char* DIR_DELIM_STR;
 extern MemLog<MEM_LOG_BUF_SIZE> Log;
+extern const char* DIR_DELIM_STR;
+
+const uint16_t MAX_COLS   = 1024; // Arbitrary maximum char width of window
+const unsigned BE_FILE    = 0;    // Buffer editor file
+const unsigned HELP_FILE  = 1;    // Help          file
+const unsigned SE_FILE    = 2;    // Search editor file
+const unsigned MSG_FILE   = 3;    // Message       file
+const unsigned CMD_FILE   = 4;    // Command Shell file
 
 const char* EDIT_BUF_NAME = "BUFFER_EDITOR";
 const char* HELP_BUF_NAME = "VIS_HELP";
@@ -75,163 +80,1019 @@ void Usage()
   exit( 0 );
 }
 
-Vis::Vis( const int ARGC, const char* const ARGV[] )
-  : files(__FILE__, __LINE__)
-  , win( 0 )
-  , num_wins( 1 )
-  , views()
-  , file_hist()
-  , tabStop( 8 )
-  , running( true )
-  , reg()
-  , line_cache()
-  , change_cache()
-  , paste_mode( PM_LINE )
-  , slash( false )
-  , fast_char( -1 )
-  , diff()
+class Vis::Imp
+{
+public:
+  Vis&       m_vis;
+  bool       m_running;
+  Key        m_key;
+  Diff       m_diff;
+  Colon      m_colon;
+  char       m_cbuf[MAX_COLS];    // General purpose char buffer
+  String     m_sbuf;              // General purpose string buffer
+  unsigned   m_win;               // Sub-window index
+  unsigned   m_num_wins;          // Number of sub-windows currently on screen
+  FileList   m_files;             // list of file buffers
+  ViewList   m_views[MAX_WINS];   // Array of lists of file views
+  unsList    m_file_hist[MAX_WINS]; // Array of lists of view history. [m_win][m_view_num]
+  LinesList  m_reg;               // Register
+  LinesList  m_line_cache;
+  ChangeList m_change_cache;
+  Paste_Mode m_paste_mode;
+  bool       m_diff_mode; // true if displaying diff
+  bool       m_cmd_mode;  // true if running a shell command
+  String     m_star;      // current text highlighted by '*' command
+  bool       m_slash;     // indicated whether star pattern is slash type or * type
+  int        m_fast_char; // Char on line to goto when ';' is entered
+
+  typedef void (Imp::*CmdFunc) ();
+  CmdFunc CmdFuncs[128];
+
+public:
+  Imp( Vis& vis );
+  ~Imp();
+
+  void Init( const int ARGC, const char* const ARGV[] );
+  void Run();
+  void Stop();
+  View* CV() const;
+  View* WinView( const unsigned w ) const;
+  unsigned    GetNumWins() const;
+  Paste_Mode  GetPasteMode() const;
+  void        SetPasteMode( Paste_Mode pm );
+  bool        InDiffMode() const;
+  bool        RunningCmd() const;
+  bool        RunningDot() const;
+  FileBuf*    GetFileBuf( const unsigned index ) const;
+  unsigned    GetStarLen() const;
+  const char* GetStar() const;
+  bool        GetSlash() const;
+
+  void CheckWindowSize();
+  void CheckFileModTime();
+  void Add_FileBuf_2_Lists_Create_Views( FileBuf* pfb, const char* fname );
+  void CmdLineMessage( const char* const msg );
+  void Window_Message( const char* const msg );
+  void UpdateAll();
+  bool Update_Status_Lines();
+  bool Update_Change_Statuses();
+  void PrintCursor();
+  bool HaveFile( const char* file_name, unsigned* index=0 );
+  bool File_Is_Displayed( const String& full_fname );
+  void ReleaseFileName( const String& full_fname );
+  bool GoToBuffer_Fname( String& fname );
+  void Handle_f();
+  void Handle_z();
+  void Handle_SemiColon();
+  void Handle_Slash_GotPattern( const String& pattern
+                              , const bool MOVE_TO_FIRST_PATTERN=true );
+
+  Line* BorrowLine( const char* _FILE_, const unsigned _LINE_, const unsigned SIZE = 0 );
+  Line* BorrowLine( const char* _FILE_, const unsigned _LINE_, const unsigned LEN, const uint8_t FILL );
+  Line* BorrowLine( const char* _FILE_, const unsigned _LINE_, const Line& line );
+  void  ReturnLine( Line* lp );
+
+  LineChange* BorrowLineChange( const ChangeType type
+                              , const unsigned   lnum
+                              , const unsigned   cpos );
+  void  ReturnLineChange( LineChange* lcp );
+
+private:
+  View* PV() const;
+  void Ch_Dir();
+  void GetCWD();
+  void Set_Syntax();
+  void AdjustViews();
+
+  void InitBufferEditor();
+  void InitHelpBuffer();
+  void InitSearchEditor();
+  void InitMsgBuffer();
+  void InitCmdBuffer();
+  bool InitUserFiles( const int ARGC, const char* const ARGV[] );
+  void InitFileHistory();
+  void InitCmdFuncs();
+  void AddToBufferEditor( const char* fname );
+  bool File_Is_Displayed( const unsigned file_num );
+
+  void Quit();
+  void QuitAll();
+  void Quit_ShiftDown();
+  void Quit_JoinTiles( const Tile_Pos TP );
+  void Quit_JoinTiles_TP_LEFT_HALF();
+  void Quit_JoinTiles_TP_RITE_HALF();
+  void Quit_JoinTiles_TP_TOP__HALF();
+  void Quit_JoinTiles_TP_BOT__HALF();
+  void Quit_JoinTiles_TP_TOP__LEFT_QTR();
+  void Quit_JoinTiles_TP_TOP__RITE_QTR();
+  void Quit_JoinTiles_TP_BOT__LEFT_QTR();
+  void Quit_JoinTiles_TP_BOT__RITE_QTR();
+  void Quit_JoinTiles_TP_LEFT_QTR();
+  void Quit_JoinTiles_TP_RITE_QTR();
+  void Quit_JoinTiles_TP_LEFT_CTR__QTR();
+  void Quit_JoinTiles_TP_RITE_CTR__QTR();
+  void Quit_JoinTiles_TP_TOP__LEFT_8TH();
+  void Quit_JoinTiles_TP_TOP__RITE_8TH();
+  void Quit_JoinTiles_TP_TOP__LEFT_CTR_8TH();
+  void Quit_JoinTiles_TP_TOP__RITE_CTR_8TH();
+  void Quit_JoinTiles_TP_BOT__LEFT_8TH();
+  void Quit_JoinTiles_TP_BOT__RITE_8TH();
+  void Quit_JoinTiles_TP_BOT__LEFT_CTR_8TH();
+  void Quit_JoinTiles_TP_BOT__RITE_CTR_8TH();
+  bool Have_TP_BOT__HALF();
+  bool Have_TP_TOP__HALF();
+  bool Have_TP_BOT__LEFT_QTR();
+  bool Have_TP_TOP__LEFT_QTR();
+  bool Have_TP_BOT__RITE_QTR();
+  bool Have_TP_TOP__RITE_QTR();
+  void Help();
+  void DoDiff();
+  View* DoDiff_FindRegFileView( const FileBuf* pfb_reg
+                              , const FileBuf* pfb_dir
+                              , const unsigned win_idx
+                              ,       View*    pv );
+  View* DoDiff_CheckPossibleFile( const int win_idx
+                                , const char* pos_fname );
+  void NoDiff();
+  void SetWinToBuffer( const unsigned win_idx
+                     , const unsigned buf_idx
+                     , const bool     update );
+
+  void GoToFile();
+  void GoToBuffer( const unsigned buf_idx );
+  void GoToNextBuffer();
+  void GoToCurrBuffer();
+  void GoToPrevBuffer();
+  void GoToPoundBuffer();
+  void GoToBufferEditor();
+  void GoToMsgBuffer();
+  void GoToCmdBuffer();
+  void GoToSearchBuffer();
+  void GoToNextWindow();
+  void GoToNextWindow_l();
+  bool GoToNextWindow_l_Find();
+  void GoToNextWindow_h();
+  bool GoToNextWindow_h_Find();
+  void GoToNextWindow_jk();
+  bool GoToNextWindow_jk_Find();
+  void VSplitWindow();
+  void HSplitWindow();
+  void FlipWindows();
+  bool FName_2_FNum( const String& full_fname, unsigned& file_num );
+  void ReleaseFileNum( const unsigned file_num );
+
+  void Do_Star_FindPatterns();
+  void Do_Star_ClearPatterns();
+  void Do_Star_PrintPatterns( const bool HIGHLIGHT );
+  void Do_Star_Update_Search_Editor();
+
+  void Handle_Cmd();
+  void Handle_i();
+  void Handle_v();
+  void Handle_V();
+  void Handle_a();
+  void Handle_A();
+  void Handle_o();
+  void Handle_O();
+  void Handle_x();
+  void Handle_s();
+  void Handle_c();
+  void Handle_Q();
+  void Handle_k();
+  void Handle_j();
+  void Handle_h();
+  void Handle_l();
+  void Handle_H();
+  void Handle_L();
+  void Handle_M();
+  void Handle_0();
+  void Handle_Dollar();
+  void Handle_Return();
+  void Handle_G();
+  void Handle_b();
+  void Handle_w();
+  void Handle_e();
+  void Handle_Percent();
+  void Handle_LeftSquigglyBracket();
+  void Handle_RightSquigglyBracket();
+  void Handle_F();
+  void Handle_B();
+  void Handle_Dot();
+  void Handle_m();
+  void Handle_g();
+  void Handle_W();
+  void Handle_d();
+  void Handle_y();
+  void Handle_D();
+  void Handle_p();
+  void Handle_P();
+  void Handle_R();
+  void Handle_J();
+  void Handle_Tilda();
+  void Handle_Star();
+  void Handle_Slash();
+  void Handle_n();
+  void Handle_N();
+  void Handle_u();
+  void Handle_U();
+
+  void Handle_Colon();
+  void HandleColon_b();
+  void HandleColon_e();
+  void HandleColon_w();
+
+#ifndef WIN32
+  void RunCommand();
+  bool RunCommand_GetCommand( String& cmd );
+  bool RunCommand_RunCommand( const String& cmd, FileBuf* pfb, int& exit_val );
+#endif
+};
+
+Vis::Imp::Imp( Vis& vis )
+  : m_vis( vis )
+  , m_running( true )
+  , m_key()
+  , m_diff( m_vis, m_key, m_reg )
+  , m_colon( m_vis, m_key, m_diff, m_cbuf, m_sbuf )
+  , m_win( 0 )
+  , m_num_wins( 1 )
+  , m_files(__FILE__, __LINE__)
+  , m_views()
+  , m_file_hist()
+  , m_reg()
+  , m_line_cache()
+  , m_change_cache()
+  , m_paste_mode( PM_LINE )
   , m_diff_mode( false )
-  , m_colon( *this )
+  , m_cmd_mode( false )
+  , m_slash( false )
+  , m_fast_char( -1 )
+{
+}
+
+void Vis::Imp::Init( const int ARGC, const char* const ARGV[] )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  gl_pVis = this;
-
   m_cbuf[0] = 0;
 
-  running = Console::GetWindowSize();
-            Console::SetConsoleCursor();
+  Console::SetVis( &m_vis );
+
+  m_running = Console::GetWindowSize();
+              Console::SetConsoleCursor();
 
   InitBufferEditor();
   InitHelpBuffer();
   InitSearchEditor();
   InitMsgBuffer();
   InitCmdBuffer();
-  bool run_diff = InitUserBuffers( ARGC, ARGV );
+  bool run_diff = InitUserFiles( ARGC, ARGV );
   InitFileHistory();
   InitCmdFuncs();
 
-  if( run_diff && ( (CMD_FILE+1+2) == files.len()) )
+  if( run_diff && ( (CMD_FILE+1+2) == m_files.len()) )
   {
     // User supplied: "-d file1 file2", so run diff:
     m_diff_mode = true;
-    num_wins = 2;
-    file_hist[ 0 ][0] = 5;
-    file_hist[ 1 ][0] = 6;
-    views[0][ file_hist[ 0 ][0] ]->SetTilePos( TP_LEFT_HALF );
-    views[1][ file_hist[ 1 ][0] ]->SetTilePos( TP_RITE_HALF );
+    m_num_wins = 2;
+    m_file_hist[ 0 ][0] = 5;
+    m_file_hist[ 1 ][0] = 6;
+    m_views[0][ m_file_hist[ 0 ][0] ]->SetTilePos( TP_LEFT_HALF );
+    m_views[1][ m_file_hist[ 1 ][0] ]->SetTilePos( TP_RITE_HALF );
 
     DoDiff();
   }
 }
 
-Vis::~Vis()
+Vis::Imp::~Imp()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
   for( unsigned i=0; i<MAX_WINS; i++ )
   {
-    for( unsigned k=0; k<views[i].len(); k++ )
+    for( unsigned k=0; k<m_views[i].len(); k++ )
     {
       MemMark(__FILE__,__LINE__);
-      delete views[i][k];
+      delete m_views[i][k];
     }
   }
-  for( unsigned k=0; k<files.len(); k++ )
+  for( unsigned k=0; k<m_files.len(); k++ )
   {
     MemMark(__FILE__,__LINE__);
-    delete files[k];
+    delete m_files[k];
   }
 }
 
-void Vis::InitBufferEditor()
+void Vis::Imp::Run()
 {
   Trace trace( __PRETTY_FUNCTION__ );
+  UpdateAll();
+
+  while( m_running )
+  {
+    Handle_Cmd();
+  }
+  Console::Flush();
+}
+
+void Vis::Imp::Stop()
+{
+  m_running = false;
+}
+
+View* Vis::Imp::CV() const
+{
+  return m_views[m_win][ m_file_hist[m_win][0] ];
+}
+
+View* Vis::Imp::PV() const
+{
+   return m_views[m_win][ m_file_hist[m_win][1] ];
+}
+
+View* Vis::Imp::WinView( const unsigned w ) const
+{
+  return m_views[w][ m_file_hist[w][0] ];
+}
+
+unsigned Vis::Imp::GetNumWins() const
+{
+  return m_num_wins;
+}
+
+Paste_Mode Vis::Imp::GetPasteMode() const
+{
+  return m_paste_mode;
+}
+
+void Vis::Imp::SetPasteMode( Paste_Mode pm )
+{
+  m_paste_mode = pm;
+}
+
+bool Vis::Imp::InDiffMode() const
+{
+  return m_diff_mode;
+}
+
+bool Vis::Imp::RunningCmd() const
+{
+  return m_cmd_mode;
+}
+
+bool Vis::Imp::RunningDot() const
+{
+  return m_key.get_from_dot_buf;
+}
+
+FileBuf* Vis::Imp::GetFileBuf( const unsigned index ) const
+{
+  return m_files[ index ];
+}
+
+unsigned Vis::Imp::GetStarLen() const
+{
+  return m_star.len();
+}
+
+const char* Vis::Imp::GetStar() const
+{
+  return m_star.c_str();
+}
+
+bool Vis::Imp::GetSlash() const
+{
+  return m_slash;
+}
+
+// If window has resized, update window
+void Vis::Imp::CheckWindowSize()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  const unsigned numRows = Console::Num_Rows();
+  const unsigned numCols = Console::Num_Cols();
+
+  if( Console::GetWindowSize() )
+  {
+    if( Console::Num_Rows() != numRows
+     || Console::Num_Cols() != numCols )
+    {
+      AdjustViews();
+      Console::Invalidate();
+      UpdateAll();
+    }
+  }
+}
+
+void Vis::Imp::CheckFileModTime()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  FileBuf* pfb = CV()->GetFB();
+  const char* fname = pfb->GetFileName();
+
+  const double curr_mod_time = ModificationTime( fname );
+
+  if( pfb->GetModTime() < curr_mod_time )
+  {
+    if( pfb->IsDir() )
+    {
+      // Dont ask the user, just read in the directory.
+      // pfb->GetModTime() will get updated in pfb->ReReadFile()
+      pfb->ReReadFile();
+
+      for( unsigned w=0; w<m_num_wins; w++ )
+      {
+        if( pfb == m_views[w][ m_file_hist[w][0] ]->GetFB() )
+        {
+          // View is currently displayed, perform needed update:
+          m_views[w][ m_file_hist[w][0] ]->Update();
+        }
+      }
+    }
+    else { // Regular file
+      // Update file modification time so that the message window
+      // will not keep popping up:
+      pfb->SetModTime( curr_mod_time );
+
+      m_vis.Window_Message("\n%s\n\nhas changed since it was read in\n\n", fname );
+    }
+  }
+}
+
+void Vis::Imp::Add_FileBuf_2_Lists_Create_Views( FileBuf* pfb, const char* fname )
+{
+  // Add this file buffer to global list of files
+  m_files.push(__FILE__,__LINE__, pfb );
+  // Create a new view for each window for FileBuf
+  for( unsigned w=0; w<MAX_WINS; w++ )
+  {
+    View* pV  = new(__FILE__,__LINE__) View( m_vis, m_key, *pfb, m_reg );
+    bool ok = m_views[w].push(__FILE__,__LINE__, pV );
+    ASSERT( __LINE__, ok, "ok" );
+    pfb->AddView( pV );
+  }
+  // Push file name onto buffer editor buffer
+  AddToBufferEditor( fname );
+}
+
+// Print a command line message.
+// Put cursor back in edit window.
+//
+void Vis::Imp::CmdLineMessage( const char* const msg )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  View* pV = CV();
+
+  const unsigned WC  = pV->WorkingCols();
+  const unsigned ROW = pV->Cmd__Line_Row();
+  const unsigned COL = pV->Col_Win_2_GL( 0 );
+  const unsigned MSG_LEN = strlen( msg );
+  if( WC < MSG_LEN )
+  {
+    // messaged does not fit, so truncate beginning
+    Console::SetS( ROW, COL, msg + (MSG_LEN - WC), S_NORMAL );
+  }
+  else {
+    // messaged fits, add spaces at end
+    Console::SetS( ROW, COL, msg, S_NORMAL );
+    for( unsigned k=0; k<(WC-MSG_LEN); k++ )
+    {
+      Console::Set( ROW, pV->Col_Win_2_GL( k+MSG_LEN ), ' ', S_NORMAL );
+    }
+  }
+  Console::Update();
+  pV->PrintCursor();
+}
+
+void Vis::Imp::Window_Message( const char* const msg )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  FileBuf* pMB = m_views[0][MSG_FILE]->GetFB();
+
+  // Clear Message Buffer:
+  while( pMB->NumLines() ) pMB->PopLine();
+
+  // Add msg to pMB
+  Line* pL = 0;
+  const unsigned MSB_BUF_LEN = strlen( msg );
+  for( unsigned k=0; k<MSB_BUF_LEN; k++ )
+  {
+    if( 0==pL ) pL = BorrowLine( __FILE__,__LINE__ );
+
+    const char C = msg[k];
+
+    if( C == '\n' ) { pMB->PushLine( pL ); pL = 0; }
+    else            { pL->push(__FILE__,__LINE__, C ); }
+  }
+  // Make sure last borrowed line gets put into Message Buffer:
+  if( pL ) pMB->PushLine( pL );
+
+  // Initially, put cursor at top of Message Buffer:
+  View* pV = m_views[m_win][MSG_FILE];
+  pV->SetCrsRow( 0 );
+  pV->SetCrsCol( 0 );
+  pV->SetTopLine( 0 );
+
+  GoToMsgBuffer();
+}
+
+void Vis::Imp::UpdateAll()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( !m_diff_mode )
+  {
+    for( unsigned k=0; k<m_num_wins; k++ )
+    {
+      m_views[k][ m_file_hist[k][0] ]->Update();
+    }
+  }
+}
+
+bool Vis::Imp::Update_Status_Lines()
+{
+  bool updated_a_sts_line = false;
+
+  if( m_diff_mode )
+  {
+     updated_a_sts_line = m_diff.Update_Status_Lines();
+  }
+  else {
+    for( unsigned w=0; w<m_num_wins; w++ )
+    {
+      // pV points to currently displayed view in window w:
+      View* const pV = m_views[w][ m_file_hist[w][0] ];
+
+      if( pV->GetStsLineNeedsUpdate() )
+      {
+        // Update status line:
+        pV->PrintStsLine();     // Print status line.
+        Console::Update();
+
+        pV->SetStsLineNeedsUpdate( false );
+        updated_a_sts_line = true;
+      }
+    }
+  }
+  return updated_a_sts_line;
+}
+
+bool Vis::Imp::Update_Change_Statuses()
+{
+  // Update buffer changed status around windows:
+  bool updated_change_sts = false;
+
+  for( unsigned k=0; k<m_num_wins; k++ )
+  {
+    // pV points to currently displayed view in window w:
+    View* const pV = m_views[k][ m_file_hist[k][0] ];
+
+    if( pV->GetUnSavedChangeSts() != pV->GetFB()->Changed() )
+    {
+      pV->Print_Borders();
+      pV->SetUnSavedChangeSts( pV->GetFB()->Changed() );
+      updated_change_sts = true;
+    }
+  }
+  return updated_change_sts;
+}
+
+void Vis::Imp::PrintCursor()
+{
+  if( m_diff_mode )
+  {
+   m_diff.PrintCursor( CV() );
+  }
+  else {
+    CV()->PrintCursor();
+  }
+}
+
+bool Vis::Imp::HaveFile( const char* file_name, unsigned* file_index )
+{
+  bool already_have_file = false;
+
+  const unsigned NUM_FILES = m_files.len();
+
+  for( unsigned k=0; !already_have_file && k<NUM_FILES; k++ )
+  {
+    if( 0==strcmp( m_files[k]->GetFileName(), file_name ) )
+    {
+      already_have_file = true;
+
+      if( file_index ) *file_index = k;
+    }
+  }
+  return already_have_file;
+}
+
+bool Vis::Imp::File_Is_Displayed( const String& full_fname )
+{
+  unsigned file_num = 0;
+
+  if( FName_2_FNum( full_fname, file_num ) )
+  {
+    return File_Is_Displayed( file_num );
+  }
+  return false;
+}
+
+void Vis::Imp::ReleaseFileName( const String& full_fname )
+{
+  unsigned file_num = 0;
+  if( FName_2_FNum( full_fname, file_num ) )
+  {
+    ReleaseFileNum( file_num );
+  }
+}
+
+// Return true if went to buffer indicated by fname, else false
+bool Vis::Imp::GoToBuffer_Fname( String& fname )
+{
+  // 1. Search for fname in buffer list, and if found, go to that buffer:
+  unsigned file_index = 0;
+  if( HaveFile( fname.c_str(), &file_index ) )
+  { GoToBuffer( file_index ); return true; }
+
+  // 2. Go to directory of current buffer:
+  if( ! CV()->GoToDir() )
+  {
+    m_vis.CmdLineMessage( "Could not find file: %s", fname.c_str() );
+    return false;
+  }
+
+  // 3. Get full file name
+  if( !FindFullFileName( fname ) )
+  {
+    m_vis.CmdLineMessage( "Could not find file: %s", fname.c_str() );
+    return false;
+  }
+
+  // 4. Search for fname in buffer list, and if found, go to that buffer:
+  if( HaveFile( fname.c_str(), &file_index ) )
+  {
+    GoToBuffer( file_index ); return true;
+  }
+
+  // 5. See if file exists, and if so, add a file buffer, and go to that buffer
+  bool exists = false;
+  const bool IS_DIR = fname.get_end() == DIR_DELIM;
+  if( IS_DIR )
+  {
+    DIR* dp = opendir( fname.c_str() );
+    if( dp ) {
+      exists = true;
+      closedir( dp );
+    }
+  }
+  else {
+    FILE* fp = fopen( fname.c_str(), "rb" );
+    if( fp ) {
+      exists = true;
+      fclose( fp );
+    }
+  }
+  if( exists )
+  {
+    FileBuf* fb = new(__FILE__,__LINE__) FileBuf( m_vis, fname.c_str(), true, FT_UNKNOWN );
+    fb->ReadFile();
+    GoToBuffer( m_views[m_win].len()-1 );
+  }
+  else {
+    m_vis.CmdLineMessage( "Could not find file: %s", fname.c_str() );
+    return false;
+  }
+  return true;
+}
+
+void Vis::Imp::Handle_f()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  m_fast_char = m_key.In();
+
+  if( m_diff_mode ) m_diff.Do_f( m_fast_char );
+  else               CV()->Do_f( m_fast_char );
+}
+
+void Vis::Imp::Handle_z()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  const char CC2 = m_key.In();
+
+  if( CC2 == 't' || IsEndOfLineDelim( CC2 ) )
+  {
+    if( m_diff_mode ) m_diff.MoveCurrLineToTop();
+    else               CV()->MoveCurrLineToTop();
+  }
+  else if( CC2 == 'z' )
+  {
+    if( m_diff_mode ) m_diff.MoveCurrLineCenter();
+    else               CV()->MoveCurrLineCenter();
+  }
+  else if( CC2 == 'b' )
+  {
+    if( m_diff_mode ) m_diff.MoveCurrLineToBottom();
+    else               CV()->MoveCurrLineToBottom();
+  }
+}
+
+void Vis::Imp::Handle_SemiColon()
+{
+  if( 0 <= m_fast_char )
+  {
+    if( m_diff_mode ) m_diff.Do_f( m_fast_char );
+    else           CV()->Do_f( m_fast_char );
+  }
+}
+
+void Vis::Imp::Handle_Slash_GotPattern( const String& pattern
+                                      , const bool MOVE_TO_FIRST_PATTERN )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+  if( m_slash && pattern == m_star )
+  {
+    CV()->PrintCursor();
+    return;
+  }
+  // Un-highlight old star patterns for windows displayed:
+  if( m_star.len()  )
+  { // Since m_diff_mode does Console::Update(),
+    // no need to print patterns here if in m_diff_mode
+    if( !m_diff_mode ) Do_Star_PrintPatterns( false );
+  }
+  Do_Star_ClearPatterns();
+
+  m_star = pattern;
+
+  if( !m_star.len() ) CV()->PrintCursor();
+  else {
+    m_slash = true;
+
+    Do_Star_Update_Search_Editor();
+    Do_Star_FindPatterns();
+
+    // Highlight new star patterns for windows displayed:
+    if( !m_diff_mode ) Do_Star_PrintPatterns( true );
+
+    if( MOVE_TO_FIRST_PATTERN )
+    {
+      if( m_diff_mode ) m_diff.Do_n(); // Move to first pattern
+      else               CV()->Do_n(); // Move to first pattern
+    }
+    if( m_diff_mode ) m_diff.Update();
+    else {
+      // Print out all the changes:
+      Console::Update();
+      Console::Flush();
+    }
+  }
+}
+
+// Line returned has at least SIZE, but zero length
+//
+Line* Vis::Imp::BorrowLine( const char*    _FILE_
+                          , const unsigned _LINE_
+                          , const unsigned SIZE )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  Line* lp = 0;
+
+  if( m_line_cache.len() )
+  {
+    bool ok = m_line_cache.pop( lp );
+    ASSERT( __LINE__, ok, "ok" );
+
+    ok = lp->inc_size( __FILE__, __LINE__, SIZE );
+    ASSERT( __LINE__, ok, "ok" );
+
+    lp->clear();
+  }
+  else {
+    lp = new( _FILE_, _LINE_ ) Line( __FILE__, __LINE__, SIZE );
+  }
+  return lp;
+}
+
+// Line returned has LEN and is filled up to LEN with FILL
+//
+Line* Vis::Imp::BorrowLine( const char*    _FILE_
+                          , const unsigned _LINE_
+                          , const unsigned LEN
+                          , const uint8_t  FILL )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  Line* lp = 0;
+
+  if( m_line_cache.len() )
+  {
+    bool ok = m_line_cache.pop( lp );
+    ASSERT( __LINE__, ok, "ok" );
+
+    ok = lp->set_len(__FILE__,__LINE__, LEN );
+    ASSERT( __LINE__, ok, "ok" );
+
+    for( unsigned k=0; k<LEN; k++ ) lp->set( k, FILL );
+  }
+  else {
+    lp = new(_FILE_,_LINE_) Line( __FILE__, __LINE__, LEN, FILL );
+  }
+  return lp;
+}
+
+// Line returned has same len and contents as line
+//
+Line* Vis::Imp::BorrowLine( const char*    _FILE_
+                          , const unsigned _LINE_
+                          , const Line&    line )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  Line* lp = 0;
+
+  if( m_line_cache.len() )
+  {
+    bool ok = m_line_cache.pop( lp );
+    ASSERT( __LINE__, ok, "ok" );
+
+    ok = lp->copy( line );
+    ASSERT( __LINE__, ok, "ok" );
+  }
+  else {
+    lp = new(_FILE_,_LINE_) Line( line );
+  }
+  return lp;
+}
+
+void Vis::Imp::ReturnLine( Line* lp )
+{
+  if( lp ) m_line_cache.push( lp );
+}
+
+LineChange* Vis::Imp::BorrowLineChange( const ChangeType type
+                                      , const unsigned   lnum
+                                      , const unsigned   cpos )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  LineChange* lcp = 0;
+
+  if( m_change_cache.len() )
+  {
+    bool ok = m_change_cache.pop( lcp );
+
+    lcp->type = type;
+    lcp->lnum = lnum;
+    lcp->cpos = cpos;
+    lcp->line.clear();
+  }
+  else {
+    lcp = new(__FILE__,__LINE__) LineChange( type, lnum, cpos );
+  }
+  return lcp;
+}
+
+void Vis::Imp::ReturnLineChange( LineChange* lcp )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( lcp ) m_change_cache.push( lcp );
+}
+
+void Vis::Imp::Ch_Dir()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  const char* path = 0;
+
+  // 1. First get path to chdir to:
+  if( 0 != m_cbuf[2] ) // :cd relative_path
+  {
+    path = m_cbuf + 2;
+  }
+  else // :cd - chdir to location of current file
+  {
+    const char* fname = CV()->GetFB()->GetFileName();
+    const char* last_slash = strrchr( fname, DIR_DELIM );
+    if( 0==last_slash )
+    {
+      path = fname;
+    }
+    else {
+      // Put everything in fname except last slash into m_sbuf:
+      m_sbuf.clear(); // m_sbuf is a general purpose string buffer
+      for( const char* cp = fname; cp < last_slash; cp++ ) m_sbuf.push( *cp );
+      path = m_sbuf.c_str();
+    }
+  }
+
+  // 2. chdir
+  int err = chdir( path );
+  if( err )
+  {
+    m_vis.CmdLineMessage( "chdir(%s) failed", path );
+    CV()->PrintCursor();
+  }
+  else {
+    GetCWD();
+  }
+}
+
+void Vis::Imp::GetCWD()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  const unsigned FILE_NAME_LEN = 1024;
+  char cwd[ FILE_NAME_LEN ];
+
+  if( ! getcwd( cwd, FILE_NAME_LEN ) )
+  {
+    m_vis.CmdLineMessage( "getcwd() failed" );
+  }
+  else {
+    m_vis.CmdLineMessage( "%s", cwd );
+  }
+  CV()->PrintCursor();
+}
+
+void Vis::Imp::Set_Syntax()
+{
+  const char* syn = strchr( m_cbuf, '=' );
+
+  if( NULL != syn )
+  {
+    // Move past '='
+    syn++;
+    if( 0 != *syn )
+    {
+      // Something after the '=' 
+      CV()->GetFB()->Set_File_Type( syn );
+    }
+  }
+}
+
+void Vis::Imp::AdjustViews()
+{
+  for( unsigned w=0; w<m_num_wins; w++ )
+  {
+    m_views[w][ m_file_hist[w][0] ]->SetViewPos();
+  }
+}
+
+void Vis::Imp::InitBufferEditor()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  // pfb gets added to m_files in Add_FileBuf_2_Lists_Create_Views()
   // Buffer editor, 0
-  const char* buf_edit_name = EDIT_BUF_NAME;
-  FileBuf* pfb = new(__FILE__,__LINE__) FileBuf( buf_edit_name, false, FT_BUFFER_EDITOR );
-  files.push(__FILE__,__LINE__, pfb );
-  for( unsigned w=0; w<MAX_WINS; w++ )
-  {
-    View* pV = new(__FILE__,__LINE__) View( pfb );
-    views[w].push(__FILE__,__LINE__, pV );
-    pfb->AddView( pV );
-  }
-  // Push "Buffer_Editor" onto buffer editor buffer
-  AddToBufferEditor( buf_edit_name );
+  FileBuf* pfb = new(__FILE__,__LINE__) FileBuf( m_vis, EDIT_BUF_NAME, false, FT_BUFFER_EDITOR );
 }
 
-void Vis::InitHelpBuffer()
+void Vis::Imp::InitHelpBuffer()
 {
   Trace trace( __PRETTY_FUNCTION__ );
+
+  // pfb gets added to m_files in Add_FileBuf_2_Lists_Create_Views()
   // Help buffer, 1
-  const char* help_buf_name = HELP_BUF_NAME;
-  FileBuf* pfb = new(__FILE__,__LINE__) FileBuf( help_buf_name, false, FT_TEXT );
-  pfb->ReadString( HELP_STR );
-  files.push(__FILE__,__LINE__, pfb );
-  for( unsigned w=0; w<MAX_WINS; w++ )
-  {
-    View* pV = new(__FILE__,__LINE__) View( pfb );
-    views[w].push(__FILE__,__LINE__, pV );
-    pfb->AddView( pV );
-  }
-  // Push "VIT_HELP" onto buffer editor buffer
-  AddToBufferEditor( help_buf_name );
+  FileBuf* pfb = new(__FILE__,__LINE__) FileBuf( m_vis, HELP_BUF_NAME, false, FT_TEXT );
 }
 
-void Vis::InitSearchEditor()
+void Vis::Imp::InitSearchEditor()
 {
   Trace trace( __PRETTY_FUNCTION__ );
+
+  // pfb gets added to m_files in Add_FileBuf_2_Lists_Create_Views()
   // Search editor buffer, 2
-  const char* search_buf_name = SRCH_BUF_NAME;
-  FileBuf* pfb = new(__FILE__,__LINE__) FileBuf( search_buf_name, false, FT_TEXT );
-  files.push(__FILE__,__LINE__, pfb );
-  for( unsigned w=0; w<MAX_WINS; w++ )
-  {
-    View* pV = new(__FILE__,__LINE__) View( pfb );
-    views[w].push(__FILE__,__LINE__, pV );
-    pfb->AddView( pV );
-  }
-  // Push "SEARCH_EDITOR" onto buffer editor buffer
-  AddToBufferEditor( search_buf_name );
+  FileBuf* pfb = new(__FILE__,__LINE__) FileBuf( m_vis, SRCH_BUF_NAME, false, FT_TEXT );
 }
 
-void Vis::InitMsgBuffer()
+void Vis::Imp::InitMsgBuffer()
 {
   Trace trace( __PRETTY_FUNCTION__ );
+
+  // pfb gets added to m_files in Add_FileBuf_2_Lists_Create_Views()
   // Message buffer, 3
-  const char* msg_buf_name = MSG__BUF_NAME;
-  FileBuf* pfb = new(__FILE__,__LINE__) FileBuf( msg_buf_name, false, FT_TEXT );
-  files.push(__FILE__,__LINE__, pfb );
-  for( unsigned w=0; w<MAX_WINS; w++ )
-  {
-    View* pV = new(__FILE__,__LINE__) View( pfb );
-    views[w].push(__FILE__,__LINE__, pV );
-    pfb->AddView( pV );
-  }
-  // Push "MESSAGE_EDITOR" onto buffer editor buffer
-  AddToBufferEditor( msg_buf_name );
+  FileBuf* pfb = new(__FILE__,__LINE__) FileBuf( m_vis, MSG__BUF_NAME, false, FT_TEXT );
 }
 
-void Vis::InitCmdBuffer()
+void Vis::Imp::InitCmdBuffer()
 {
   Trace trace( __PRETTY_FUNCTION__ );
+
+  // pfb gets added to m_files in Add_FileBuf_2_Lists_Create_Views()
   // Command buffer, CMD_FILE(4)
-  const char* cmd_buf_name = CMD__BUF_NAME;
-  FileBuf* pfb = new(__FILE__,__LINE__) FileBuf( cmd_buf_name, false, FT_TEXT );
+  FileBuf* pfb = new(__FILE__,__LINE__) FileBuf( m_vis, CMD__BUF_NAME, false, FT_TEXT );
   pfb->PushLine(); // Add an empty line
-  files.push(__FILE__,__LINE__, pfb );
-  for( unsigned w=0; w<MAX_WINS; w++ )
-  {
-    View* pV = new(__FILE__,__LINE__) View( pfb );
-    views[w].push(__FILE__,__LINE__, pV );
-    pfb->AddView( pV );
-  }
-  // Push "COMMAND_BUFFER" onto buffer editor buffer
-  AddToBufferEditor( cmd_buf_name );
 }
 
-bool Vis::InitUserBuffers( const int ARGC, const char* const ARGV[] )
+bool Vis::Imp::InitUserFiles( const int ARGC, const char* const ARGV[] )
 {
   bool run_diff = false;
 
@@ -253,7 +1114,7 @@ bool Vis::InitUserBuffers( const int ARGC, const char* const ARGV[] )
       {
         if( !HaveFile( file_name.c_str() ) )
         {
-          FileBuf* pfb = new(__FILE__,__LINE__) FileBuf( file_name.c_str(), true, FT_UNKNOWN );
+          FileBuf* pfb = new(__FILE__,__LINE__) FileBuf( m_vis, file_name.c_str(), true, FT_UNKNOWN );
           pfb->ReadFile();
         }
         // Restore original directory, for next call to FindFullFileName()
@@ -264,167 +1125,142 @@ bool Vis::InitUserBuffers( const int ARGC, const char* const ARGV[] )
   return run_diff;
 }
 
-void Vis::InitFileHistory()
+void Vis::Imp::InitFileHistory()
 {
   for( int w=0; w<MAX_WINS; w++ )
   {
-    file_hist[w].push( __FILE__,__LINE__, BE_FILE );
-    file_hist[w].push( __FILE__,__LINE__, HELP_FILE );
+    m_file_hist[w].push( __FILE__,__LINE__, BE_FILE );
+    m_file_hist[w].push( __FILE__,__LINE__, HELP_FILE );
 
-    if( 5<views[w].len() )
+    if( 5<m_views[w].len() )
     {
-      file_hist[w].insert( __FILE__,__LINE__, 0, 5 );
+      m_file_hist[w].insert( __FILE__,__LINE__, 0, 5 );
 
-      for( int f=views[w].len()-1; 6<=f; f-- )
+      for( int f=m_views[w].len()-1; 6<=f; f-- )
       {
-        file_hist[w].push( __FILE__,__LINE__, f );
+        m_file_hist[w].push( __FILE__,__LINE__, f );
       }
     }
   }
 }
 
-void Vis::InitCmdFuncs()
+void Vis::Imp::InitCmdFuncs()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
   for( unsigned k=0; k<128; k++ ) CmdFuncs[k] = 0;
 
-  CmdFuncs[ 'i' ] = &Vis::Handle_i;
-  CmdFuncs[ 'v' ] = &Vis::Handle_v;
-  CmdFuncs[ 'V' ] = &Vis::Handle_V;
-  CmdFuncs[ 'a' ] = &Vis::Handle_a;
-  CmdFuncs[ 'A' ] = &Vis::Handle_A;
-  CmdFuncs[ 'o' ] = &Vis::Handle_o;
-  CmdFuncs[ 'O' ] = &Vis::Handle_O;
-  CmdFuncs[ 'x' ] = &Vis::Handle_x;
-  CmdFuncs[ 's' ] = &Vis::Handle_s;
-  CmdFuncs[ 'c' ] = &Vis::Handle_c;
-  CmdFuncs[ 'Q' ] = &Vis::Handle_Q;
-  CmdFuncs[ 'k' ] = &Vis::Handle_k;
-  CmdFuncs[ 'j' ] = &Vis::Handle_j;
-  CmdFuncs[ 'h' ] = &Vis::Handle_h;
-  CmdFuncs[ 'l' ] = &Vis::Handle_l;
-  CmdFuncs[ 'H' ] = &Vis::Handle_H;
-  CmdFuncs[ 'L' ] = &Vis::Handle_L;
-  CmdFuncs[ 'M' ] = &Vis::Handle_M;
-  CmdFuncs[ '0' ] = &Vis::Handle_0;
-  CmdFuncs[ '$' ] = &Vis::Handle_Dollar;
-  CmdFuncs[ '\n'] = &Vis::Handle_Return;
-  CmdFuncs[ 'G' ] = &Vis::Handle_G;
-  CmdFuncs[ 'b' ] = &Vis::Handle_b;
-  CmdFuncs[ 'w' ] = &Vis::Handle_w;
-  CmdFuncs[ 'e' ] = &Vis::Handle_e;
-  CmdFuncs[ 'f' ] = &Vis::Handle_f;
-  CmdFuncs[ ';' ] = &Vis::Handle_SemiColon;
-  CmdFuncs[ '%' ] = &Vis::Handle_Percent;
-  CmdFuncs[ '{' ] = &Vis::Handle_LeftSquigglyBracket;
-  CmdFuncs[ '}' ] = &Vis::Handle_RightSquigglyBracket;
-  CmdFuncs[ 'F' ] = &Vis::Handle_F;
-  CmdFuncs[ 'B' ] = &Vis::Handle_B;
-  CmdFuncs[ ':' ] = &Vis::Handle_Colon;
-  CmdFuncs[ '/' ] = &Vis::Handle_Slash; // Crashes
-  CmdFuncs[ '*' ] = &Vis::Handle_Star;
-  CmdFuncs[ '.' ] = &Vis::Handle_Dot;
-  CmdFuncs[ 'm' ] = &Vis::Handle_m;
-  CmdFuncs[ 'g' ] = &Vis::Handle_g;
-  CmdFuncs[ 'W' ] = &Vis::Handle_W;
-  CmdFuncs[ 'd' ] = &Vis::Handle_d;
-  CmdFuncs[ 'y' ] = &Vis::Handle_y;
-  CmdFuncs[ 'D' ] = &Vis::Handle_D;
-  CmdFuncs[ 'p' ] = &Vis::Handle_p;
-  CmdFuncs[ 'P' ] = &Vis::Handle_P;
-  CmdFuncs[ 'R' ] = &Vis::Handle_R;
-  CmdFuncs[ 'J' ] = &Vis::Handle_J;
-  CmdFuncs[ '~' ] = &Vis::Handle_Tilda;
-  CmdFuncs[ 'n' ] = &Vis::Handle_n;
-  CmdFuncs[ 'N' ] = &Vis::Handle_N;
-  CmdFuncs[ 'u' ] = &Vis::Handle_u;
-  CmdFuncs[ 'U' ] = &Vis::Handle_U;
-  CmdFuncs[ 'z' ] = &Vis::Handle_z;
+  CmdFuncs[ 'i' ] = &Imp::Handle_i;
+  CmdFuncs[ 'v' ] = &Imp::Handle_v;
+  CmdFuncs[ 'V' ] = &Imp::Handle_V;
+  CmdFuncs[ 'a' ] = &Imp::Handle_a;
+  CmdFuncs[ 'A' ] = &Imp::Handle_A;
+  CmdFuncs[ 'o' ] = &Imp::Handle_o;
+  CmdFuncs[ 'O' ] = &Imp::Handle_O;
+  CmdFuncs[ 'x' ] = &Imp::Handle_x;
+  CmdFuncs[ 's' ] = &Imp::Handle_s;
+  CmdFuncs[ 'c' ] = &Imp::Handle_c;
+  CmdFuncs[ 'Q' ] = &Imp::Handle_Q;
+  CmdFuncs[ 'k' ] = &Imp::Handle_k;
+  CmdFuncs[ 'j' ] = &Imp::Handle_j;
+  CmdFuncs[ 'h' ] = &Imp::Handle_h;
+  CmdFuncs[ 'l' ] = &Imp::Handle_l;
+  CmdFuncs[ 'H' ] = &Imp::Handle_H;
+  CmdFuncs[ 'L' ] = &Imp::Handle_L;
+  CmdFuncs[ 'M' ] = &Imp::Handle_M;
+  CmdFuncs[ '0' ] = &Imp::Handle_0;
+  CmdFuncs[ '$' ] = &Imp::Handle_Dollar;
+  CmdFuncs[ '\n'] = &Imp::Handle_Return;
+  CmdFuncs[ 'G' ] = &Imp::Handle_G;
+  CmdFuncs[ 'b' ] = &Imp::Handle_b;
+  CmdFuncs[ 'w' ] = &Imp::Handle_w;
+  CmdFuncs[ 'e' ] = &Imp::Handle_e;
+  CmdFuncs[ 'f' ] = &Imp::Handle_f;
+  CmdFuncs[ ';' ] = &Imp::Handle_SemiColon;
+  CmdFuncs[ '%' ] = &Imp::Handle_Percent;
+  CmdFuncs[ '{' ] = &Imp::Handle_LeftSquigglyBracket;
+  CmdFuncs[ '}' ] = &Imp::Handle_RightSquigglyBracket;
+  CmdFuncs[ 'F' ] = &Imp::Handle_F;
+  CmdFuncs[ 'B' ] = &Imp::Handle_B;
+  CmdFuncs[ ':' ] = &Imp::Handle_Colon;
+  CmdFuncs[ '/' ] = &Imp::Handle_Slash; // Crashes
+  CmdFuncs[ '*' ] = &Imp::Handle_Star;
+  CmdFuncs[ '.' ] = &Imp::Handle_Dot;
+  CmdFuncs[ 'm' ] = &Imp::Handle_m;
+  CmdFuncs[ 'g' ] = &Imp::Handle_g;
+  CmdFuncs[ 'W' ] = &Imp::Handle_W;
+  CmdFuncs[ 'd' ] = &Imp::Handle_d;
+  CmdFuncs[ 'y' ] = &Imp::Handle_y;
+  CmdFuncs[ 'D' ] = &Imp::Handle_D;
+  CmdFuncs[ 'p' ] = &Imp::Handle_p;
+  CmdFuncs[ 'P' ] = &Imp::Handle_P;
+  CmdFuncs[ 'R' ] = &Imp::Handle_R;
+  CmdFuncs[ 'J' ] = &Imp::Handle_J;
+  CmdFuncs[ '~' ] = &Imp::Handle_Tilda;
+  CmdFuncs[ 'n' ] = &Imp::Handle_n;
+  CmdFuncs[ 'N' ] = &Imp::Handle_N;
+  CmdFuncs[ 'u' ] = &Imp::Handle_u;
+  CmdFuncs[ 'U' ] = &Imp::Handle_U;
+  CmdFuncs[ 'z' ] = &Imp::Handle_z;
 }
 
-// If window has resized, update window
-void Vis::CheckWindowSize()
+void Vis::Imp::AddToBufferEditor( const char* fname )
 {
   Trace trace( __PRETTY_FUNCTION__ );
+  Line line(__FILE__, __LINE__, strlen( fname ) );
+//unsigned NUM_BUFFERS = m_views[0].len();
+//char str[32]; 
+//sprintf( str, "%3u ", NUM_BUFFERS-1 );
+//for( const char* p=str  ; *p; p++ ) line.push(__FILE__,__LINE__, *p );
+  for( const char* p=fname; *p; p++ ) line.push(__FILE__,__LINE__, *p );
+  FileBuf* pfb = m_views[0][ BE_FILE ]->GetFB();
+  pfb->PushLine( line );
+  pfb->BufferEditor_Sort();
+  pfb->ClearChanged();
 
-  const unsigned numRows = Console::Num_Rows();
-  const unsigned numCols = Console::Num_Cols();
-
-  if( Console::GetWindowSize() )
+  // Since buffer editor file has been re-arranged, make sure none of its
+  // views have the cursor position past the end of the line
+  for( unsigned k=0; k<MAX_WINS; k++ )
   {
-    if( Console::Num_Rows() != numRows
-     || Console::Num_Cols() != numCols )
+    View* pV = m_views[k][ BE_FILE ];
+
+    unsigned CL = pV->CrsLine();
+    unsigned CP = pV->CrsChar();
+    unsigned LL = pfb->LineLen( CL );
+
+    if( LL <= CP )
     {
-      AdjustViews();
-      Console::Invalidate();
-      UpdateAll();
+      pV->GoToCrsPos_NoWrite( CL, LL-1 );
     }
   }
 }
 
-void Vis::CheckFileModTime()
+bool Vis::Imp::File_Is_Displayed( const unsigned file_num )
 {
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  FileBuf* pfb = CV()->pfb;
-  const char* fname = pfb->file_name.c_str();
-
-  const double curr_mod_time = ModificationTime( fname );
-
-  if( pfb->mod_time < curr_mod_time )
+  for( unsigned w=0; w<m_num_wins; w++ )
   {
-    if( pfb->is_dir )
+    if( file_num == m_file_hist[ w ][ 0 ] )
     {
-      // Dont ask the user, just read in the directory.
-      // pfb->mod_time will get updated in pfb->ReReadFile()
-      pfb->ReReadFile();
-
-      for( unsigned w=0; w<num_wins; w++ )
-      {
-        if( pfb == views[w][ file_hist[w][0] ]->pfb )
-        {
-          // View is currently displayed, perform needed update:
-          views[w][ file_hist[w][0] ]->Update();
-        }
-      }
-    }
-    else { // Regular file
-      // Update file modification time so that the message window
-      // will not keep popping up:
-      pfb->mod_time = curr_mod_time;
-
-      Window_Message("\n%s\n\nhas changed since it was read in\n\n", fname );
+      return true;
     }
   }
+  return false;
 }
 
-void Vis::Run()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-  UpdateAll();
-
-  while( running )
-  {
-    Handle_Cmd();
-  }
-  Console::Flush();
-}
-
-void Vis::Quit()
+void Vis::Imp::Quit()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  const Tile_Pos TP = CV()->tile_pos;
+  const Tile_Pos TP = CV()->GetTilePos();
 
-  if( num_wins <= 1 ) QuitAll();
+  if( m_num_wins <= 1 ) QuitAll();
   else {
-    if( win < num_wins-1 )
+    if( m_win < m_num_wins-1 )
     {
       Quit_ShiftDown();
     }
-    if( 0 < win ) win--;
-    num_wins--;
+    if( 0 < m_win ) m_win--;
+    m_num_wins--;
 
     Quit_JoinTiles( TP );
 
@@ -434,25 +1270,38 @@ void Vis::Quit()
   }
 }
 
-void Vis::Quit_ShiftDown()
+void Vis::Imp::QuitAll()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  // Move cursor down to bottom of screen:
+  Console::Move_2_Row_Col( Console::Num_Rows()-1, 0 );
+
+  // Put curson on a new line:
+  Console::NewLine();
+
+  m_running = false;
+}
+
+void Vis::Imp::Quit_ShiftDown()
 {
   // Make copy of win's list of views and view history:
-  ViewList win_views    ( views    [win] );
-   unsList win_view_hist( file_hist[win] );
+  ViewList win_views    ( m_views    [m_win] );
+   unsList win_view_hist( m_file_hist[m_win] );
 
   // Shift everything down
-  for( unsigned w=win+1; w<num_wins; w++ )
+  for( unsigned w=m_win+1; w<m_num_wins; w++ )
   {
-    views    [w-1] = views    [w];
-    file_hist[w-1] = file_hist[w];
+    m_views    [w-1] = m_views    [w];
+    m_file_hist[w-1] = m_file_hist[w];
   }
   // Put win's list of views at end of views:
   // Put win's view history at end of view historys:
-  views    [num_wins-1] = win_views;
-  file_hist[num_wins-1] = win_view_hist;
+  m_views    [m_num_wins-1] = win_views;
+  m_file_hist[m_num_wins-1] = win_view_hist;
 }
 
-void Vis::Quit_JoinTiles( const Tile_Pos TP )
+void Vis::Imp::Quit_JoinTiles( const Tile_Pos TP )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   // win is disappearing, so move its screen space to another view:
@@ -478,12 +1327,12 @@ void Vis::Quit_JoinTiles( const Tile_Pos TP )
   else /*( TP == TP_BOT__RITE_CTR_8TH*/ Quit_JoinTiles_TP_BOT__RITE_CTR_8TH();
 }
 
-void Vis::Quit_JoinTiles_TP_LEFT_HALF()
+void Vis::Imp::Quit_JoinTiles_TP_LEFT_HALF()
 {
-  for( unsigned k=0; k<num_wins; k++ )
+  for( unsigned k=0; k<m_num_wins; k++ )
   {
-    View* v = views[k][ file_hist[k][0] ];
-    const Tile_Pos TP = v->tile_pos;
+    View* v = m_views[k][ m_file_hist[k][0] ];
+    const Tile_Pos TP = v->GetTilePos();
 
     if     ( TP == TP_RITE_HALF         ) { v->SetTilePos( TP_FULL ); break; }
     else if( TP == TP_TOP__RITE_QTR     ) v->SetTilePos( TP_TOP__HALF );
@@ -497,12 +1346,12 @@ void Vis::Quit_JoinTiles_TP_LEFT_HALF()
   }
 }
 
-void Vis::Quit_JoinTiles_TP_RITE_HALF()
+void Vis::Imp::Quit_JoinTiles_TP_RITE_HALF()
 {
-  for( unsigned k=0; k<num_wins; k++ )
+  for( unsigned k=0; k<m_num_wins; k++ )
   {
-    View* v = views[k][ file_hist[k][0] ];
-    const Tile_Pos TP = v->tile_pos;
+    View* v = m_views[k][ m_file_hist[k][0] ];
+    const Tile_Pos TP = v->GetTilePos();
 
     if     ( TP == TP_LEFT_HALF         ) { v->SetTilePos( TP_FULL ); break; }
     else if( TP == TP_TOP__LEFT_QTR     ) v->SetTilePos( TP_TOP__HALF );
@@ -516,12 +1365,12 @@ void Vis::Quit_JoinTiles_TP_RITE_HALF()
   }
 }
 
-void Vis::Quit_JoinTiles_TP_TOP__HALF()
+void Vis::Imp::Quit_JoinTiles_TP_TOP__HALF()
 {
-  for( unsigned k=0; k<num_wins; k++ )
+  for( unsigned k=0; k<m_num_wins; k++ )
   {
-    View* v = views[k][ file_hist[k][0] ];
-    const Tile_Pos TP = v->tile_pos;
+    View* v = m_views[k][ m_file_hist[k][0] ];
+    const Tile_Pos TP = v->GetTilePos();
 
     if     ( TP == TP_BOT__HALF         ) { v->SetTilePos( TP_FULL ); break; }
     else if( TP == TP_BOT__LEFT_QTR     ) v->SetTilePos( TP_LEFT_HALF );
@@ -533,12 +1382,12 @@ void Vis::Quit_JoinTiles_TP_TOP__HALF()
   }
 }
 
-void Vis::Quit_JoinTiles_TP_BOT__HALF()
+void Vis::Imp::Quit_JoinTiles_TP_BOT__HALF()
 {
-  for( unsigned k=0; k<num_wins; k++ )
+  for( unsigned k=0; k<m_num_wins; k++ )
   {
-    View* v = views[k][ file_hist[k][0] ];
-    const Tile_Pos TP = v->tile_pos;
+    View* v = m_views[k][ m_file_hist[k][0] ];
+    const Tile_Pos TP = v->GetTilePos();
 
     if     ( TP == TP_TOP__HALF         ) { v->SetTilePos( TP_FULL ); break; }
     else if( TP == TP_TOP__LEFT_QTR     ) v->SetTilePos( TP_LEFT_HALF );
@@ -550,14 +1399,14 @@ void Vis::Quit_JoinTiles_TP_BOT__HALF()
   }
 }
 
-void Vis::Quit_JoinTiles_TP_TOP__LEFT_QTR()
+void Vis::Imp::Quit_JoinTiles_TP_TOP__LEFT_QTR()
 {
   if( Have_TP_BOT__HALF() )
   {
-    for( unsigned k=0; k<num_wins; k++ )
+    for( unsigned k=0; k<m_num_wins; k++ )
     {
-      View* v = views[k][ file_hist[k][0] ];
-      const Tile_Pos TP = v->tile_pos;
+      View* v = m_views[k][ m_file_hist[k][0] ];
+      const Tile_Pos TP = v->GetTilePos();
 
       if     ( TP == TP_TOP__RITE_QTR     ) { v->SetTilePos( TP_TOP__HALF ); break; }
       else if( TP == TP_TOP__RITE_8TH     ) v->SetTilePos( TP_TOP__RITE_QTR );
@@ -565,10 +1414,10 @@ void Vis::Quit_JoinTiles_TP_TOP__LEFT_QTR()
     }
   }
   else {
-    for( unsigned k=0; k<num_wins; k++ )
+    for( unsigned k=0; k<m_num_wins; k++ )
     {
-      View* v = views[k][ file_hist[k][0] ];
-      const Tile_Pos TP = v->tile_pos;
+      View* v = m_views[k][ m_file_hist[k][0] ];
+      const Tile_Pos TP = v->GetTilePos();
 
       if     ( TP == TP_BOT__LEFT_QTR     ) { v->SetTilePos( TP_LEFT_HALF ); break; }
       else if( TP == TP_BOT__LEFT_8TH     ) v->SetTilePos( TP_LEFT_QTR );
@@ -577,14 +1426,14 @@ void Vis::Quit_JoinTiles_TP_TOP__LEFT_QTR()
   }
 }
 
-void Vis::Quit_JoinTiles_TP_TOP__RITE_QTR()
+void Vis::Imp::Quit_JoinTiles_TP_TOP__RITE_QTR()
 {
   if( Have_TP_BOT__HALF() )
   {
-    for( unsigned k=0; k<num_wins; k++ )
+    for( unsigned k=0; k<m_num_wins; k++ )
     {
-      View* v = views[k][ file_hist[k][0] ];
-      const Tile_Pos TP = v->tile_pos;
+      View* v = m_views[k][ m_file_hist[k][0] ];
+      const Tile_Pos TP = v->GetTilePos();
 
       if     ( TP == TP_TOP__LEFT_QTR     ) { v->SetTilePos( TP_TOP__HALF ); break; }
       else if( TP == TP_TOP__LEFT_8TH     ) v->SetTilePos( TP_TOP__LEFT_QTR );
@@ -592,10 +1441,10 @@ void Vis::Quit_JoinTiles_TP_TOP__RITE_QTR()
     }
   }
   else {
-    for( unsigned k=0; k<num_wins; k++ )
+    for( unsigned k=0; k<m_num_wins; k++ )
     {
-      View* v = views[k][ file_hist[k][0] ];
-      const Tile_Pos TP = v->tile_pos;
+      View* v = m_views[k][ m_file_hist[k][0] ];
+      const Tile_Pos TP = v->GetTilePos();
 
       if     ( TP == TP_BOT__RITE_QTR     ) { v->SetTilePos( TP_RITE_HALF ); break; }
       else if( TP == TP_BOT__RITE_8TH     ) v->SetTilePos( TP_RITE_QTR );
@@ -604,14 +1453,14 @@ void Vis::Quit_JoinTiles_TP_TOP__RITE_QTR()
   }
 }
 
-void Vis::Quit_JoinTiles_TP_BOT__LEFT_QTR()
+void Vis::Imp::Quit_JoinTiles_TP_BOT__LEFT_QTR()
 {
   if( Have_TP_TOP__HALF() )
   {
-    for( unsigned k=0; k<num_wins; k++ )
+    for( unsigned k=0; k<m_num_wins; k++ )
     {
-      View* v = views[k][ file_hist[k][0] ];
-      const Tile_Pos TP = v->tile_pos;
+      View* v = m_views[k][ m_file_hist[k][0] ];
+      const Tile_Pos TP = v->GetTilePos();
 
       if     ( TP == TP_BOT__RITE_QTR     ) { v->SetTilePos( TP_BOT__HALF ); break; }
       else if( TP == TP_BOT__RITE_8TH     ) v->SetTilePos( TP_BOT__RITE_QTR );
@@ -619,10 +1468,10 @@ void Vis::Quit_JoinTiles_TP_BOT__LEFT_QTR()
     }
   }
   else {
-    for( unsigned k=0; k<num_wins; k++ )
+    for( unsigned k=0; k<m_num_wins; k++ )
     {
-      View* v = views[k][ file_hist[k][0] ];
-      const Tile_Pos TP = v->tile_pos;
+      View* v = m_views[k][ m_file_hist[k][0] ];
+      const Tile_Pos TP = v->GetTilePos();
 
       if     ( TP == TP_TOP__LEFT_QTR     ) { v->SetTilePos( TP_LEFT_HALF ); break; }
       else if( TP == TP_TOP__LEFT_8TH     ) v->SetTilePos( TP_LEFT_QTR );
@@ -631,14 +1480,14 @@ void Vis::Quit_JoinTiles_TP_BOT__LEFT_QTR()
   }
 }
 
-void Vis::Quit_JoinTiles_TP_BOT__RITE_QTR()
+void Vis::Imp::Quit_JoinTiles_TP_BOT__RITE_QTR()
 {
   if( Have_TP_TOP__HALF() )
   {
-    for( unsigned k=0; k<num_wins; k++ )
+    for( unsigned k=0; k<m_num_wins; k++ )
     {
-      View* v = views[k][ file_hist[k][0] ];
-      const Tile_Pos TP = v->tile_pos;
+      View* v = m_views[k][ m_file_hist[k][0] ];
+      const Tile_Pos TP = v->GetTilePos();
 
       if     ( TP == TP_BOT__LEFT_QTR     ) { v->SetTilePos( TP_BOT__HALF ); break; }
       else if( TP == TP_BOT__LEFT_8TH     ) v->SetTilePos( TP_BOT__LEFT_QTR );
@@ -646,10 +1495,10 @@ void Vis::Quit_JoinTiles_TP_BOT__RITE_QTR()
     }
   }
   else {
-    for( unsigned k=0; k<num_wins; k++ )
+    for( unsigned k=0; k<m_num_wins; k++ )
     {
-      View* v = views[k][ file_hist[k][0] ];
-      const Tile_Pos TP = v->tile_pos;
+      View* v = m_views[k][ m_file_hist[k][0] ];
+      const Tile_Pos TP = v->GetTilePos();
 
       if     ( TP == TP_TOP__RITE_QTR     ) { v->SetTilePos( TP_RITE_HALF ); break; }
       else if( TP == TP_TOP__RITE_8TH     ) v->SetTilePos( TP_RITE_QTR );
@@ -658,12 +1507,12 @@ void Vis::Quit_JoinTiles_TP_BOT__RITE_QTR()
   }
 }
 
-void Vis::Quit_JoinTiles_TP_LEFT_QTR()
+void Vis::Imp::Quit_JoinTiles_TP_LEFT_QTR()
 {
-  for( unsigned k=0; k<num_wins; k++ )
+  for( unsigned k=0; k<m_num_wins; k++ )
   {
-    View* v = views[k][ file_hist[k][0] ];
-    const Tile_Pos TP = v->tile_pos;
+    View* v = m_views[k][ m_file_hist[k][0] ];
+    const Tile_Pos TP = v->GetTilePos();
 
     if     ( TP == TP_LEFT_CTR__QTR     ) { v->SetTilePos( TP_LEFT_HALF ); break; }
     else if( TP == TP_TOP__LEFT_CTR_8TH ) v->SetTilePos( TP_TOP__LEFT_QTR );
@@ -671,12 +1520,12 @@ void Vis::Quit_JoinTiles_TP_LEFT_QTR()
   }
 }
 
-void Vis::Quit_JoinTiles_TP_RITE_QTR()
+void Vis::Imp::Quit_JoinTiles_TP_RITE_QTR()
 {
-  for( unsigned k=0; k<num_wins; k++ )
+  for( unsigned k=0; k<m_num_wins; k++ )
   {
-    View* v = views[k][ file_hist[k][0] ];
-    const Tile_Pos TP = v->tile_pos;
+    View* v = m_views[k][ m_file_hist[k][0] ];
+    const Tile_Pos TP = v->GetTilePos();
 
     if     ( TP == TP_RITE_CTR__QTR     ) { v->SetTilePos( TP_RITE_HALF ); break; }
     else if( TP == TP_TOP__RITE_CTR_8TH ) v->SetTilePos( TP_TOP__RITE_QTR );
@@ -684,12 +1533,12 @@ void Vis::Quit_JoinTiles_TP_RITE_QTR()
   }
 }
 
-void Vis::Quit_JoinTiles_TP_LEFT_CTR__QTR()
+void Vis::Imp::Quit_JoinTiles_TP_LEFT_CTR__QTR()
 {
-  for( unsigned k=0; k<num_wins; k++ )
+  for( unsigned k=0; k<m_num_wins; k++ )
   {
-    View* v = views[k][ file_hist[k][0] ];
-    const Tile_Pos TP = v->tile_pos;
+    View* v = m_views[k][ m_file_hist[k][0] ];
+    const Tile_Pos TP = v->GetTilePos();
 
     if     ( TP == TP_LEFT_QTR      ) { v->SetTilePos( TP_LEFT_HALF ); break; }
     else if( TP == TP_TOP__LEFT_8TH ) v->SetTilePos( TP_TOP__LEFT_QTR );
@@ -697,12 +1546,12 @@ void Vis::Quit_JoinTiles_TP_LEFT_CTR__QTR()
   }
 }
 
-void Vis::Quit_JoinTiles_TP_RITE_CTR__QTR()
+void Vis::Imp::Quit_JoinTiles_TP_RITE_CTR__QTR()
 {
-  for( unsigned k=0; k<num_wins; k++ )
+  for( unsigned k=0; k<m_num_wins; k++ )
   {
-    View* v = views[k][ file_hist[k][0] ];
-    const Tile_Pos TP = v->tile_pos;
+    View* v = m_views[k][ m_file_hist[k][0] ];
+    const Tile_Pos TP = v->GetTilePos();
 
     if     ( TP == TP_RITE_QTR      ) { v->SetTilePos( TP_RITE_HALF ); break; }
     else if( TP == TP_TOP__RITE_8TH ) v->SetTilePos( TP_TOP__RITE_QTR );
@@ -710,320 +1559,307 @@ void Vis::Quit_JoinTiles_TP_RITE_CTR__QTR()
   }
 }
 
-void Vis::Quit_JoinTiles_TP_TOP__LEFT_8TH()
+void Vis::Imp::Quit_JoinTiles_TP_TOP__LEFT_8TH()
 {
   if( Have_TP_BOT__LEFT_QTR() )
   {
-    for( unsigned k=0; k<num_wins; k++ )
+    for( unsigned k=0; k<m_num_wins; k++ )
     {
-      View* v = views[k][ file_hist[k][0] ];
-      const Tile_Pos TP = v->tile_pos;
+      View* v = m_views[k][ m_file_hist[k][0] ];
+      const Tile_Pos TP = v->GetTilePos();
 
       if( TP == TP_TOP__LEFT_CTR_8TH ) { v->SetTilePos( TP_TOP__LEFT_QTR ); break; }
     }
   }
   else {
-    for( unsigned k=0; k<num_wins; k++ )
+    for( unsigned k=0; k<m_num_wins; k++ )
     {
-      View* v = views[k][ file_hist[k][0] ];
-      const Tile_Pos TP = v->tile_pos;
+      View* v = m_views[k][ m_file_hist[k][0] ];
+      const Tile_Pos TP = v->GetTilePos();
 
       if( TP == TP_BOT__LEFT_8TH ) { v->SetTilePos( TP_LEFT_QTR ); break; }
     }
   }
 }
 
-void Vis::Quit_JoinTiles_TP_TOP__RITE_8TH()
+void Vis::Imp::Quit_JoinTiles_TP_TOP__RITE_8TH()
 {
   if( Have_TP_BOT__RITE_QTR() )
   {
-    for( unsigned k=0; k<num_wins; k++ )
+    for( unsigned k=0; k<m_num_wins; k++ )
     {
-      View* v = views[k][ file_hist[k][0] ];
-      const Tile_Pos TP = v->tile_pos;
+      View* v = m_views[k][ m_file_hist[k][0] ];
+      const Tile_Pos TP = v->GetTilePos();
 
       if( TP == TP_TOP__RITE_CTR_8TH ) { v->SetTilePos( TP_TOP__RITE_QTR ); break; }
     }
   }
   else {
-    for( unsigned k=0; k<num_wins; k++ )
+    for( unsigned k=0; k<m_num_wins; k++ )
     {
-      View* v = views[k][ file_hist[k][0] ];
-      const Tile_Pos TP = v->tile_pos;
+      View* v = m_views[k][ m_file_hist[k][0] ];
+      const Tile_Pos TP = v->GetTilePos();
 
       if( TP == TP_BOT__RITE_8TH ) { v->SetTilePos( TP_RITE_QTR ); break; }
     }
   }
 }
 
-void Vis::Quit_JoinTiles_TP_TOP__LEFT_CTR_8TH()
+void Vis::Imp::Quit_JoinTiles_TP_TOP__LEFT_CTR_8TH()
 {
   if( Have_TP_BOT__LEFT_QTR() )
   {
-    for( unsigned k=0; k<num_wins; k++ )
+    for( unsigned k=0; k<m_num_wins; k++ )
     {
-      View* v = views[k][ file_hist[k][0] ];
-      const Tile_Pos TP = v->tile_pos;
+      View* v = m_views[k][ m_file_hist[k][0] ];
+      const Tile_Pos TP = v->GetTilePos();
 
       if( TP == TP_TOP__LEFT_8TH ) { v->SetTilePos( TP_TOP__LEFT_QTR ); break; }
     }
   }
   else {
-    for( unsigned k=0; k<num_wins; k++ )
+    for( unsigned k=0; k<m_num_wins; k++ )
     {
-      View* v = views[k][ file_hist[k][0] ];
-      const Tile_Pos TP = v->tile_pos;
+      View* v = m_views[k][ m_file_hist[k][0] ];
+      const Tile_Pos TP = v->GetTilePos();
 
       if( TP == TP_BOT__LEFT_CTR_8TH ) { v->SetTilePos( TP_LEFT_CTR__QTR ); break; }
     }
   }
 }
 
-void Vis::Quit_JoinTiles_TP_TOP__RITE_CTR_8TH()
+void Vis::Imp::Quit_JoinTiles_TP_TOP__RITE_CTR_8TH()
 {
   if( Have_TP_BOT__RITE_QTR() )
   {
-    for( unsigned k=0; k<num_wins; k++ )
+    for( unsigned k=0; k<m_num_wins; k++ )
     {
-      View* v = views[k][ file_hist[k][0] ];
-      const Tile_Pos TP = v->tile_pos;
+      View* v = m_views[k][ m_file_hist[k][0] ];
+      const Tile_Pos TP = v->GetTilePos();
 
       if( TP == TP_TOP__RITE_8TH ) { v->SetTilePos( TP_TOP__RITE_QTR ); break; }
     }
   }
   else {
-    for( unsigned k=0; k<num_wins; k++ )
+    for( unsigned k=0; k<m_num_wins; k++ )
     {
-      View* v = views[k][ file_hist[k][0] ];
-      const Tile_Pos TP = v->tile_pos;
+      View* v = m_views[k][ m_file_hist[k][0] ];
+      const Tile_Pos TP = v->GetTilePos();
 
       if( TP == TP_BOT__RITE_CTR_8TH ) { v->SetTilePos( TP_RITE_CTR__QTR ); break; }
     }
   }
 }
 
-void Vis::Quit_JoinTiles_TP_BOT__LEFT_8TH()
+void Vis::Imp::Quit_JoinTiles_TP_BOT__LEFT_8TH()
 {
   if( Have_TP_TOP__LEFT_QTR() )
   {
-    for( unsigned k=0; k<num_wins; k++ )
+    for( unsigned k=0; k<m_num_wins; k++ )
     {
-      View* v = views[k][ file_hist[k][0] ];
-      const Tile_Pos TP = v->tile_pos;
+      View* v = m_views[k][ m_file_hist[k][0] ];
+      const Tile_Pos TP = v->GetTilePos();
 
       if( TP == TP_BOT__LEFT_CTR_8TH ) { v->SetTilePos( TP_BOT__LEFT_QTR ); break; }
     }
   }
   else {
-    for( unsigned k=0; k<num_wins; k++ )
+    for( unsigned k=0; k<m_num_wins; k++ )
     {
-      View* v = views[k][ file_hist[k][0] ];
-      const Tile_Pos TP = v->tile_pos;
+      View* v = m_views[k][ m_file_hist[k][0] ];
+      const Tile_Pos TP = v->GetTilePos();
 
       if( TP == TP_TOP__LEFT_8TH ) { v->SetTilePos( TP_LEFT_QTR ); break; }
     }
   }
 }
 
-void Vis::Quit_JoinTiles_TP_BOT__RITE_8TH()
+void Vis::Imp::Quit_JoinTiles_TP_BOT__RITE_8TH()
 {
   if( Have_TP_TOP__RITE_QTR() )
   {
-    for( unsigned k=0; k<num_wins; k++ )
+    for( unsigned k=0; k<m_num_wins; k++ )
     {
-      View* v = views[k][ file_hist[k][0] ];
-      const Tile_Pos TP = v->tile_pos;
+      View* v = m_views[k][ m_file_hist[k][0] ];
+      const Tile_Pos TP = v->GetTilePos();
 
       if( TP == TP_BOT__RITE_CTR_8TH ) { v->SetTilePos( TP_BOT__RITE_QTR ); break; }
     }
   }
   else {
-    for( unsigned k=0; k<num_wins; k++ )
+    for( unsigned k=0; k<m_num_wins; k++ )
     {
-      View* v = views[k][ file_hist[k][0] ];
-      const Tile_Pos TP = v->tile_pos;
+      View* v = m_views[k][ m_file_hist[k][0] ];
+      const Tile_Pos TP = v->GetTilePos();
 
       if( TP == TP_TOP__RITE_8TH ) { v->SetTilePos( TP_RITE_QTR ); break; }
     }
   }
 }
 
-void Vis::Quit_JoinTiles_TP_BOT__LEFT_CTR_8TH()
+void Vis::Imp::Quit_JoinTiles_TP_BOT__LEFT_CTR_8TH()
 {
   if( Have_TP_TOP__LEFT_QTR() )
   {
-    for( unsigned k=0; k<num_wins; k++ )
+    for( unsigned k=0; k<m_num_wins; k++ )
     {
-      View* v = views[k][ file_hist[k][0] ];
-      const Tile_Pos TP = v->tile_pos;
+      View* v = m_views[k][ m_file_hist[k][0] ];
+      const Tile_Pos TP = v->GetTilePos();
 
       if( TP == TP_BOT__LEFT_8TH ) { v->SetTilePos( TP_BOT__LEFT_QTR ); break; }
     }
   }
   else {
-    for( unsigned k=0; k<num_wins; k++ )
+    for( unsigned k=0; k<m_num_wins; k++ )
     {
-      View* v = views[k][ file_hist[k][0] ];
-      const Tile_Pos TP = v->tile_pos;
+      View* v = m_views[k][ m_file_hist[k][0] ];
+      const Tile_Pos TP = v->GetTilePos();
 
       if( TP == TP_TOP__LEFT_CTR_8TH ) { v->SetTilePos( TP_LEFT_CTR__QTR ); break; }
     }
   }
 }
 
-void Vis::Quit_JoinTiles_TP_BOT__RITE_CTR_8TH()
+void Vis::Imp::Quit_JoinTiles_TP_BOT__RITE_CTR_8TH()
 {
   if( Have_TP_TOP__RITE_QTR() )
   {
-    for( unsigned k=0; k<num_wins; k++ )
+    for( unsigned k=0; k<m_num_wins; k++ )
     {
-      View* v = views[k][ file_hist[k][0] ];
-      const Tile_Pos TP = v->tile_pos;
+      View* v = m_views[k][ m_file_hist[k][0] ];
+      const Tile_Pos TP = v->GetTilePos();
 
       if( TP == TP_BOT__RITE_8TH ) { v->SetTilePos( TP_BOT__RITE_QTR ); break; }
     }
   }
   else {
-    for( unsigned k=0; k<num_wins; k++ )
+    for( unsigned k=0; k<m_num_wins; k++ )
     {
-      View* v = views[k][ file_hist[k][0] ];
-      const Tile_Pos TP = v->tile_pos;
+      View* v = m_views[k][ m_file_hist[k][0] ];
+      const Tile_Pos TP = v->GetTilePos();
 
       if( TP == TP_TOP__RITE_CTR_8TH ) { v->SetTilePos( TP_RITE_CTR__QTR ); break; }
     }
   }
 }
 
-bool Vis::Have_TP_BOT__HALF()
+bool Vis::Imp::Have_TP_BOT__HALF()
 {
-  for( unsigned k=0; k<num_wins; k++ )
+  for( unsigned k=0; k<m_num_wins; k++ )
   {
-    View* v = views[k][ file_hist[k][0] ];
-    const Tile_Pos TP = v->tile_pos;
+    View* v = m_views[k][ m_file_hist[k][0] ];
+    const Tile_Pos TP = v->GetTilePos();
 
     if( TP == TP_BOT__HALF ) return true;
   }
   return false;
 }
 
-bool Vis::Have_TP_TOP__HALF()
+bool Vis::Imp::Have_TP_TOP__HALF()
 {
-  for( unsigned k=0; k<num_wins; k++ )
+  for( unsigned k=0; k<m_num_wins; k++ )
   {
-    View* v = views[k][ file_hist[k][0] ];
-    const Tile_Pos TP = v->tile_pos;
+    View* v = m_views[k][ m_file_hist[k][0] ];
+    const Tile_Pos TP = v->GetTilePos();
 
     if( TP == TP_TOP__HALF ) return true;
   }
   return false;
 }
 
-bool Vis::Have_TP_BOT__LEFT_QTR()
+bool Vis::Imp::Have_TP_BOT__LEFT_QTR()
 {
-  for( unsigned k=0; k<num_wins; k++ )
+  for( unsigned k=0; k<m_num_wins; k++ )
   {
-    View* v = views[k][ file_hist[k][0] ];
-    const Tile_Pos TP = v->tile_pos;
+    View* v = m_views[k][ m_file_hist[k][0] ];
+    const Tile_Pos TP = v->GetTilePos();
 
     if( TP == TP_BOT__LEFT_QTR ) return true;
   }
   return false;
 }
 
-bool Vis::Have_TP_TOP__LEFT_QTR()
+bool Vis::Imp::Have_TP_TOP__LEFT_QTR()
 {
-  for( unsigned k=0; k<num_wins; k++ )
+  for( unsigned k=0; k<m_num_wins; k++ )
   {
-    View* v = views[k][ file_hist[k][0] ];
-    const Tile_Pos TP = v->tile_pos;
+    View* v = m_views[k][ m_file_hist[k][0] ];
+    const Tile_Pos TP = v->GetTilePos();
 
     if( TP == TP_TOP__LEFT_QTR ) return true;
   }
   return false;
 }
 
-bool Vis::Have_TP_BOT__RITE_QTR()
+bool Vis::Imp::Have_TP_BOT__RITE_QTR()
 {
-  for( unsigned k=0; k<num_wins; k++ )
+  for( unsigned k=0; k<m_num_wins; k++ )
   {
-    View* v = views[k][ file_hist[k][0] ];
-    const Tile_Pos TP = v->tile_pos;
+    View* v = m_views[k][ m_file_hist[k][0] ];
+    const Tile_Pos TP = v->GetTilePos();
 
     if( TP == TP_BOT__RITE_QTR ) return true;
   }
   return false;
 }
 
-bool Vis::Have_TP_TOP__RITE_QTR()
+bool Vis::Imp::Have_TP_TOP__RITE_QTR()
 {
-  for( unsigned k=0; k<num_wins; k++ )
+  for( unsigned k=0; k<m_num_wins; k++ )
   {
-    View* v = views[k][ file_hist[k][0] ];
-    const Tile_Pos TP = v->tile_pos;
+    View* v = m_views[k][ m_file_hist[k][0] ];
+    const Tile_Pos TP = v->GetTilePos();
 
     if( TP == TP_TOP__RITE_QTR ) return true;
   }
   return false;
 }
 
-void Vis::QuitAll()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  // Move cursor down to bottom of screen:
-  Console::Move_2_Row_Col( Console::Num_Rows()-1, 0 );
-
-  // Put curson on a new line:
-  Console::NewLine();
-
-  running = false;
-}
-
-void Vis::Help()
+void Vis::Imp::Help()
 {
   GoToBuffer( HELP_FILE );
 }
 
-void Vis::DoDiff()
+void Vis::Imp::DoDiff()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
   // Must be exactly 2 buffers to do diff:
-  if( 2 == num_wins )
+  if( 2 == m_num_wins )
   {
-    View* pv0 = views[0][ file_hist[0][0] ];
-    View* pv1 = views[1][ file_hist[1][0] ];
-    FileBuf* pfb0 = pv0->pfb;
-    FileBuf* pfb1 = pv1->pfb;
+    View* pv0 = m_views[0][ m_file_hist[0][0] ];
+    View* pv1 = m_views[1][ m_file_hist[1][0] ];
+    FileBuf* pfb0 = pv0->GetFB();
+    FileBuf* pfb1 = pv1->GetFB();
 
     // New code in progress:
     bool ok = true;
-    if( !pfb0->is_dir && pfb1->is_dir )
+    if( !pfb0->IsDir() && pfb1->IsDir() )
     {
       pv1 = DoDiff_FindRegFileView( pfb0, pfb1, 1, pv1 );
     }
-    else if( pfb0->is_dir && !pfb1->is_dir )
+    else if( pfb0->IsDir() && !pfb1->IsDir() )
     {
       pv0 = DoDiff_FindRegFileView( pfb1, pfb0, 0, pv0 );
     }
     else {
-      if( !FileExists( pfb0->file_name.c_str() ) )
+      if( !FileExists( pfb0->GetFileName() ) )
       {
         ok = false;
-        Log.Log("\n%s does not exist\n", pfb0->file_name.c_str() );
+        Log.Log("\n%s does not exist\n", pfb0->GetFileName() );
       }
-      else if( !FileExists( pfb1->file_name.c_str() ) )
+      else if( !FileExists( pfb1->GetFileName() ) )
       {
         ok = false;
-        Log.Log("\n%s does not exist\n", pfb1->file_name.c_str() );
+        Log.Log("\n%s does not exist\n", pfb1->GetFileName() );
       }
     }
-    if( !ok ) running = false;
+    if( !ok ) m_running = false;
     else {
 #ifndef WIN32
       timeval tv1; gettimeofday( &tv1, 0 );
 #endif
-      bool ok = diff.Run( pv0, pv1 );
+      bool ok = m_diff.Run( pv0, pv1 );
       if( ok ) {
         m_diff_mode = true;
 
@@ -1033,7 +1869,7 @@ void Vis::DoDiff()
         double secs = (tv2.tv_sec-tv1.tv_sec)
                     + double(tv2.tv_usec)/1e6
                     - double(tv1.tv_usec)/1e6;
-        CmdLineMessage( "Diff took: %g seconds", secs );
+        m_vis.CmdLineMessage( "Diff took: %g seconds", secs );
 #endif
       }
     }
@@ -1055,21 +1891,21 @@ void Create_Path_Parts_List( const String& path
   }
 }
 
-View* Vis::DoDiff_FindRegFileView( const FileBuf* pfb_reg
-                                 , const FileBuf* pfb_dir
-                                 , const unsigned win_idx
-                                 ,       View*    pv )
+View* Vis::Imp::DoDiff_FindRegFileView( const FileBuf* pfb_reg
+                                      , const FileBuf* pfb_dir
+                                      , const unsigned win_idx
+                                      ,       View*    pv )
 {
-  String possible_fname = pfb_dir->file_name;
+  String possible_fname = pfb_dir->GetFileName();
   String fname_extension;
 
   gArray_t<String*> path_parts;
-  Create_Path_Parts_List( pfb_reg->file_name, path_parts );
+  Create_Path_Parts_List( pfb_reg->GetFileName(), path_parts );
 
   for( int k=path_parts.len()-1; 0<=k; k-- )
   {
     // Revert back to pfb_dir.m_fname:
-    possible_fname = pfb_dir->file_name;
+    possible_fname = pfb_dir->GetFileName();
 
     if( 0<fname_extension.len()
      && fname_extension.get_end(0)!=DIR_DELIM )
@@ -1091,8 +1927,8 @@ View* Vis::DoDiff_FindRegFileView( const FileBuf* pfb_reg
 
 // If file is found, puts View of file in win_idx window,
 // and returns the View, else returns null
-View* Vis::DoDiff_CheckPossibleFile( const int win_idx
-                                   , const char* pos_fname )
+View* Vis::Imp::DoDiff_CheckPossibleFile( const int win_idx
+                                        , const char* pos_fname )
 {
   struct stat sbuf;
   int err = my_stat( pos_fname, sbuf );
@@ -1102,7 +1938,7 @@ View* Vis::DoDiff_CheckPossibleFile( const int win_idx
     // File exists, find or create FileBuf, and set second view to display that file:
     if( !HaveFile( pos_fname ) )
     {
-      FileBuf* pfb = new(__FILE__,__LINE__) FileBuf( pos_fname, true, FT_UNKNOWN );
+      FileBuf* pfb = new(__FILE__,__LINE__) FileBuf( m_vis, pos_fname, true, FT_UNKNOWN );
       pfb->ReadFile();
     }
   }
@@ -1111,12 +1947,12 @@ View* Vis::DoDiff_CheckPossibleFile( const int win_idx
   {
     SetWinToBuffer( win_idx, file_index, false );
 
-    return views[win_idx][ file_hist[win_idx][0] ];
+    return m_views[win_idx][ m_file_hist[win_idx][0] ];
   }
   return 0;
 }
 
-void Vis::NoDiff()
+void Vis::Imp::NoDiff()
 {
   if( true == m_diff_mode )
   {
@@ -1126,1293 +1962,84 @@ void Vis::NoDiff()
   }
 }
 
-void Vis::AddToBufferEditor( const char* fname )
+void Vis::Imp::SetWinToBuffer( const unsigned win_idx
+                             , const unsigned buf_idx
+                             , const bool     update )
 {
   Trace trace( __PRETTY_FUNCTION__ );
-  Line line(__FILE__, __LINE__, strlen( fname ) );
-//unsigned NUM_BUFFERS = views[0].len();
-//char str[32]; 
-//sprintf( str, "%3u ", NUM_BUFFERS-1 );
-//for( const char* p=str  ; *p; p++ ) line.push(__FILE__,__LINE__, *p );
-  for( const char* p=fname; *p; p++ ) line.push(__FILE__,__LINE__, *p );
-  FileBuf* pfb = views[0][ BE_FILE ]->pfb;
-  pfb->PushLine( line );
-  pfb->BufferEditor_Sort();
-  pfb->ClearChanged();
 
-  // Since buffer editor file has been re-arranged, make sure none of its
-  // views have the cursor position past the end of the line
-  for( unsigned k=0; k<MAX_WINS; k++ )
+  if( m_views[win_idx].len() <= buf_idx )
   {
-    View* pV = views[k][ BE_FILE ];
-
-    unsigned CL = pV->CrsLine();
-    unsigned CP = pV->CrsChar();
-    unsigned LL = pfb->LineLen( CL );
-
-    if( LL <= CP )
-    {
-      pV->GoToCrsPos_NoWrite( CL, LL-1 );
-    }
-  }
-}
-
-// Print a command line message.
-// Put cursor back in edit window.
-//
-void Vis::CmdLineMessage( const char* const msg_fmt, ... )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-  const int BUF_SZ = 2048;
-  char msg_buf[ BUF_SZ ];
-
-  va_list argp;
-  va_start( argp, msg_fmt );
-  vsprintf( msg_buf, msg_fmt, argp );
-  va_end( argp );
-
-  View* pV = CV();
-
-  const unsigned WC  = pV->WorkingCols();
-  const unsigned ROW = pV->Cmd__Line_Row();
-  const unsigned COL = pV->Col_Win_2_GL( 0 );
-  const unsigned MSG_LEN = strlen( msg_buf );
-  if( WC < MSG_LEN )
-  {
-    // messaged does not fit, so truncate beginning
-    Console::SetS( ROW, COL, msg_buf + (MSG_LEN - WC), S_NORMAL );
+    m_vis.CmdLineMessage( "Buffer %lu does not exist", buf_idx );
   }
   else {
-    // messaged fits, add spaces at end
-    Console::SetS( ROW, COL, msg_buf, S_NORMAL );
-    for( unsigned k=0; k<(WC-MSG_LEN); k++ )
+    if( buf_idx == m_file_hist[win_idx][0] )
     {
-      Console::Set( ROW, pV->Col_Win_2_GL( k+MSG_LEN ), ' ', S_NORMAL );
-    }
-  }
-  Console::Update();
-  pV->PrintCursor();
-}
-
-void Vis::Window_Message( const char* const msg_fmt, ... )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-  const int BUF_SZ = 2048;
-  char msg_buf[ BUF_SZ ];
-
-  va_list argp;
-  va_start( argp, msg_fmt );
-  vsprintf( msg_buf, msg_fmt, argp );
-  va_end( argp );
-
-  FileBuf* pMB = views[0][MSG_FILE]->pfb;
-
-  // Clear Message Buffer:
-  while( pMB->NumLines() ) pMB->PopLine();
-
-  // Add msg_buf to pMB
-  Line* pL = 0;
-  const unsigned MSB_BUF_LEN = strlen( msg_buf );
-  for( unsigned k=0; k<MSB_BUF_LEN; k++ )
-  {
-    if( 0==pL ) pL = BorrowLine( __FILE__,__LINE__ );
-
-    const char C = msg_buf[k];
-
-    if( C == '\n' ) { pMB->PushLine( pL ); pL = 0; }
-    else            { pL->push(__FILE__,__LINE__, C ); }
-  }
-  // Make sure last borrowed line gets put into Message Buffer:
-  if( pL ) pMB->PushLine( pL );
-
-  // Initially, put cursor at top of Message Buffer:
-  View* pV = views[win][MSG_FILE];
-  pV->crsRow = 0;
-  pV->crsCol = 0;
-  pV->topLine = 0;
-
-  BufferMessage();
-}
-
-void Vis::Handle_Cmd()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-  const char CC = gl_pKey->In();
- 
-  CmdFunc cf = CmdFuncs[ CC ];
-  if( cf ) (this->*cf)();
-}
-
-void Vis::Handle_i()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  if( !gl_pKey->get_from_dot_buf )
-  {
-    gl_pKey->dot_buf.clear();
-    gl_pKey->dot_buf.push(__FILE__,__LINE__,'i');
-    gl_pKey->save_2_dot_buf = true;
-  }
-
-  if( m_diff_mode ) diff.Do_i();
-  else           CV()->Do_i();
-
-  if( !gl_pKey->get_from_dot_buf )
-  {
-    gl_pKey->save_2_dot_buf = false;
-  }
-}
-
-void Vis::Handle_v()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  if( !gl_pKey->get_from_dot_buf )
-  {
-    gl_pKey->vis_buf.clear();
-    gl_pKey->vis_buf.push(__FILE__,__LINE__,'v');
-    gl_pKey->save_2_vis_buf = true;
-  }
-  const bool copy_vis_buf_2_dot_buf = m_diff_mode
-                                    ? diff.Do_v()
-                                    : CV()->Do_v();
-  if( !gl_pKey->get_from_dot_buf )
-  {
-    gl_pKey->save_2_vis_buf = false;
-
-    if( copy_vis_buf_2_dot_buf )
-    {
-      gl_pKey->dot_buf.copy( gl_pKey->vis_buf );
-    }
-  }
-}
-
-void Vis::Handle_V()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  if( !gl_pKey->get_from_dot_buf )
-  {
-    gl_pKey->vis_buf.clear();
-    gl_pKey->vis_buf.push(__FILE__,__LINE__,'V');
-    gl_pKey->save_2_vis_buf = true;
-  }
-  const bool copy_vis_buf_2_dot_buf = m_diff_mode
-                                    ? diff.Do_V()
-                                    : CV()->Do_V();
-  if( !gl_pKey->get_from_dot_buf )
-  {
-    gl_pKey->save_2_vis_buf = false;
-
-    if( copy_vis_buf_2_dot_buf )
-    {
-      gl_pKey->dot_buf.copy( gl_pKey->vis_buf );
-    }
-  }
-}
-
-void Vis::Handle_a()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  if( !gl_pKey->get_from_dot_buf )
-  {
-    gl_pKey->dot_buf.clear();
-    gl_pKey->dot_buf.push(__FILE__,__LINE__,'a');
-    gl_pKey->save_2_dot_buf = true;
-  }
-
-  if( m_diff_mode ) diff.Do_a();
-  else           CV()->Do_a();
-
-  if( !gl_pKey->get_from_dot_buf )
-  {
-    gl_pKey->save_2_dot_buf = false;
-  }
-}
-
-void Vis::Handle_A()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  if( !gl_pKey->get_from_dot_buf )
-  {
-    gl_pKey->dot_buf.clear();
-    gl_pKey->dot_buf.push(__FILE__,__LINE__,'A');
-    gl_pKey->save_2_dot_buf = true;
-  }
-
-  if( m_diff_mode ) diff.Do_A();
-  else           CV()->Do_A();
-
-  if( !gl_pKey->get_from_dot_buf )
-  {
-    gl_pKey->save_2_dot_buf = false;
-  }
-}
-
-void Vis::Handle_o()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  if( !gl_pKey->get_from_dot_buf )
-  {
-    gl_pKey->dot_buf.clear();
-    gl_pKey->dot_buf.push(__FILE__,__LINE__,'o');
-    gl_pKey->save_2_dot_buf = true;
-  }
-
-  if( m_diff_mode ) diff.Do_o();
-  else           CV()->Do_o();
-
-  if( !gl_pKey->get_from_dot_buf )
-  {
-    gl_pKey->save_2_dot_buf = false;
-  }
-}
-
-void Vis::Handle_O()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  if( !gl_pKey->get_from_dot_buf )
-  {
-    gl_pKey->dot_buf.clear();
-    gl_pKey->dot_buf.push(__FILE__,__LINE__,'O');
-    gl_pKey->save_2_dot_buf = true;
-  }
-
-  if( m_diff_mode ) diff.Do_O();
-  else           CV()->Do_O();
-
-  if( !gl_pKey->get_from_dot_buf )
-  {
-    gl_pKey->save_2_dot_buf = false;
-  }
-}
-
-void Vis::Handle_x()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  if( !gl_pKey->get_from_dot_buf )
-  {
-    gl_pKey->dot_buf.clear();
-    gl_pKey->dot_buf.push(__FILE__,__LINE__,'x');
-  }
-  if( m_diff_mode ) diff.Do_x();
-  else           CV()->Do_x();
-}
-
-void Vis::Handle_s()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  if( !gl_pKey->get_from_dot_buf )
-  {
-    gl_pKey->dot_buf.clear();
-    gl_pKey->dot_buf.push(__FILE__,__LINE__,'s');
-    gl_pKey->save_2_dot_buf = true;
-  }
-
-  if( m_diff_mode ) diff.Do_s();
-  else           CV()->Do_s();
-
-  if( !gl_pKey->get_from_dot_buf )
-  {
-    gl_pKey->save_2_dot_buf = false;
-  }
-}
-
-void Vis::Handle_c()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  if( m_diff_mode ) return;
-
-  const char C = gl_pKey->In();
-  if( C == 'w' )
-  {
-    if( !gl_pKey->get_from_dot_buf )
-    {
-      gl_pKey->dot_buf.clear();
-      gl_pKey->dot_buf.push(__FILE__,__LINE__,'c');
-      gl_pKey->dot_buf.push(__FILE__,__LINE__,'w');
-      gl_pKey->save_2_dot_buf = true;
-    }
-    CV()->Do_cw();
-
-    if( !gl_pKey->get_from_dot_buf )
-    {
-      gl_pKey->save_2_dot_buf = false;
-    }
-  }
-  else if( C == '$' )
-  {
-    if( !gl_pKey->get_from_dot_buf )
-    {
-      gl_pKey->dot_buf.clear();
-      gl_pKey->dot_buf.push(__FILE__,__LINE__,'c');
-      gl_pKey->dot_buf.push(__FILE__,__LINE__,'$');
-      gl_pKey->save_2_dot_buf = true;
-    }
-    CV()->Do_D();
-    CV()->Do_a();
-
-    if( !gl_pKey->get_from_dot_buf )
-    {
-      gl_pKey->save_2_dot_buf = false;
-    }
-  }
-}
-
-void Vis::Handle_Q()
-{
-  Handle_Dot();
-  Handle_j();
-  Handle_0();
-}
-
-void Vis::Handle_k()
-{
-  if( m_diff_mode ) diff.GoUp(); 
-  else           CV()->GoUp();
-}
-
-void Vis::Handle_j()
-{
-  if( m_diff_mode ) diff.GoDown();
-  else           CV()->GoDown();
-}
-
-void Vis::Handle_h()
-{
-  if( m_diff_mode ) diff.GoLeft();
-  else           CV()->GoLeft();
-}
-
-void Vis::Handle_l()
-{
-  if( m_diff_mode ) diff.GoRight();
-  else           CV()->GoRight();
-}
-
-void Vis::Handle_H()
-{
-  if( m_diff_mode ) diff.GoToTopLineInView();
-  else           CV()->GoToTopLineInView();
-}
-
-void Vis::Handle_L()
-{
-  if( m_diff_mode ) diff.GoToBotLineInView();
-  else           CV()->GoToBotLineInView();
-}
-
-void Vis::Handle_M()
-{
-  if( m_diff_mode ) diff.GoToMidLineInView();
-  else           CV()->GoToMidLineInView();
-}
-
-void Vis::Handle_0()
-{
-  if( m_diff_mode ) diff.GoToBegOfLine();
-  else           CV()->GoToBegOfLine();
-}
-
-void Vis::Handle_Dollar()
-{
-  if( m_diff_mode ) diff.GoToEndOfLine();
-  else           CV()->GoToEndOfLine();
-}
-
-void Vis::Handle_Return()
-{
-  if( m_diff_mode ) diff.GoToBegOfNextLine();
-  else           CV()->GoToBegOfNextLine();
-}
-
-void Vis::Handle_G()
-{
-  if( m_diff_mode ) diff.GoToEndOfFile();
-  else           CV()->GoToEndOfFile();
-}
-
-void Vis::Handle_b()
-{
-  if( m_diff_mode ) diff.GoToPrevWord();
-  else           CV()->GoToPrevWord();
-}
-
-void Vis::Handle_w()
-{
-  if( m_diff_mode ) diff.GoToNextWord();
-  else           CV()->GoToNextWord();
-}
-
-void Vis::Handle_e()
-{
-  if( m_diff_mode ) diff.GoToEndOfWord();
-  else           CV()->GoToEndOfWord();
-}
-
-void Vis::Handle_f()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  fast_char = gl_pKey->In();
-
-  if( m_diff_mode ) diff.Do_f( fast_char );
-  else           CV()->Do_f( fast_char );
-}
-
-void Vis::Handle_SemiColon()
-{
-  if( 0 <= fast_char )
-  {
-    if( m_diff_mode ) diff.Do_f( fast_char );
-    else           CV()->Do_f( fast_char );
-  }
-}
-
-void Vis::Handle_Percent()
-{
-  if( m_diff_mode ) diff.GoToOppositeBracket();
-  else           CV()->GoToOppositeBracket();
-}
-
-// Left squiggly bracket
-void Vis::Handle_LeftSquigglyBracket()
-{
-  if( m_diff_mode ) diff.GoToLeftSquigglyBracket();
-  else           CV()->GoToLeftSquigglyBracket();
-}
-
-// Right squiggly bracket
-void Vis::Handle_RightSquigglyBracket()
-{
-  if( m_diff_mode ) diff.GoToRightSquigglyBracket();
-  else           CV()->GoToRightSquigglyBracket();
-}
-
-void Vis::Handle_F()
-{
-  if( m_diff_mode )  diff.PageDown();
-  else            CV()->PageDown();
-}
-
-void Vis::Handle_B()
-{
-  if( m_diff_mode )  diff.PageUp();
-  else            CV()->PageUp();
-}
-
-void Vis::Handle_Colon()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-  CV()->GoToCmdLineClear(":");
-  m_colon.GetCommand(1);
-  RemoveSpaces( m_cbuf );
-  m_colon.MapEnd();
-
-  if     ( strcmp( m_cbuf,"q"   )==0 ) Quit();
-  else if( strcmp( m_cbuf,"qa"  )==0 ) QuitAll();
-  else if( strcmp( m_cbuf,"help")==0 ) Help();
-  else if( strcmp( m_cbuf,"diff")==0 ) DoDiff();
-  else if( strcmp( m_cbuf,"nodiff")==0)NoDiff();
-  else if( strcmp( m_cbuf,"n"   )==0 ) GoToNextBuffer();
-  else if( strcmp( m_cbuf,"se"  )==0 ) SearchEditor();
-  else if( strcmp( m_cbuf,"vsp" )==0 ) VSplitWindow();
-  else if( strcmp( m_cbuf,"sp"  )==0 ) HSplitWindow();
-  else if( strcmp( m_cbuf,"cs1" )==0 ) { Console::Set_Color_Scheme_1(); }
-  else if( strcmp( m_cbuf,"cs2" )==0 ) { Console::Set_Color_Scheme_2(); }
-  else if( strcmp( m_cbuf,"cs3" )==0 ) { Console::Set_Color_Scheme_3(); }
-  else if( strcmp( m_cbuf,"cs4" )==0 ) { Console::Set_Color_Scheme_4(); }
-  else if( strcmp( m_cbuf,"hi"  )==0 ) m_colon.hi();
-  else if( strncmp(m_cbuf,"cd",2)==0 ) { Ch_Dir(); }
-  else if( strncmp(m_cbuf,"syn",3)==0) { Set_Syntax(); }
-  else if( strcmp( m_cbuf,"pwd" )==0 ) { GetCWD(); }
-  else if( strcmp( m_cbuf,"sh"  )==0
-        || strcmp( m_cbuf,"shell")==0) { BufferShell(); }
-#ifndef WIN32
-  else if( strcmp( m_cbuf,"run" )==0 ) { RunCommand(); }
-#endif
-  else if( strncmp(m_cbuf,"re",2)==0 ) { Console::Refresh(); }
-  else if( strcmp( m_cbuf,"map" )==0 )     m_colon.MapStart();
-  else if( strcmp( m_cbuf,"showmap")==0)   m_colon.MapShow();
-  else if( strcmp( m_cbuf,"cover")==0)     m_colon.Cover();
-  else if( strcmp( m_cbuf,"coverkey")==0)  m_colon.CoverKey();
-  else if( 'e' == m_cbuf[0] )              m_colon.e();
-  else if( 'w' == m_cbuf[0] )              m_colon.w();
-  else if( 'b' == m_cbuf[0] )              m_colon.b();
-  else if( '0' <= m_cbuf[0] && m_cbuf[0] <= '9' )
-  {
-    // Move cursor to line:
-    const unsigned line_num = atol( m_cbuf );
-    if( m_diff_mode ) diff.GoToLine( line_num );
-    else           CV()->GoToLine( line_num );
-  }
-  else { // Put cursor back to line and column in edit window:
-    if( m_diff_mode ) diff.PrintCursor( CV() );
-    else           CV()->PrintCursor();
-  }
-}
-
-void Vis::Handle_Slash()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  CV()->GoToCmdLineClear("/");
-
-  m_colon.GetCommand(1);
-
-  String new_slash( m_cbuf );
-
-  Handle_Slash_GotPattern( new_slash );
-}
-
-void Vis::Handle_Slash_GotPattern( const String& pattern
-                                 , const bool MOVE_TO_FIRST_PATTERN )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-  if( slash && pattern == star )
-  {
-    CV()->PrintCursor();
-    return;
-  }
-  // Un-highlight old star patterns for windows displayed:
-  if( star.len()  )
-  { // Since m_diff_mode does Console::Update(),
-    // no need to print patterns here if in m_diff_mode
-    if( !m_diff_mode ) Do_Star_PrintPatterns( false );
-  }
-  Do_Star_ClearPatterns();
-
-  star = pattern;
-
-  if( !star.len() ) CV()->PrintCursor();
-  else {
-    slash = true;
-
-    Do_Star_Update_Search_Editor();
-    Do_Star_FindPatterns();
-
-    // Highlight new star patterns for windows displayed:
-    if( !m_diff_mode ) Do_Star_PrintPatterns( true );
-
-    if( MOVE_TO_FIRST_PATTERN )
-    {
-      if( m_diff_mode ) diff.Do_n(); // Move to first pattern
-      else           CV()->Do_n(); // Move to first pattern
-    }
-    if( m_diff_mode ) diff.Update();
-    else {
-      // Print out all the changes:
-      Console::Update();
-      Console::Flush();
-    }
-  }
-}
-
-void Vis::Handle_Dot()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  if( 0<gl_pKey->dot_buf.len() )
-  {
-    if( gl_pKey->save_2_map_buf )
-    {
-      // Pop '.' off map_buf, because the contents of gl_pKey->map_buf
-      // will be saved to gl_pKey->map_buf.
-      gl_pKey->map_buf.pop();
-    }
-    gl_pKey->get_from_dot_buf = true;
-
-    while( gl_pKey->get_from_dot_buf )
-    {
-      const char CC = gl_pKey->In();
-
-      CmdFunc cf = CmdFuncs[ CC ];
-      if( cf ) (this->*cf)();
-    }
-    if( m_diff_mode ) {
-      // Diff does its own update every time a command is run
+      // User asked for view that is currently displayed in win_idx.
+      // Dont do anything.
     }
     else {
-      // Dont update until after all the commands have been executed:
-      CV()->pfb->Update();
+      m_file_hist[win_idx].insert(__FILE__,__LINE__, 0, buf_idx );
+
+      // Remove subsequent buf_idx's from m_file_hist[win_idx]:
+      for( unsigned k=1; k<m_file_hist[win_idx].len(); k++ )
+      {
+        if( buf_idx == m_file_hist[win_idx][k] ) m_file_hist[win_idx].remove( k );
+      }
+      View* pV_curr = m_views[win_idx][ m_file_hist[win_idx][0] ];
+      View* pV_prev = m_views[win_idx][ m_file_hist[win_idx][1] ];
+
+                   pV_curr->SetTilePos( pV_prev->GetTilePos() );
+      if( update ) pV_curr->Update();
     }
   }
-}
-
-void Vis::Handle_m()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  if( gl_pKey->save_2_map_buf || 0==gl_pKey->map_buf.len() )
-  {
-    // When mapping, 'm' is ignored.
-    // If not mapping and map buf len is zero, 'm' is ignored.
-    return;
-  }
-  gl_pKey->get_from_map_buf = true;
-
-  while( gl_pKey->get_from_map_buf )
-  {
-    const char CC = gl_pKey->In();
- 
-    CmdFunc cf = CmdFuncs[ CC ];
-    if( cf ) (this->*cf)();
-  }
-  if( m_diff_mode ) {
-    // Diff does its own update every time a command is run
-  }
-  else {
-    // Dont update until after all the commands have been executed:
-    CV()->pfb->Update();
-  }
-}
-
-void Vis::Handle_g()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  const char CC2 = gl_pKey->In();
-
-  if( CC2 == 'g' )
-  {
-    if( m_diff_mode ) diff.GoToTopOfFile();
-    else           CV()->GoToTopOfFile();
-  }
-  else if( CC2 == '0' )
-  {
-    if( m_diff_mode ) diff.GoToStartOfRow();
-    else           CV()->GoToStartOfRow();
-  }
-  else if( CC2 == '$' )
-  {
-    if( m_diff_mode ) diff.GoToEndOfRow();
-    else           CV()->GoToEndOfRow();
-  }
-  else if( CC2 == 'f' )
-  {
-    if( !m_diff_mode ) GoToFile();
-  }
-}
-
-void Vis::Handle_W()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-  const char CC2 = gl_pKey->In();
-
-  if     ( CC2 == 'W' ) GoToNextWindow();
-  else if( CC2 == 'l' ) GoToNextWindow_l();
-  else if( CC2 == 'h' ) GoToNextWindow_h();
-  else if( CC2 == 'j'
-        || CC2 == 'k' ) GoToNextWindow_jk();
-  else if( CC2 == 'R' ) FlipWindows();
-}
-
-void Vis::Handle_d()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  const char C = gl_pKey->In();
-
-  if( C == 'd' )
-  {
-    if( !gl_pKey->get_from_dot_buf )
-    {
-      gl_pKey->dot_buf.clear();
-      gl_pKey->dot_buf.push(__FILE__,__LINE__,'d');
-      gl_pKey->dot_buf.push(__FILE__,__LINE__,'d');
-    }
-    if( m_diff_mode ) diff.Do_dd();
-    else           CV()->Do_dd();
-  }
-  else if( C == 'w' )
-  {
-    if( m_diff_mode ) return;
-
-    if( !gl_pKey->get_from_dot_buf )
-    {
-      gl_pKey->dot_buf.clear();
-      gl_pKey->dot_buf.push(__FILE__,__LINE__,'d');
-      gl_pKey->dot_buf.push(__FILE__,__LINE__,'w');
-    }
-    if( m_diff_mode ) diff.Do_dw();
-    else           CV()->Do_dw();
-  }
-}
-
-void Vis::Handle_y()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  const char C = gl_pKey->In();
-
-  if( C == 'y' )
-  {
-    if( m_diff_mode ) diff.Do_yy();
-    else           CV()->Do_yy();
-  }
-  else if( C == 'w' )
-  {
-    if( m_diff_mode ) return;
-
-    CV()->Do_yw();
-  }
-}
-
-void Vis::Handle_D()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  if( !gl_pKey->get_from_dot_buf )
-  {
-    gl_pKey->dot_buf.clear();
-    gl_pKey->dot_buf.push(__FILE__,__LINE__,'D');
-  }
-  if( m_diff_mode ) diff.Do_D();
-  else           CV()->Do_D();
-}
-
-void Vis::Handle_p()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  if( !gl_pKey->get_from_dot_buf )
-  {
-    gl_pKey->dot_buf.clear();
-    gl_pKey->dot_buf.push(__FILE__,__LINE__,'p');
-  }
-  if( m_diff_mode ) diff.Do_p();
-  else           CV()->Do_p();
-}
-
-void Vis::Handle_P()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  if( !gl_pKey->get_from_dot_buf )
-  {
-    gl_pKey->dot_buf.clear();
-    gl_pKey->dot_buf.push(__FILE__,__LINE__,'P');
-  }
-  if( m_diff_mode ) diff.Do_P();
-  else           CV()->Do_P();
-}
-
-void Vis::Handle_R()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  if( !gl_pKey->get_from_dot_buf )
-  {
-    gl_pKey->dot_buf.clear();
-    gl_pKey->dot_buf.push(__FILE__,__LINE__,'R');
-    gl_pKey->save_2_dot_buf = true;
-  }
-  if( m_diff_mode ) diff.Do_R();
-  else           CV()->Do_R();
-
-  if( !gl_pKey->get_from_dot_buf )
-  {
-    gl_pKey->save_2_dot_buf = false;
-  }
-}
-
-void Vis::Handle_J()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  if( !gl_pKey->get_from_dot_buf )
-  {
-    gl_pKey->dot_buf.clear();
-    gl_pKey->dot_buf.push(__FILE__,__LINE__,'J');
-  }
-  if( m_diff_mode ) diff.Do_J();
-  else           CV()->Do_J();
-}
-
-void Vis::Handle_Tilda()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  if( !gl_pKey->get_from_dot_buf )
-  {
-    gl_pKey->dot_buf.clear();
-    gl_pKey->dot_buf.push(__FILE__,__LINE__,'~');
-  }
-  if( m_diff_mode ) diff.Do_Tilda();
-  else           CV()->Do_Tilda();
-}
-
-void Vis::Handle_Star()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  String new_star = m_diff_mode ?  diff.Do_Star_GetNewPattern()
-                              : CV()->Do_Star_GetNewPattern();
-
-  if( !slash && new_star == star ) return;
-
-  // Un-highlight old star patterns for windows displayed:
-  if( star.len() )
-  { // Since m_diff_mode does Console::Update(),
-    // no need to print patterns here if in m_diff_mode
-    if( !m_diff_mode ) Do_Star_PrintPatterns( false );
-  }
-  Do_Star_ClearPatterns();
-
-  star = new_star;
-
-  if( star.len() )
-  {
-    slash = false;
-
-    Do_Star_Update_Search_Editor();
-    Do_Star_FindPatterns();
- 
-    // Highlight new star patterns for windows displayed:
-    if( !m_diff_mode ) Do_Star_PrintPatterns( true );
-  }
-  if( m_diff_mode ) diff.Update();
-  else {
-    // Print out all the changes:
-    Console::Update();
-    // Put cursor back where it was
-    CV()->PrintCursor();
-  }
-}
-
-void Vis::Handle_n()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  if( m_diff_mode ) diff.Do_n();
-  else           CV()->Do_n();
-}
-
-void Vis::Handle_N()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  if( m_diff_mode ) diff.Do_N();
-  else           CV()->Do_N();
-}
-
-void Vis::Handle_u()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  if( m_diff_mode ) return; // Need to implement
-  else            CV()->Do_u();
-}
-
-void Vis::Handle_U()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  if( m_diff_mode ) return; // Need to implement
-  else            CV()->Do_U();
-}
-
-void Vis::Handle_z()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  const char CC2 = gl_pKey->In();
-
-  if( CC2 == 't' || IsEndOfLineDelim( CC2 ) )
-  {
-    if( m_diff_mode ) diff.MoveCurrLineToTop();
-    else           CV()->MoveCurrLineToTop();
-  }
-  else if( CC2 == 'z' )
-  {
-    if( m_diff_mode ) diff.MoveCurrLineCenter();
-    else           CV()->MoveCurrLineCenter();
-  }
-  else if( CC2 == 'b' )
-  {
-    if( m_diff_mode ) diff.MoveCurrLineToBottom();
-    else           CV()->MoveCurrLineToBottom();
-  }
-}
-
-void Vis::UpdateAll()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  if( !m_diff_mode )
-  {
-    for( unsigned k=0; k<num_wins; k++ )
-    {
-      views[k][ file_hist[k][0] ]->Update();
-    }
-  }
-}
-
-bool Vis::Update_Status_Lines()
-{
-  bool updated_a_sts_line = false;
-
-  for( unsigned w=0; w<num_wins; w++ )
-  {
-    // pV points to currently displayed view in window w:
-    View* const pV = views[w][ file_hist[w][0] ];
-
-    if( pV->sts_line_needs_update )
-    {
-      // Update status line:
-      pV->PrintStsLine();     // Print status line.
-      Console::Update();
-
-      pV->sts_line_needs_update = false;
-      updated_a_sts_line = true;
-    }
-  }
-  return updated_a_sts_line;
-}
-
-bool Vis::Update_Change_Statuses()
-{
-  // Update buffer changed status around windows:
-  bool updated_change_sts = false;
-
-  for( unsigned k=0; k<num_wins; k++ )
-  {
-    // pV points to currently displayed view in window w:
-    View* const pV = views[k][ file_hist[k][0] ];
-
-    if( pV->us_change_sts != pV->pfb->Changed() )
-    {
-      pV->Print_Borders();
-      pV->us_change_sts = pV->pfb->Changed();
-      updated_change_sts = true;
-    }
-  }
-  return updated_change_sts;
 }
 
 // 1. Get filename underneath the cursor
 // 2. Search for filename in buffer list, and if found, go to that buffer
 // 3. If not found, print a command line message
 //
-void Vis::GoToFile()
+void Vis::Imp::GoToFile()
 {
   Trace trace( __PRETTY_FUNCTION__ );
   // 1. Get fname underneath the cursor:
   String fname;
   bool ok = CV()->GoToFile_GetFileName( fname );
 
-  if( ok ) GoToFile_GoToBuffer( fname );
+  if( ok ) GoToBuffer_Fname( fname );
 }
 
-// Return true if went to buffer indicated by fname, else false
-bool Vis::GoToFile_GoToBuffer( String& fname )
+void Vis::Imp::GoToBuffer( const unsigned buf_idx )
 {
-  // 2. Search for fname in buffer list, and if found, go to that buffer:
-  unsigned file_index = 0;
-  if( HaveFile( fname.c_str(), &file_index ) )
-  { GoToBuffer( file_index ); return true; }
+  Trace trace( __PRETTY_FUNCTION__ );
 
-  // 3. Go to directory of current buffer:
-  if( ! CV()->GoToDir() )
+  if( m_views[m_win].len() <= buf_idx )
   {
-    CmdLineMessage( "Could not find file: %s", fname.c_str() );
-    return false;
-  }
-
-  // 4. Get full file name
-  if( !FindFullFileName( fname ) )
-  {
-    CmdLineMessage( "Could not find file: %s", fname.c_str() );
-    return false;
-  }
-
-  // 5. Search for fname in buffer list, and if found, go to that buffer:
-  if( HaveFile( fname.c_str(), &file_index ) )
-  {
-    GoToBuffer( file_index ); return true;
-  }
-
-  // 6. See if file exists, and if so, add a file buffer, and go to that buffer
-  bool exists = false;
-  const bool IS_DIR = fname.get_end() == DIR_DELIM;
-  if( IS_DIR )
-  {
-    DIR* dp = opendir( fname.c_str() );
-    if( dp ) {
-      exists = true;
-      closedir( dp );
-    }
+    m_vis.CmdLineMessage( "Buffer %lu does not exist", buf_idx );
   }
   else {
-    FILE* fp = fopen( fname.c_str(), "rb" );
-    if( fp ) {
-      exists = true;
-      fclose( fp );
-    }
-  }
-  if( exists )
-  {
-    FileBuf* fb = new(__FILE__,__LINE__) FileBuf( fname.c_str(), true, FT_UNKNOWN );
-    fb->ReadFile();
-    GoToBuffer( views[win].len()-1 );
-  }
-  else {
-    CmdLineMessage( "Could not find file: %s", fname.c_str() );
-    return false;
-  }
-  return true;
-}
-
-bool Vis::HaveFile( const char* file_name, unsigned* file_index )
-{
-  bool already_have_file = false;
-
-  const unsigned NUM_FILES = files.len();
-
-  for( unsigned k=0; !already_have_file && k<NUM_FILES; k++ )
-  {
-    if( 0==strcmp( files[k]->file_name.c_str(), file_name ) )
-    {
-      already_have_file = true;
-
-      if( file_index ) *file_index = k;
-    }
-  }
-  return already_have_file;
-}
-
-bool Vis::FName_2_FNum( const String& full_fname, unsigned& file_num )
-{
-  bool found = false;
-
-  for( unsigned k=0; !found && k<files.len(); k++ )
-  {
-    if( full_fname == files[ k ]->file_name )
-    {
-      found = true;
-      file_num = k;
-    }
-  }
-  return found;
-}
-bool Vis::File_Is_Displayed( const String& full_fname )
-{
-  unsigned file_num = 0;
-
-  if( FName_2_FNum( full_fname, file_num ) )
-  {
-    return File_Is_Displayed( file_num );
-  }
-  return false;
-}
-bool Vis::File_Is_Displayed( const unsigned file_num )
-{
-  for( unsigned w=0; w<num_wins; w++ )
-  {
-    if( file_num == file_hist[ w ][ 0 ] )
-    {
-      return true;
-    }
-  }
-  return false;
-}
-void Vis::ReleaseFileName( const String& full_fname )
-{
-  unsigned file_num = 0;
-  if( FName_2_FNum( full_fname, file_num ) )
-  {
-    ReleaseFileNum( file_num );
-  }
-}
-void Vis::ReleaseFileNum( const unsigned file_num )
-{
-  bool ok = files.remove( file_num );
-
-  for( unsigned k=0; ok && k<MAX_WINS; k++ )
-  {
-    View* win_k_view_of_file_num;
-    views[k].remove( file_num, win_k_view_of_file_num );
-
-    if( 0==k ) {
-      // Delete the file:
-      MemMark(__FILE__,__LINE__);
-      delete win_k_view_of_file_num->pfb;
-    }
-    // Delete the view:
-    MemMark(__FILE__,__LINE__);
-    delete win_k_view_of_file_num;
-
-    unsList& file_hist_k = file_hist[k];
-
-    // Remove all file_num's from file_hist
-    for( unsigned i=0; i<file_hist_k.len(); i++ )
-    {
-      if( file_num == file_hist_k[ i ] )
-      {
-        file_hist_k.remove( i );
-      }
-    }
-    // Decrement all file_hist numbers greater than file_num
-    for( unsigned i=0; i<file_hist_k.len(); i++ )
-    {
-      const unsigned val = file_hist_k[ i ];
-
-      if( file_num < val )
-      {
-        file_hist_k[ i ] = val-1;
-      }
-    }
-  }
-}
-
-void Vis::Do_Star_PrintPatterns( const bool HIGHLIGHT )
-{
-  for( unsigned w=0; w<num_wins; w++ )
-  {
-    views[w][ file_hist[w][0] ]->PrintPatterns( HIGHLIGHT );
-  }
-}
-
-void Vis::Do_Star_FindPatterns()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  // Tell every FileBuf that it needs to find the new pattern:
-  for( unsigned w=0; w<views[0].len(); w++ )
-  {
-    views[0][w]->pfb->need_2_find_stars = true;
-  }
-  // Only find new pattern now for FileBuf's that are displayed:
-  for( unsigned w=0; w<num_wins; w++ )
-  {
-    View* pV = views[w][ file_hist[w][0] ];
-
-    if( pV ) pV->pfb->Find_Stars();
-  }
-}
-
-void Vis::Do_Star_ClearPatterns()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  // Tell every FileBuf that it needs to clear the old pattern:
-  for( unsigned w=0; w<views[0].len(); w++ )
-  {
-    views[0][w]->pfb->need_2_clear_stars = true;
-  }
-  // Remove star patterns from displayed FileBuf's only:
-  for( unsigned w=0; w<num_wins; w++ )
-  {
-    View* pV = views[w][ file_hist[w][0] ];
-
-    if( pV ) pV->pfb->ClearStars();
-  }
-}
-
-// 1. Search for star pattern in search editor.
-// 2. If star pattern is found in search editor,
-//         move pattern to end of search editor
-//    else add star pattern to end of search editor
-// 3. Clear buffer editor un-saved change status
-// 4. If search editor is displayed, update search editor window
-//
-void Vis::Do_Star_Update_Search_Editor()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  View* const pseV = views[win][ SE_FILE ];
-  // Determine whether search editor has the star pattern
-  const unsigned NUM_SE_LINES = pseV->pfb->NumLines(); // Number of search editor lines
-  bool found_pattern_in_search_editor = false;
-  unsigned line_in_search_editor = 0;
-
-  for( unsigned ln=0; !found_pattern_in_search_editor && ln<NUM_SE_LINES; ln++ )
-  {
-    const unsigned LL = pseV->pfb->LineLen( ln );
-    // Copy line into m_sbuf until end of line or NULL byte
-    m_sbuf.clear();
-    int c = 1;
-    for( unsigned k=0; c && k<LL; k++ )
-    {
-      c = pseV->pfb->Get( ln, k );
-      m_sbuf.push( c );
-    }
-    if( m_sbuf == star )
-    {
-      found_pattern_in_search_editor = true;
-      line_in_search_editor = ln;
-    }
-  }
-  // 2. If star pattern is found in search editor,
-  //         move pattern to end of search editor
-  //    else add star pattern to end of search editor
-  if( found_pattern_in_search_editor )
-  {
-    // Move pattern to end of search editor, so newest searches are at bottom of file
-    if( line_in_search_editor < NUM_SE_LINES-1 )
-    {
-      Line* p = pseV->pfb->RemoveLineP( line_in_search_editor );
-      pseV->pfb->InsertLine( NUM_SE_LINES-1, p );
-    }
-  }
-  else
-  {
-    // Push star onto search editor buffer
-    Line line(__FILE__,__LINE__);
-    for( const char* p=star.c_str(); *p; p++ ) line.push(__FILE__,__LINE__, *p );
-    pseV->pfb->PushLine( line );
-  }
-  // 3. Clear buffer editor un-saved change status
-  pseV->pfb->ClearChanged();
-
-  // 4. If search editor is displayed, update search editor window
-  for( unsigned w=0; w<num_wins; w++ )
-  {
-    if( SE_FILE == file_hist[w][0] )
-    {
-      views[w][ SE_FILE ]->Update();
-    }
-  }
-}
-
-void Vis::GoToBuffer( const unsigned buf_idx )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  if( views[win].len() <= buf_idx )
-  {
-    CmdLineMessage( "Buffer %lu does not exist", buf_idx );
-  }
-  else {
-    if( buf_idx == file_hist[win][0] )
+    if( buf_idx == m_file_hist[m_win][0] )
     {
       // User asked for view that is currently displayed.
       // Dont do anything, just put cursor back in place.
       CV()->PrintCursor();
     }
     else {
-      file_hist[win].insert(__FILE__,__LINE__, 0, buf_idx );
+      m_file_hist[m_win].insert(__FILE__,__LINE__, 0, buf_idx );
 
-      // Remove subsequent buf_idx's from file_hist[win]:
-      for( unsigned k=1; k<file_hist[win].len(); k++ )
+      // Remove subsequent buf_idx's from m_file_hist[m_win]:
+      for( unsigned k=1; k<m_file_hist[m_win].len(); k++ )
       {
-        if( buf_idx == file_hist[win][k] ) file_hist[win].remove( k );
+        if( buf_idx == m_file_hist[m_win][k] ) m_file_hist[m_win].remove( k );
       }
       View* nv = CV(); // New View to display
       if( ! nv->Has_Context() )
       {
         // Look for context for the new view:
         bool found_context = false;
-        for( unsigned w=0; !found_context && w<num_wins; w++ )
+        for( unsigned w=0; !found_context && w<m_num_wins; w++ )
         {
-          View* v = views[w][ buf_idx ];
+          View* v = m_views[w][ buf_idx ];
           if( v->Has_Context() )
           {
             found_context = true;
@@ -2421,57 +2048,50 @@ void Vis::GoToBuffer( const unsigned buf_idx )
           }
         }
       }
-      nv->SetTilePos( PV()->tile_pos );
+      nv->SetTilePos( PV()->GetTilePos() );
       nv->Update();
     }
   }
 }
 
-void Vis::SetWinToBuffer( const unsigned win_idx
-                        , const unsigned buf_idx
-                        , const bool     update )
+void Vis::Imp::GoToNextBuffer()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( views[win_idx].len() <= buf_idx )
+  const unsigned FILE_HIST_LEN = m_file_hist[m_win].len();
+
+  if( FILE_HIST_LEN <= 1 )
   {
-    CmdLineMessage( "Buffer %lu does not exist", buf_idx );
+    // Nothing to do, so just put cursor back
+    CV()->PrintCursor();
   }
   else {
-    if( buf_idx == file_hist[win_idx][0] )
-    {
-      // User asked for view that is currently displayed in win_idx.
-      // Dont do anything.
-    }
-    else {
-      file_hist[win_idx].insert(__FILE__,__LINE__, 0, buf_idx );
+    View*    const pV_old = CV();
+    Tile_Pos const tp_old = pV_old->GetTilePos();
 
-      // Remove subsequent buf_idx's from file_hist[win_idx]:
-      for( unsigned k=1; k<file_hist[win_idx].len(); k++ )
-      {
-        if( buf_idx == file_hist[win_idx][k] ) file_hist[win_idx].remove( k );
-      }
-      View* pV_curr = views[win_idx][ file_hist[win_idx][0] ];
-      View* pV_prev = views[win_idx][ file_hist[win_idx][1] ];
+    // Move view index at back to front of m_file_hist
+    unsigned view_index_new = 0;
+    m_file_hist[m_win].pop( view_index_new );
+    m_file_hist[m_win].insert(__FILE__,__LINE__, 0, view_index_new );
 
-                   pV_curr->SetTilePos( pV_prev->tile_pos );
-      if( update ) pV_curr->Update();
-    }
+    // Redisplay current window with new view:
+    CV()->SetTilePos( tp_old );
+    CV()->Update();
   }
 }
 
-void Vis::GoToCurrBuffer()
+void Vis::Imp::GoToCurrBuffer()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
   // CVI = Current View Index
-  const unsigned CVI = file_hist[win][0];
+  const unsigned CVI = m_file_hist[m_win][0];
 
   if( CVI == BE_FILE
    || CVI == HELP_FILE
    || CVI == SE_FILE )  
   {
-    GoToBuffer( file_hist[win][1] );
+    GoToBuffer( m_file_hist[m_win][1] );
   }
   else {
     // User asked for view that is currently displayed.
@@ -2480,11 +2100,11 @@ void Vis::GoToCurrBuffer()
   }
 }
 
-void Vis::GoToNextBuffer()
+void Vis::Imp::GoToPrevBuffer()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  const unsigned FILE_HIST_LEN = file_hist[win].len();
+  const unsigned FILE_HIST_LEN = m_file_hist[m_win].len();
 
   if( FILE_HIST_LEN <= 1 )
   {
@@ -2493,62 +2113,12 @@ void Vis::GoToNextBuffer()
   }
   else {
     View*    const pV_old = CV();
-    Tile_Pos const tp_old = pV_old->tile_pos;
+    Tile_Pos const tp_old = pV_old->GetTilePos();
 
-    // Move view index at back to front of file_hist
-    unsigned view_index_new = 0;
-    file_hist[win].pop( view_index_new );
-    file_hist[win].insert(__FILE__,__LINE__, 0, view_index_new );
-
-    // Redisplay current window with new view:
-    CV()->SetTilePos( tp_old );
-    CV()->Update();
-  }
-}
-
-//-------------------------
-//| 5 | 4 | 3 | 2 | 1 | 0 |
-//-------------------------
-//:b -> GoToPrevBuffer()
-//-------------------------
-//| 4 | 3 | 2 | 1 | 0 | 5 |
-//-------------------------
-//:b -> GoToPrevBuffer()
-//-------------------------
-//| 3 | 2 | 1 | 0 | 5 | 4 |
-//-------------------------
-//:n -> GoToNextBuffer()
-//-------------------------
-//| 4 | 3 | 2 | 1 | 0 | 5 |
-//-------------------------
-//:n -> GoToNextBuffer()
-//-------------------------
-//| 5 | 4 | 3 | 2 | 1 | 0 |
-//-------------------------
-
-//-------------------------------
-//| f1 | be | bh | f4 | f3 | f2 |
-//-------------------------------
-
-void Vis::GoToPrevBuffer()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  const unsigned FILE_HIST_LEN = file_hist[win].len();
-
-  if( FILE_HIST_LEN <= 1 )
-  {
-    // Nothing to do, so just put cursor back
-    CV()->PrintCursor();
-  }
-  else {
-    View*    const pV_old = CV();
-    Tile_Pos const tp_old = pV_old->tile_pos;
-
-    // Move view index at front to back of file_hist
+    // Move view index at front to back of m_file_hist
     unsigned view_index_old = 0;
-    file_hist[win].remove( 0, view_index_old );
-    file_hist[win].push(__FILE__,__LINE__, view_index_old );
+    m_file_hist[m_win].remove( 0, view_index_old );
+    m_file_hist[m_win].push(__FILE__,__LINE__, view_index_old );
 
     // Redisplay current window with new view:
     CV()->SetTilePos( tp_old );
@@ -2556,114 +2126,722 @@ void Vis::GoToPrevBuffer()
   }
 }
 
-void Vis::BufferEditor()
+void Vis::Imp::GoToPoundBuffer()
+{
+  if( BE_FILE == m_file_hist[m_win][1] )
+  {
+    GoToBuffer( m_file_hist[m_win][2] );
+  }
+  else GoToBuffer( m_file_hist[m_win][1] );
+}
+
+void Vis::Imp::GoToBufferEditor()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
   GoToBuffer( BE_FILE );
 }
 
-void Vis::BufferMessage()
+void Vis::Imp::GoToMsgBuffer()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
   GoToBuffer( MSG_FILE );
 }
 
-void Vis::BufferShell()
+void Vis::Imp::GoToCmdBuffer()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
   GoToBuffer( CMD_FILE );
 }
 
-void Vis::Ch_Dir()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  const char* path = 0;
-
-  // 1. First get path to chdir to:
-  if( 0 != m_cbuf[2] ) // :cd relative_path
-  {
-    path = m_cbuf + 2;
-  }
-  else // :cd - chdir to location of current file
-  {
-    const char* fname = CV()->pfb->file_name.c_str();
-    const char* last_slash = strrchr( fname, DIR_DELIM );
-    if( 0==last_slash )
-    {
-      path = fname;
-    }
-    else {
-      // Put everything in fname except last slash into m_sbuf:
-      m_sbuf.clear(); // m_sbuf is a general purpose string buffer
-      for( const char* cp = fname; cp < last_slash; cp++ ) m_sbuf.push( *cp );
-      path = m_sbuf.c_str();
-    }
-  }
-
-  // 2. chdir
-  int err = chdir( path );
-  if( err )
-  {
-    CmdLineMessage( "chdir(%s) failed", path );
-    CV()->PrintCursor();
-  }
-  else {
-    GetCWD();
-  }
-}
-
-void Vis::GetCWD()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  const unsigned FILE_NAME_LEN = 1024;
-  char cwd[ FILE_NAME_LEN ];
-
-  if( ! getcwd( cwd, FILE_NAME_LEN ) )
-  {
-    CmdLineMessage( "getcwd() failed" );
-  }
-  else {
-    CmdLineMessage( "%s", cwd );
-  }
-  CV()->PrintCursor();
-}
-
-void Vis::Set_Syntax()
-{
-  const char* syn = strchr( m_cbuf, '=' );
-
-  if( NULL != syn )
-  {
-    // Move past '='
-    syn++;
-    if( 0 != *syn )
-    {
-      // Something after the '=' 
-      CV()->pfb->Set_File_Type( syn );
-    }
-  }
-}
-
-void Vis::SearchEditor()
+void Vis::Imp::GoToSearchBuffer()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
   GoToBuffer( SE_FILE );
 }
 
-void Vis::VSplitWindow()
+void Vis::Imp::GoToNextWindow()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( 1 < m_num_wins )
+  {
+    const unsigned win_old = m_win;
+
+    m_win = (++m_win) % m_num_wins;
+
+    View* pV     = m_views[m_win  ][ m_file_hist[m_win  ][0] ];
+    View* pV_old = m_views[win_old][ m_file_hist[win_old][0] ];
+
+    pV_old->Print_Borders();
+    pV    ->Print_Borders();
+
+    Console::Update();
+
+    m_diff_mode ? m_diff.PrintCursor( pV ) : pV->PrintCursor();
+  }
+}
+
+void Vis::Imp::GoToNextWindow_l()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( 1 < m_num_wins )
+  {
+    const unsigned win_old = m_win;
+
+    // If next view to go to was not found, dont do anything, just return
+    // If next view to go to is found, m_win will be updated to new value
+    if( GoToNextWindow_l_Find() )
+    {
+      View* pV     = m_views[m_win  ][ m_file_hist[m_win  ][0] ];
+      View* pV_old = m_views[win_old][ m_file_hist[win_old][0] ];
+
+      pV_old->Print_Borders();
+      pV    ->Print_Borders();
+
+      Console::Update();
+
+      m_diff_mode ? m_diff.PrintCursor( pV ) : pV->PrintCursor();
+    }
+  }
+}
+
+bool Vis::Imp::GoToNextWindow_l_Find()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  bool found = false; // Found next view to go to
+
+  const View*    curr_V  = m_views[m_win][ m_file_hist[m_win][0] ];
+  const Tile_Pos curr_TP = curr_V->GetTilePos();
+
+  if( curr_TP == TP_LEFT_HALF )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_RITE_HALF         == TP
+       || TP_TOP__RITE_QTR     == TP
+       || TP_BOT__RITE_QTR     == TP
+       || TP_RITE_CTR__QTR     == TP
+       || TP_TOP__LEFT_CTR_8TH == TP
+       || TP_BOT__LEFT_CTR_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_RITE_HALF )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_LEFT_HALF     == TP
+       || TP_TOP__LEFT_QTR == TP
+       || TP_BOT__LEFT_QTR == TP
+       || TP_LEFT_QTR      == TP
+       || TP_TOP__LEFT_8TH == TP
+       || TP_BOT__LEFT_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_TOP__LEFT_QTR )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_RITE_HALF         == TP
+       || TP_TOP__RITE_QTR     == TP
+       || TP_RITE_CTR__QTR     == TP
+       || TP_TOP__RITE_CTR_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_TOP__RITE_QTR )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_LEFT_HALF     == TP
+       || TP_LEFT_QTR      == TP
+       || TP_TOP__LEFT_QTR == TP
+       || TP_TOP__LEFT_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_BOT__LEFT_QTR )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_RITE_HALF         == TP
+       || TP_BOT__RITE_QTR     == TP
+       || TP_RITE_CTR__QTR     == TP
+       || TP_BOT__RITE_CTR_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_BOT__RITE_QTR )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_LEFT_HALF     == TP
+       || TP_LEFT_QTR      == TP
+       || TP_BOT__LEFT_QTR == TP
+       || TP_BOT__LEFT_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_LEFT_QTR )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_LEFT_CTR__QTR     == TP
+       || TP_TOP__LEFT_CTR_8TH == TP
+       || TP_BOT__LEFT_CTR_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_RITE_QTR )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_LEFT_HALF     == TP
+       || TP_LEFT_QTR      == TP
+       || TP_TOP__LEFT_8TH == TP
+       || TP_BOT__LEFT_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_LEFT_CTR__QTR )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_RITE_HALF         == TP
+       || TP_RITE_CTR__QTR     == TP
+       || TP_TOP__RITE_CTR_8TH == TP
+       || TP_BOT__RITE_CTR_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_RITE_CTR__QTR )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_RITE_QTR      == TP
+       || TP_TOP__RITE_8TH == TP
+       || TP_BOT__RITE_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_TOP__LEFT_8TH )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_LEFT_CTR__QTR     == TP
+       || TP_TOP__LEFT_CTR_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_BOT__LEFT_8TH )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_LEFT_CTR__QTR     == TP
+       || TP_BOT__LEFT_CTR_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_TOP__LEFT_CTR_8TH )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_RITE_HALF         == TP
+       || TP_RITE_CTR__QTR     == TP
+       || TP_TOP__RITE_QTR     == TP
+       || TP_TOP__RITE_CTR_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_BOT__LEFT_CTR_8TH )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_RITE_HALF         == TP
+       || TP_RITE_CTR__QTR     == TP
+       || TP_BOT__RITE_QTR     == TP
+       || TP_BOT__RITE_CTR_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_TOP__RITE_CTR_8TH )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_RITE_QTR      == TP
+       || TP_TOP__RITE_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_BOT__RITE_CTR_8TH )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_RITE_QTR      == TP
+       || TP_BOT__RITE_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_TOP__RITE_8TH )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_LEFT_HALF     == TP
+       || TP_LEFT_QTR      == TP
+       || TP_TOP__LEFT_QTR == TP
+       || TP_TOP__LEFT_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_BOT__RITE_8TH )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_LEFT_HALF     == TP
+       || TP_LEFT_QTR      == TP
+       || TP_BOT__LEFT_QTR == TP
+       || TP_BOT__LEFT_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  return found;
+}
+
+void Vis::Imp::GoToNextWindow_h()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( 1 < m_num_wins )
+  {
+    const unsigned win_old = m_win;
+
+    // If next view to go to was not found, dont do anything, just return
+    // If next view to go to is found, m_win will be updated to new value
+    if( GoToNextWindow_h_Find() )
+    {
+      View* pV     = m_views[m_win  ][ m_file_hist[m_win  ][0] ];
+      View* pV_old = m_views[win_old][ m_file_hist[win_old][0] ];
+
+      pV_old->Print_Borders();
+      pV    ->Print_Borders();
+
+      Console::Update();
+
+      m_diff_mode ? m_diff.PrintCursor( pV ) : pV->PrintCursor();
+    }
+  }
+}
+
+bool Vis::Imp::GoToNextWindow_h_Find()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  bool found = false; // Found next view to go to
+
+  const View*    curr_V  = m_views[m_win][ m_file_hist[m_win][0] ];
+  const Tile_Pos curr_TP = curr_V->GetTilePos();
+
+  if( curr_TP == TP_LEFT_HALF )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_RITE_HALF     == TP
+       || TP_TOP__RITE_QTR == TP
+       || TP_BOT__RITE_QTR == TP
+       || TP_RITE_QTR      == TP
+       || TP_TOP__RITE_8TH == TP
+       || TP_BOT__RITE_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_RITE_HALF )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_LEFT_HALF         == TP
+       || TP_TOP__LEFT_QTR     == TP
+       || TP_BOT__LEFT_QTR     == TP
+       || TP_LEFT_CTR__QTR     == TP
+       || TP_TOP__LEFT_CTR_8TH == TP
+       || TP_BOT__LEFT_CTR_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_TOP__LEFT_QTR )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_RITE_HALF     == TP
+       || TP_TOP__RITE_QTR == TP
+       || TP_RITE_QTR      == TP
+       || TP_TOP__RITE_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_TOP__RITE_QTR )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_LEFT_HALF         == TP
+       || TP_LEFT_CTR__QTR     == TP
+       || TP_TOP__LEFT_QTR     == TP
+       || TP_TOP__LEFT_CTR_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_BOT__LEFT_QTR )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_RITE_HALF     == TP
+       || TP_BOT__RITE_QTR == TP
+       || TP_RITE_QTR      == TP
+       || TP_BOT__RITE_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_BOT__RITE_QTR )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_LEFT_HALF         == TP
+       || TP_LEFT_CTR__QTR     == TP
+       || TP_BOT__LEFT_QTR     == TP
+       || TP_BOT__LEFT_CTR_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_LEFT_QTR )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_RITE_HALF     == TP
+       || TP_RITE_QTR      == TP
+       || TP_TOP__RITE_8TH == TP
+       || TP_BOT__RITE_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_RITE_QTR )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_RITE_CTR__QTR     == TP
+       || TP_TOP__LEFT_CTR_8TH == TP
+       || TP_BOT__LEFT_CTR_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_LEFT_CTR__QTR )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_LEFT_QTR      == TP
+       || TP_TOP__LEFT_8TH == TP
+       || TP_BOT__LEFT_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_RITE_CTR__QTR )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_LEFT_HALF         == TP
+       || TP_LEFT_CTR__QTR     == TP
+       || TP_TOP__LEFT_QTR     == TP
+       || TP_BOT__LEFT_QTR     == TP
+       || TP_TOP__LEFT_CTR_8TH == TP
+       || TP_BOT__LEFT_CTR_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_TOP__LEFT_8TH )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_RITE_HALF     == TP
+       || TP_TOP__RITE_QTR == TP
+       || TP_RITE_QTR      == TP
+       || TP_TOP__RITE_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_BOT__LEFT_8TH )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_RITE_HALF     == TP
+       || TP_BOT__RITE_QTR == TP
+       || TP_RITE_QTR      == TP
+       || TP_BOT__RITE_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_TOP__LEFT_CTR_8TH )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_LEFT_QTR      == TP
+       || TP_TOP__LEFT_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_BOT__LEFT_CTR_8TH )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_LEFT_QTR      == TP
+       || TP_BOT__LEFT_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_TOP__RITE_CTR_8TH )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_LEFT_HALF         == TP
+       || TP_TOP__LEFT_QTR     == TP
+       || TP_LEFT_CTR__QTR     == TP
+       || TP_TOP__LEFT_CTR_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_BOT__RITE_CTR_8TH )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_LEFT_HALF         == TP
+       || TP_BOT__LEFT_QTR     == TP
+       || TP_LEFT_CTR__QTR     == TP
+       || TP_BOT__LEFT_CTR_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_TOP__RITE_8TH )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_RITE_CTR__QTR     == TP
+       || TP_TOP__RITE_CTR_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_BOT__RITE_8TH )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_RITE_CTR__QTR     == TP
+       || TP_BOT__RITE_CTR_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  return found;
+}
+
+void Vis::Imp::GoToNextWindow_jk()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( 1 < m_num_wins )
+  {
+    const unsigned win_old = m_win;
+
+    // If next view to go to was not found, dont do anything, just return
+    // If next view to go to is found, m_win will be updated to new value
+    if( GoToNextWindow_jk_Find() )
+    {
+      View* pV     = m_views[m_win  ][ m_file_hist[m_win  ][0] ];
+      View* pV_old = m_views[win_old][ m_file_hist[win_old][0] ];
+
+      pV_old->Print_Borders();
+      pV    ->Print_Borders();
+
+      Console::Update();
+
+      m_diff_mode ? m_diff.PrintCursor( pV ) : pV->PrintCursor();
+    }
+  }
+}
+
+bool Vis::Imp::GoToNextWindow_jk_Find()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  bool found = false; // Found next view to go to
+
+  const View*    curr_V  = m_views[m_win][ m_file_hist[m_win][0] ];
+  const Tile_Pos curr_TP = curr_V->GetTilePos();
+
+  if( curr_TP == TP_TOP__HALF )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_BOT__HALF         == TP
+       || TP_BOT__LEFT_QTR     == TP
+       || TP_BOT__RITE_QTR     == TP
+       || TP_BOT__LEFT_8TH     == TP
+       || TP_BOT__RITE_8TH     == TP
+       || TP_BOT__LEFT_CTR_8TH == TP
+       || TP_BOT__RITE_CTR_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_BOT__HALF )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_TOP__HALF         == TP
+       || TP_TOP__LEFT_QTR     == TP
+       || TP_TOP__RITE_QTR     == TP
+       || TP_TOP__LEFT_8TH     == TP
+       || TP_TOP__RITE_8TH     == TP
+       || TP_TOP__LEFT_CTR_8TH == TP
+       || TP_TOP__RITE_CTR_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_TOP__LEFT_QTR )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_BOT__HALF         == TP
+       || TP_BOT__LEFT_QTR     == TP
+       || TP_BOT__LEFT_8TH     == TP
+       || TP_BOT__LEFT_CTR_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_TOP__RITE_QTR )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_BOT__HALF         == TP
+       || TP_BOT__RITE_QTR     == TP
+       || TP_BOT__RITE_8TH     == TP
+       || TP_BOT__RITE_CTR_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_BOT__LEFT_QTR )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_TOP__HALF         == TP
+       || TP_TOP__LEFT_QTR     == TP
+       || TP_TOP__LEFT_8TH     == TP
+       || TP_TOP__LEFT_CTR_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_BOT__RITE_QTR )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_TOP__HALF         == TP
+       || TP_TOP__RITE_QTR     == TP
+       || TP_TOP__RITE_8TH     == TP
+       || TP_TOP__RITE_CTR_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_TOP__LEFT_8TH )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_BOT__HALF     == TP
+       || TP_BOT__LEFT_QTR == TP
+       || TP_BOT__LEFT_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_TOP__RITE_8TH )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_BOT__HALF     == TP
+       || TP_BOT__RITE_QTR == TP
+       || TP_BOT__RITE_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_TOP__LEFT_CTR_8TH )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_BOT__HALF         == TP
+       || TP_BOT__LEFT_QTR     == TP
+       || TP_BOT__LEFT_CTR_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_TOP__RITE_CTR_8TH )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_BOT__HALF         == TP
+       || TP_BOT__RITE_QTR     == TP
+       || TP_BOT__RITE_CTR_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_BOT__LEFT_8TH )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_TOP__HALF     == TP
+       || TP_TOP__LEFT_QTR == TP
+       || TP_TOP__LEFT_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_BOT__RITE_8TH )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_TOP__HALF     == TP
+       || TP_TOP__RITE_QTR == TP
+       || TP_TOP__RITE_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_BOT__LEFT_CTR_8TH )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_TOP__HALF         == TP
+       || TP_TOP__LEFT_QTR     == TP
+       || TP_TOP__LEFT_CTR_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  else if( curr_TP == TP_BOT__RITE_CTR_8TH )
+  {
+    for( unsigned k=0; !found && k<m_num_wins; k++ )
+    {
+      const Tile_Pos TP = (m_views[k][ m_file_hist[k][0] ])->GetTilePos();
+      if( TP_TOP__HALF         == TP
+       || TP_TOP__RITE_QTR     == TP
+       || TP_TOP__RITE_CTR_8TH == TP ) { m_win = k; found = true; }
+    }
+  }
+  return found;
+}
+
+void Vis::Imp::VSplitWindow()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
   View* cv = CV();
-  const Tile_Pos cv_tp = cv->tile_pos;
+  const Tile_Pos cv_tp = cv->GetTilePos();
 
-  if( num_wins < MAX_WINS 
+  if( m_num_wins < MAX_WINS 
    && ( cv_tp == TP_FULL
      || cv_tp == TP_TOP__HALF
      || cv_tp == TP_BOT__HALF
@@ -2674,19 +2852,19 @@ void Vis::VSplitWindow()
      || cv_tp == TP_TOP__RITE_QTR
      || cv_tp == TP_BOT__RITE_QTR ) )
   {
-    ASSERT( __LINE__, win < num_wins, "win < num_wins" );
+    ASSERT( __LINE__, m_win < m_num_wins, "m_win < m_num_wins" );
 
-    file_hist[num_wins] = file_hist[win];
+    m_file_hist[m_num_wins] = m_file_hist[m_win];
 
-    View* nv = views[num_wins][ file_hist[num_wins][0] ];
+    View* nv = m_views[m_num_wins][ m_file_hist[m_num_wins][0] ];
 
-    nv-> topLine     = cv-> topLine    ;
-    nv-> leftChar    = cv-> leftChar   ;
-    nv-> crsRow      = cv-> crsRow     ;
-    nv-> crsCol      = cv-> crsCol     ;
+    nv->SetTopLine ( cv->GetTopLine () );
+    nv->SetLeftChar( cv->GetLeftChar() );
+    nv->SetCrsRow  ( cv->GetCrsRow  () );
+    nv->SetCrsCol  ( cv->GetCrsCol  () );
 
-    win = num_wins;
-    num_wins++;
+    m_win = m_num_wins;
+    m_num_wins++;
 
     if( cv_tp == TP_FULL )
     {
@@ -2737,14 +2915,14 @@ void Vis::VSplitWindow()
   UpdateAll();
 }
 
-void Vis::HSplitWindow()
+void Vis::Imp::HSplitWindow()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
   View* cv = CV();
-  const Tile_Pos cv_tp = cv->tile_pos;
+  const Tile_Pos cv_tp = cv->GetTilePos();
 
-  if( num_wins < MAX_WINS 
+  if( m_num_wins < MAX_WINS 
    && ( cv_tp == TP_FULL
      || cv_tp == TP_LEFT_HALF
      || cv_tp == TP_RITE_HALF
@@ -2753,19 +2931,19 @@ void Vis::HSplitWindow()
      || cv_tp == TP_LEFT_CTR__QTR
      || cv_tp == TP_RITE_CTR__QTR ) )
   {
-    ASSERT( __LINE__, win < num_wins, "win < num_wins" );
+    ASSERT( __LINE__, m_win < m_num_wins, "m_win < m_num_wins" );
 
-    file_hist[num_wins] = file_hist[win];
+    m_file_hist[m_num_wins] = m_file_hist[m_win];
 
-    View* nv = views[num_wins][ file_hist[num_wins][0] ];
+    View* nv = m_views[m_num_wins][ m_file_hist[m_num_wins][0] ];
 
-    nv-> topLine     = cv-> topLine    ;
-    nv-> leftChar    = cv-> leftChar   ;
-    nv-> crsRow      = cv-> crsRow     ;
-    nv-> crsCol      = cv-> crsCol     ;
+    nv->SetTopLine ( cv->GetTopLine () );
+    nv->SetLeftChar( cv->GetLeftChar() );
+    nv->SetCrsRow  ( cv->GetCrsRow  () );
+    nv->SetCrsCol  ( cv->GetCrsCol  () );
 
-    win = num_wins;
-    num_wins++;
+    m_win = m_num_wins;
+    m_num_wins++;
 
     if( cv_tp == TP_FULL )
     {
@@ -2806,707 +2984,1044 @@ void Vis::HSplitWindow()
   UpdateAll();
 }
 
-void Vis::AdjustViews()
-{
-  for( unsigned w=0; w<num_wins; w++ )
-  {
-    views[w][ file_hist[w][0] ]->SetViewPos();
-  }
-}
-
-void Vis::GoToNextWindow()
+void Vis::Imp::FlipWindows()
 {
   Trace trace( __PRETTY_FUNCTION__ );
-
-  if( 1 < num_wins )
-  {
-    const unsigned win_old = win;
-
-    win = (++win) % num_wins;
-
-    View* pV     = views[win    ][ file_hist[win    ][0] ];
-    View* pV_old = views[win_old][ file_hist[win_old][0] ];
-
-    pV_old->Print_Borders();
-    pV    ->Print_Borders();
-
-    Console::Update();
-
-    m_diff_mode ? diff.PrintCursor( pV ) : pV->PrintCursor();
-  }
-}
-
-void Vis::GoToNextWindow_l()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  if( 1 < num_wins )
-  {
-    const unsigned win_old = win;
-
-    // If next view to go to was not found, dont do anything, just return
-    // If next view to go to is found, win will be updated to new value
-    if( GoToNextWindow_l_Find() )
-    {
-      View* pV     = views[win    ][ file_hist[win    ][0] ];
-      View* pV_old = views[win_old][ file_hist[win_old][0] ];
-
-      pV_old->Print_Borders();
-      pV    ->Print_Borders();
-
-      Console::Update();
-
-      m_diff_mode ? diff.PrintCursor( pV ) : pV->PrintCursor();
-    }
-  }
-}
-
-bool Vis::GoToNextWindow_l_Find()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  bool found = false; // Found next view to go to
-
-  const View*    curr_V  = views[win][ file_hist[win][0] ];
-  const Tile_Pos curr_TP = curr_V->tile_pos;
-
-  if( curr_TP == TP_LEFT_HALF )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_RITE_HALF         == TP
-       || TP_TOP__RITE_QTR     == TP
-       || TP_BOT__RITE_QTR     == TP
-       || TP_RITE_CTR__QTR     == TP
-       || TP_TOP__LEFT_CTR_8TH == TP
-       || TP_BOT__LEFT_CTR_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_RITE_HALF )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_LEFT_HALF     == TP
-       || TP_TOP__LEFT_QTR == TP
-       || TP_BOT__LEFT_QTR == TP
-       || TP_LEFT_QTR      == TP
-       || TP_TOP__LEFT_8TH == TP
-       || TP_BOT__LEFT_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_TOP__LEFT_QTR )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_RITE_HALF         == TP
-       || TP_TOP__RITE_QTR     == TP
-       || TP_RITE_CTR__QTR     == TP
-       || TP_TOP__RITE_CTR_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_TOP__RITE_QTR )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_LEFT_HALF     == TP
-       || TP_LEFT_QTR      == TP
-       || TP_TOP__LEFT_QTR == TP
-       || TP_TOP__LEFT_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_BOT__LEFT_QTR )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_RITE_HALF         == TP
-       || TP_BOT__RITE_QTR     == TP
-       || TP_RITE_CTR__QTR     == TP
-       || TP_BOT__RITE_CTR_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_BOT__RITE_QTR )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_LEFT_HALF     == TP
-       || TP_LEFT_QTR      == TP
-       || TP_BOT__LEFT_QTR == TP
-       || TP_BOT__LEFT_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_LEFT_QTR )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_LEFT_CTR__QTR     == TP
-       || TP_TOP__LEFT_CTR_8TH == TP
-       || TP_BOT__LEFT_CTR_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_RITE_QTR )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_LEFT_HALF     == TP
-       || TP_LEFT_QTR      == TP
-       || TP_TOP__LEFT_8TH == TP
-       || TP_BOT__LEFT_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_LEFT_CTR__QTR )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_RITE_HALF         == TP
-       || TP_RITE_CTR__QTR     == TP
-       || TP_TOP__RITE_CTR_8TH == TP
-       || TP_BOT__RITE_CTR_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_RITE_CTR__QTR )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_RITE_QTR      == TP
-       || TP_TOP__RITE_8TH == TP
-       || TP_BOT__RITE_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_TOP__LEFT_8TH )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_LEFT_CTR__QTR     == TP
-       || TP_TOP__LEFT_CTR_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_BOT__LEFT_8TH )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_LEFT_CTR__QTR     == TP
-       || TP_BOT__LEFT_CTR_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_TOP__LEFT_CTR_8TH )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_RITE_HALF         == TP
-       || TP_RITE_CTR__QTR     == TP
-       || TP_TOP__RITE_QTR     == TP
-       || TP_TOP__RITE_CTR_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_BOT__LEFT_CTR_8TH )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_RITE_HALF         == TP
-       || TP_RITE_CTR__QTR     == TP
-       || TP_BOT__RITE_QTR     == TP
-       || TP_BOT__RITE_CTR_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_TOP__RITE_CTR_8TH )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_RITE_QTR      == TP
-       || TP_TOP__RITE_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_BOT__RITE_CTR_8TH )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_RITE_QTR      == TP
-       || TP_BOT__RITE_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_TOP__RITE_8TH )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_LEFT_HALF     == TP
-       || TP_LEFT_QTR      == TP
-       || TP_TOP__LEFT_QTR == TP
-       || TP_TOP__LEFT_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_BOT__RITE_8TH )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_LEFT_HALF     == TP
-       || TP_LEFT_QTR      == TP
-       || TP_BOT__LEFT_QTR == TP
-       || TP_BOT__LEFT_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  return found;
-}
-
-void Vis::GoToNextWindow_h()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  if( 1 < num_wins )
-  {
-    const unsigned win_old = win;
-
-    // If next view to go to was not found, dont do anything, just return
-    // If next view to go to is found, win will be updated to new value
-    if( GoToNextWindow_h_Find() )
-    {
-      View* pV     = views[win    ][ file_hist[win    ][0] ];
-      View* pV_old = views[win_old][ file_hist[win_old][0] ];
-
-      pV_old->Print_Borders();
-      pV    ->Print_Borders();
-
-      Console::Update();
-
-      m_diff_mode ? diff.PrintCursor( pV ) : pV->PrintCursor();
-    }
-  }
-}
-
-bool Vis::GoToNextWindow_h_Find()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  bool found = false; // Found next view to go to
-
-  const View*    curr_V  = views[win][ file_hist[win][0] ];
-  const Tile_Pos curr_TP = curr_V->tile_pos;
-
-  if( curr_TP == TP_LEFT_HALF )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_RITE_HALF     == TP
-       || TP_TOP__RITE_QTR == TP
-       || TP_BOT__RITE_QTR == TP
-       || TP_RITE_QTR      == TP
-       || TP_TOP__RITE_8TH == TP
-       || TP_BOT__RITE_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_RITE_HALF )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_LEFT_HALF         == TP
-       || TP_TOP__LEFT_QTR     == TP
-       || TP_BOT__LEFT_QTR     == TP
-       || TP_LEFT_CTR__QTR     == TP
-       || TP_TOP__LEFT_CTR_8TH == TP
-       || TP_BOT__LEFT_CTR_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_TOP__LEFT_QTR )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_RITE_HALF     == TP
-       || TP_TOP__RITE_QTR == TP
-       || TP_RITE_QTR      == TP
-       || TP_TOP__RITE_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_TOP__RITE_QTR )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_LEFT_HALF         == TP
-       || TP_LEFT_CTR__QTR     == TP
-       || TP_TOP__LEFT_QTR     == TP
-       || TP_TOP__LEFT_CTR_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_BOT__LEFT_QTR )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_RITE_HALF     == TP
-       || TP_BOT__RITE_QTR == TP
-       || TP_RITE_QTR      == TP
-       || TP_BOT__RITE_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_BOT__RITE_QTR )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_LEFT_HALF         == TP
-       || TP_LEFT_CTR__QTR     == TP
-       || TP_BOT__LEFT_QTR     == TP
-       || TP_BOT__LEFT_CTR_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_LEFT_QTR )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_RITE_HALF     == TP
-       || TP_RITE_QTR      == TP
-       || TP_TOP__RITE_8TH == TP
-       || TP_BOT__RITE_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_RITE_QTR )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_RITE_CTR__QTR     == TP
-       || TP_TOP__LEFT_CTR_8TH == TP
-       || TP_BOT__LEFT_CTR_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_LEFT_CTR__QTR )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_LEFT_QTR      == TP
-       || TP_TOP__LEFT_8TH == TP
-       || TP_BOT__LEFT_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_RITE_CTR__QTR )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_LEFT_HALF         == TP
-       || TP_LEFT_CTR__QTR     == TP
-       || TP_TOP__LEFT_QTR     == TP
-       || TP_BOT__LEFT_QTR     == TP
-       || TP_TOP__LEFT_CTR_8TH == TP
-       || TP_BOT__LEFT_CTR_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_TOP__LEFT_8TH )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_RITE_HALF     == TP
-       || TP_TOP__RITE_QTR == TP
-       || TP_RITE_QTR      == TP
-       || TP_TOP__RITE_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_BOT__LEFT_8TH )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_RITE_HALF     == TP
-       || TP_BOT__RITE_QTR == TP
-       || TP_RITE_QTR      == TP
-       || TP_BOT__RITE_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_TOP__LEFT_CTR_8TH )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_LEFT_QTR      == TP
-       || TP_TOP__LEFT_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_BOT__LEFT_CTR_8TH )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_LEFT_QTR      == TP
-       || TP_BOT__LEFT_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_TOP__RITE_CTR_8TH )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_LEFT_HALF         == TP
-       || TP_TOP__LEFT_QTR     == TP
-       || TP_LEFT_CTR__QTR     == TP
-       || TP_TOP__LEFT_CTR_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_BOT__RITE_CTR_8TH )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_LEFT_HALF         == TP
-       || TP_BOT__LEFT_QTR     == TP
-       || TP_LEFT_CTR__QTR     == TP
-       || TP_BOT__LEFT_CTR_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_TOP__RITE_8TH )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_RITE_CTR__QTR     == TP
-       || TP_TOP__RITE_CTR_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_BOT__RITE_8TH )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_RITE_CTR__QTR     == TP
-       || TP_BOT__RITE_CTR_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  return found;
-}
-
-void Vis::GoToNextWindow_jk()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  if( 1 < num_wins )
-  {
-    const unsigned win_old = win;
-
-    // If next view to go to was not found, dont do anything, just return
-    // If next view to go to is found, win will be updated to new value
-    if( GoToNextWindow_jk_Find() )
-    {
-      View* pV     = views[win    ][ file_hist[win    ][0] ];
-      View* pV_old = views[win_old][ file_hist[win_old][0] ];
-
-      pV_old->Print_Borders();
-      pV    ->Print_Borders();
-
-      Console::Update();
-
-      m_diff_mode ? diff.PrintCursor( pV ) : pV->PrintCursor();
-    }
-  }
-}
-
-bool Vis::GoToNextWindow_jk_Find()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  bool found = false; // Found next view to go to
-
-  const View*    curr_V  = views[win][ file_hist[win][0] ];
-  const Tile_Pos curr_TP = curr_V->tile_pos;
-
-  if( curr_TP == TP_TOP__HALF )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_BOT__HALF         == TP
-       || TP_BOT__LEFT_QTR     == TP
-       || TP_BOT__RITE_QTR     == TP
-       || TP_BOT__LEFT_8TH     == TP
-       || TP_BOT__RITE_8TH     == TP
-       || TP_BOT__LEFT_CTR_8TH == TP
-       || TP_BOT__RITE_CTR_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_BOT__HALF )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_TOP__HALF         == TP
-       || TP_TOP__LEFT_QTR     == TP
-       || TP_TOP__RITE_QTR     == TP
-       || TP_TOP__LEFT_8TH     == TP
-       || TP_TOP__RITE_8TH     == TP
-       || TP_TOP__LEFT_CTR_8TH == TP
-       || TP_TOP__RITE_CTR_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_TOP__LEFT_QTR )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_BOT__HALF         == TP
-       || TP_BOT__LEFT_QTR     == TP
-       || TP_BOT__LEFT_8TH     == TP
-       || TP_BOT__LEFT_CTR_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_TOP__RITE_QTR )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_BOT__HALF         == TP
-       || TP_BOT__RITE_QTR     == TP
-       || TP_BOT__RITE_8TH     == TP
-       || TP_BOT__RITE_CTR_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_BOT__LEFT_QTR )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_TOP__HALF         == TP
-       || TP_TOP__LEFT_QTR     == TP
-       || TP_TOP__LEFT_8TH     == TP
-       || TP_TOP__LEFT_CTR_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_BOT__RITE_QTR )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_TOP__HALF         == TP
-       || TP_TOP__RITE_QTR     == TP
-       || TP_TOP__RITE_8TH     == TP
-       || TP_TOP__RITE_CTR_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_TOP__LEFT_8TH )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_BOT__HALF     == TP
-       || TP_BOT__LEFT_QTR == TP
-       || TP_BOT__LEFT_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_TOP__RITE_8TH )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_BOT__HALF     == TP
-       || TP_BOT__RITE_QTR == TP
-       || TP_BOT__RITE_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_TOP__LEFT_CTR_8TH )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_BOT__HALF         == TP
-       || TP_BOT__LEFT_QTR     == TP
-       || TP_BOT__LEFT_CTR_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_TOP__RITE_CTR_8TH )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_BOT__HALF         == TP
-       || TP_BOT__RITE_QTR     == TP
-       || TP_BOT__RITE_CTR_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_BOT__LEFT_8TH )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_TOP__HALF     == TP
-       || TP_TOP__LEFT_QTR == TP
-       || TP_TOP__LEFT_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_BOT__RITE_8TH )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_TOP__HALF     == TP
-       || TP_TOP__RITE_QTR == TP
-       || TP_TOP__RITE_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_BOT__LEFT_CTR_8TH )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_TOP__HALF         == TP
-       || TP_TOP__LEFT_QTR     == TP
-       || TP_TOP__LEFT_CTR_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  else if( curr_TP == TP_BOT__RITE_CTR_8TH )
-  {
-    for( unsigned k=0; !found && k<num_wins; k++ )
-    {
-      const Tile_Pos TP = (views[k][ file_hist[k][0] ])->tile_pos;
-      if( TP_TOP__HALF         == TP
-       || TP_TOP__RITE_QTR     == TP
-       || TP_TOP__RITE_CTR_8TH == TP ) { win = k; found = true; }
-    }
-  }
-  return found;
-}
-
-void Vis::FlipWindows()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-  if( 1 < num_wins )
+  if( 1 < m_num_wins )
   {
     // This code only works for MAX_WINS == 2
-    View* pV1 = views[0][ file_hist[0][0] ];
-    View* pV2 = views[1][ file_hist[1][0] ];
+    View* pV1 = m_views[0][ m_file_hist[0][0] ];
+    View* pV2 = m_views[1][ m_file_hist[1][0] ];
 
     if( pV1 != pV2 )
     {
       // Swap pV1 and pV2 Tile Positions:
-      Tile_Pos tp_v1 = pV1->tile_pos;
-      pV1->SetTilePos( pV2->tile_pos );
+      Tile_Pos tp_v1 = pV1->GetTilePos();
+      pV1->SetTilePos( pV2->GetTilePos() );
       pV2->SetTilePos( tp_v1 );
     }
     UpdateAll();
   }
 }
 
+bool Vis::Imp::FName_2_FNum( const String& full_fname, unsigned& file_num )
+{
+  bool found = false;
+
+  for( unsigned k=0; !found && k<m_files.len(); k++ )
+  {
+    if( full_fname == m_files[ k ]->GetFileName() )
+    {
+      found = true;
+      file_num = k;
+    }
+  }
+  return found;
+}
+
+void Vis::Imp::ReleaseFileNum( const unsigned file_num )
+{
+  bool ok = m_files.remove( file_num );
+
+  for( unsigned k=0; ok && k<MAX_WINS; k++ )
+  {
+    View* win_k_view_of_file_num;
+    m_views[k].remove( file_num, win_k_view_of_file_num );
+
+    if( 0==k ) {
+      // Delete the file:
+      MemMark(__FILE__,__LINE__);
+      delete win_k_view_of_file_num->GetFB();
+    }
+    // Delete the view:
+    MemMark(__FILE__,__LINE__);
+    delete win_k_view_of_file_num;
+
+    unsList& file_hist_k = m_file_hist[k];
+
+    // Remove all file_num's from m_file_hist
+    for( unsigned i=0; i<file_hist_k.len(); i++ )
+    {
+      if( file_num == file_hist_k[ i ] )
+      {
+        file_hist_k.remove( i );
+      }
+    }
+    // Decrement all file_hist numbers greater than file_num
+    for( unsigned i=0; i<file_hist_k.len(); i++ )
+    {
+      const unsigned val = file_hist_k[ i ];
+
+      if( file_num < val )
+      {
+        file_hist_k[ i ] = val-1;
+      }
+    }
+  }
+}
+
+void Vis::Imp::Do_Star_FindPatterns()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  // Tell every FileBuf that it needs to find the new pattern:
+  for( unsigned w=0; w<m_views[0].len(); w++ )
+  {
+    m_views[0][w]->GetFB()->NeedToFindStars();
+  }
+  // Only find new pattern now for FileBuf's that are displayed:
+  for( unsigned w=0; w<m_num_wins; w++ )
+  {
+    View* pV = m_views[w][ m_file_hist[w][0] ];
+
+    if( pV ) pV->GetFB()->Find_Stars();
+  }
+}
+
+void Vis::Imp::Do_Star_ClearPatterns()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  // Tell every FileBuf that it needs to clear the old pattern:
+  for( unsigned w=0; w<m_views[0].len(); w++ )
+  {
+    m_views[0][w]->GetFB()->NeedToClearStars();
+  }
+  // Remove star patterns from displayed FileBuf's only:
+  for( unsigned w=0; w<m_num_wins; w++ )
+  {
+    View* pV = m_views[w][ m_file_hist[w][0] ];
+
+    if( pV ) pV->GetFB()->ClearStars();
+  }
+}
+
+void Vis::Imp::Do_Star_PrintPatterns( const bool HIGHLIGHT )
+{
+  for( unsigned w=0; w<m_num_wins; w++ )
+  {
+    m_views[w][ m_file_hist[w][0] ]->PrintPatterns( HIGHLIGHT );
+  }
+}
+
+// 1. Search for star pattern in search editor.
+// 2. If star pattern is found in search editor,
+//         move pattern to end of search editor
+//    else add star pattern to end of search editor
+// 3. Clear buffer editor un-saved change status
+// 4. If search editor is displayed, update search editor window
+//
+void Vis::Imp::Do_Star_Update_Search_Editor()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  View* const pseV = m_views[m_win][ SE_FILE ];
+  // Determine whether search editor has the star pattern
+  const unsigned NUM_SE_LINES = pseV->GetFB()->NumLines(); // Number of search editor lines
+  bool found_pattern_in_search_editor = false;
+  unsigned line_in_search_editor = 0;
+
+  for( unsigned ln=0; !found_pattern_in_search_editor && ln<NUM_SE_LINES; ln++ )
+  {
+    const unsigned LL = pseV->GetFB()->LineLen( ln );
+    // Copy line into m_sbuf until end of line or NULL byte
+    m_sbuf.clear();
+    int c = 1;
+    for( unsigned k=0; c && k<LL; k++ )
+    {
+      c = pseV->GetFB()->Get( ln, k );
+      m_sbuf.push( c );
+    }
+    if( m_sbuf == m_star )
+    {
+      found_pattern_in_search_editor = true;
+      line_in_search_editor = ln;
+    }
+  }
+  // 2. If star pattern is found in search editor,
+  //         move pattern to end of search editor
+  //    else add star pattern to end of search editor
+  if( found_pattern_in_search_editor )
+  {
+    // Move pattern to end of search editor, so newest searches are at bottom of file
+    if( line_in_search_editor < NUM_SE_LINES-1 )
+    {
+      Line* p = pseV->GetFB()->RemoveLineP( line_in_search_editor );
+      pseV->GetFB()->InsertLine( NUM_SE_LINES-1, p );
+    }
+  }
+  else
+  {
+    // Push star onto search editor buffer
+    Line line(__FILE__,__LINE__);
+    for( const char* p=m_star.c_str(); *p; p++ ) line.push(__FILE__,__LINE__, *p );
+    pseV->GetFB()->PushLine( line );
+  }
+  // 3. Clear buffer editor un-saved change status
+  pseV->GetFB()->ClearChanged();
+
+  // 4. If search editor is displayed, update search editor window
+  for( unsigned w=0; w<m_num_wins; w++ )
+  {
+    if( SE_FILE == m_file_hist[w][0] )
+    {
+      m_views[w][ SE_FILE ]->Update();
+    }
+  }
+}
+
+void Vis::Imp::Handle_Cmd()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+  const char CC = m_key.In();
+ 
+  CmdFunc cf = CmdFuncs[ CC ];
+  if( cf ) (this->*cf)();
+}
+
+void Vis::Imp::Handle_i()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( !m_key.get_from_dot_buf )
+  {
+    m_key.dot_buf.clear();
+    m_key.dot_buf.push(__FILE__,__LINE__,'i');
+    m_key.save_2_dot_buf = true;
+  }
+
+  if( m_diff_mode ) m_diff.Do_i();
+  else               CV()->Do_i();
+
+  if( !m_key.get_from_dot_buf )
+  {
+    m_key.save_2_dot_buf = false;
+  }
+}
+
+void Vis::Imp::Handle_v()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( !m_key.get_from_dot_buf )
+  {
+    m_key.vis_buf.clear();
+    m_key.vis_buf.push(__FILE__,__LINE__,'v');
+    m_key.save_2_vis_buf = true;
+  }
+  const bool copy_vis_buf_2_dot_buf = m_diff_mode
+                                    ? m_diff.Do_v()
+                                    :  CV()->Do_v();
+  if( !m_key.get_from_dot_buf )
+  {
+    m_key.save_2_vis_buf = false;
+
+    if( copy_vis_buf_2_dot_buf )
+    {
+      m_key.dot_buf.copy( m_key.vis_buf );
+    }
+  }
+}
+
+void Vis::Imp::Handle_V()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( !m_key.get_from_dot_buf )
+  {
+    m_key.vis_buf.clear();
+    m_key.vis_buf.push(__FILE__,__LINE__,'V');
+    m_key.save_2_vis_buf = true;
+  }
+  const bool copy_vis_buf_2_dot_buf = m_diff_mode
+                                    ? m_diff.Do_V()
+                                    :  CV()->Do_V();
+  if( !m_key.get_from_dot_buf )
+  {
+    m_key.save_2_vis_buf = false;
+
+    if( copy_vis_buf_2_dot_buf )
+    {
+      m_key.dot_buf.copy( m_key.vis_buf );
+    }
+  }
+}
+
+void Vis::Imp::Handle_a()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( !m_key.get_from_dot_buf )
+  {
+    m_key.dot_buf.clear();
+    m_key.dot_buf.push(__FILE__,__LINE__,'a');
+    m_key.save_2_dot_buf = true;
+  }
+
+  if( m_diff_mode ) m_diff.Do_a();
+  else               CV()->Do_a();
+
+  if( !m_key.get_from_dot_buf )
+  {
+    m_key.save_2_dot_buf = false;
+  }
+}
+
+void Vis::Imp::Handle_A()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( !m_key.get_from_dot_buf )
+  {
+    m_key.dot_buf.clear();
+    m_key.dot_buf.push(__FILE__,__LINE__,'A');
+    m_key.save_2_dot_buf = true;
+  }
+
+  if( m_diff_mode ) m_diff.Do_A();
+  else               CV()->Do_A();
+
+  if( !m_key.get_from_dot_buf )
+  {
+    m_key.save_2_dot_buf = false;
+  }
+}
+
+void Vis::Imp::Handle_o()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( !m_key.get_from_dot_buf )
+  {
+    m_key.dot_buf.clear();
+    m_key.dot_buf.push(__FILE__,__LINE__,'o');
+    m_key.save_2_dot_buf = true;
+  }
+
+  if( m_diff_mode ) m_diff.Do_o();
+  else               CV()->Do_o();
+
+  if( !m_key.get_from_dot_buf )
+  {
+    m_key.save_2_dot_buf = false;
+  }
+}
+
+void Vis::Imp::Handle_O()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( !m_key.get_from_dot_buf )
+  {
+    m_key.dot_buf.clear();
+    m_key.dot_buf.push(__FILE__,__LINE__,'O');
+    m_key.save_2_dot_buf = true;
+  }
+
+  if( m_diff_mode ) m_diff.Do_O();
+  else               CV()->Do_O();
+
+  if( !m_key.get_from_dot_buf )
+  {
+    m_key.save_2_dot_buf = false;
+  }
+}
+
+void Vis::Imp::Handle_x()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( !m_key.get_from_dot_buf )
+  {
+    m_key.dot_buf.clear();
+    m_key.dot_buf.push(__FILE__,__LINE__,'x');
+  }
+  if( m_diff_mode ) m_diff.Do_x();
+  else               CV()->Do_x();
+}
+
+void Vis::Imp::Handle_s()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( !m_key.get_from_dot_buf )
+  {
+    m_key.dot_buf.clear();
+    m_key.dot_buf.push(__FILE__,__LINE__,'s');
+    m_key.save_2_dot_buf = true;
+  }
+
+  if( m_diff_mode ) m_diff.Do_s();
+  else               CV()->Do_s();
+
+  if( !m_key.get_from_dot_buf )
+  {
+    m_key.save_2_dot_buf = false;
+  }
+}
+
+void Vis::Imp::Handle_c()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( m_diff_mode ) return;
+
+  const char C = m_key.In();
+  if( C == 'w' )
+  {
+    if( !m_key.get_from_dot_buf )
+    {
+      m_key.dot_buf.clear();
+      m_key.dot_buf.push(__FILE__,__LINE__,'c');
+      m_key.dot_buf.push(__FILE__,__LINE__,'w');
+      m_key.save_2_dot_buf = true;
+    }
+    CV()->Do_cw();
+
+    if( !m_key.get_from_dot_buf )
+    {
+      m_key.save_2_dot_buf = false;
+    }
+  }
+  else if( C == '$' )
+  {
+    if( !m_key.get_from_dot_buf )
+    {
+      m_key.dot_buf.clear();
+      m_key.dot_buf.push(__FILE__,__LINE__,'c');
+      m_key.dot_buf.push(__FILE__,__LINE__,'$');
+      m_key.save_2_dot_buf = true;
+    }
+    CV()->Do_D();
+    CV()->Do_a();
+
+    if( !m_key.get_from_dot_buf )
+    {
+      m_key.save_2_dot_buf = false;
+    }
+  }
+}
+
+void Vis::Imp::Handle_Q()
+{
+  Handle_Dot();
+  Handle_j();
+  Handle_0();
+}
+
+void Vis::Imp::Handle_k()
+{
+  if( m_diff_mode ) m_diff.GoUp(); 
+  else               CV()->GoUp();
+}
+
+void Vis::Imp::Handle_j()
+{
+  if( m_diff_mode ) m_diff.GoDown();
+  else               CV()->GoDown();
+}
+
+void Vis::Imp::Handle_h()
+{
+  if( m_diff_mode ) m_diff.GoLeft();
+  else               CV()->GoLeft();
+}
+
+void Vis::Imp::Handle_l()
+{
+  if( m_diff_mode ) m_diff.GoRight();
+  else               CV()->GoRight();
+}
+
+void Vis::Imp::Handle_H()
+{
+  if( m_diff_mode ) m_diff.GoToTopLineInView();
+  else               CV()->GoToTopLineInView();
+}
+
+void Vis::Imp::Handle_L()
+{
+  if( m_diff_mode ) m_diff.GoToBotLineInView();
+  else               CV()->GoToBotLineInView();
+}
+
+void Vis::Imp::Handle_M()
+{
+  if( m_diff_mode ) m_diff.GoToMidLineInView();
+  else               CV()->GoToMidLineInView();
+}
+
+void Vis::Imp::Handle_0()
+{
+  if( m_diff_mode ) m_diff.GoToBegOfLine();
+  else               CV()->GoToBegOfLine();
+}
+
+void Vis::Imp::Handle_Dollar()
+{
+  if( m_diff_mode ) m_diff.GoToEndOfLine();
+  else               CV()->GoToEndOfLine();
+}
+
+void Vis::Imp::Handle_Return()
+{
+  if( m_diff_mode ) m_diff.GoToBegOfNextLine();
+  else               CV()->GoToBegOfNextLine();
+}
+
+void Vis::Imp::Handle_G()
+{
+  if( m_diff_mode ) m_diff.GoToEndOfFile();
+  else               CV()->GoToEndOfFile();
+}
+
+void Vis::Imp::Handle_b()
+{
+  if( m_diff_mode ) m_diff.GoToPrevWord();
+  else               CV()->GoToPrevWord();
+}
+
+void Vis::Imp::Handle_w()
+{
+  if( m_diff_mode ) m_diff.GoToNextWord();
+  else               CV()->GoToNextWord();
+}
+
+void Vis::Imp::Handle_e()
+{
+  if( m_diff_mode ) m_diff.GoToEndOfWord();
+  else               CV()->GoToEndOfWord();
+}
+
+void Vis::Imp::Handle_Percent()
+{
+  if( m_diff_mode ) m_diff.GoToOppositeBracket();
+  else               CV()->GoToOppositeBracket();
+}
+
+// Left squiggly bracket
+void Vis::Imp::Handle_LeftSquigglyBracket()
+{
+  if( m_diff_mode ) m_diff.GoToLeftSquigglyBracket();
+  else               CV()->GoToLeftSquigglyBracket();
+}
+
+// Right squiggly bracket
+void Vis::Imp::Handle_RightSquigglyBracket()
+{
+  if( m_diff_mode ) m_diff.GoToRightSquigglyBracket();
+  else               CV()->GoToRightSquigglyBracket();
+}
+
+void Vis::Imp::Handle_F()
+{
+  if( m_diff_mode )  m_diff.PageDown();
+  else                CV()->PageDown();
+}
+
+void Vis::Imp::Handle_B()
+{
+  if( m_diff_mode )  m_diff.PageUp();
+  else                CV()->PageUp();
+}
+
+void Vis::Imp::Handle_Dot()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( 0<m_key.dot_buf.len() )
+  {
+    if( m_key.save_2_map_buf )
+    {
+      // Pop '.' off map_buf, because the contents of m_key.map_buf
+      // will be saved to m_key.map_buf.
+      m_key.map_buf.pop();
+    }
+    m_key.get_from_dot_buf = true;
+
+    while( m_key.get_from_dot_buf )
+    {
+      const char CC = m_key.In();
+
+      CmdFunc cf = CmdFuncs[ CC ];
+      if( cf ) (this->*cf)();
+    }
+    if( m_diff_mode ) {
+      // Diff does its own update every time a command is run
+    }
+    else {
+      // Dont update until after all the commands have been executed:
+      CV()->GetFB()->Update();
+    }
+  }
+}
+
+void Vis::Imp::Handle_m()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( m_key.save_2_map_buf || 0==m_key.map_buf.len() )
+  {
+    // When mapping, 'm' is ignored.
+    // If not mapping and map buf len is zero, 'm' is ignored.
+    return;
+  }
+  m_key.get_from_map_buf = true;
+
+  while( m_key.get_from_map_buf )
+  {
+    const char CC = m_key.In();
+ 
+    CmdFunc cf = CmdFuncs[ CC ];
+    if( cf ) (this->*cf)();
+  }
+  if( m_diff_mode ) {
+    // Diff does its own update every time a command is run
+  }
+  else {
+    // Dont update until after all the commands have been executed:
+    CV()->GetFB()->Update();
+  }
+}
+
+void Vis::Imp::Handle_g()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  const char CC2 = m_key.In();
+
+  if( CC2 == 'g' )
+  {
+    if( m_diff_mode ) m_diff.GoToTopOfFile();
+    else               CV()->GoToTopOfFile();
+  }
+  else if( CC2 == '0' )
+  {
+    if( m_diff_mode ) m_diff.GoToStartOfRow();
+    else               CV()->GoToStartOfRow();
+  }
+  else if( CC2 == '$' )
+  {
+    if( m_diff_mode ) m_diff.GoToEndOfRow();
+    else               CV()->GoToEndOfRow();
+  }
+  else if( CC2 == 'f' )
+  {
+    if( !m_diff_mode ) GoToFile();
+  }
+}
+
+void Vis::Imp::Handle_W()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+  const char CC2 = m_key.In();
+
+  if     ( CC2 == 'W' ) GoToNextWindow();
+  else if( CC2 == 'l' ) GoToNextWindow_l();
+  else if( CC2 == 'h' ) GoToNextWindow_h();
+  else if( CC2 == 'j'
+        || CC2 == 'k' ) GoToNextWindow_jk();
+  else if( CC2 == 'R' ) FlipWindows();
+}
+
+void Vis::Imp::Handle_d()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  const char C = m_key.In();
+
+  if( C == 'd' )
+  {
+    if( !m_key.get_from_dot_buf )
+    {
+      m_key.dot_buf.clear();
+      m_key.dot_buf.push(__FILE__,__LINE__,'d');
+      m_key.dot_buf.push(__FILE__,__LINE__,'d');
+    }
+    if( m_diff_mode ) m_diff.Do_dd();
+    else               CV()->Do_dd();
+  }
+  else if( C == 'w' )
+  {
+    if( m_diff_mode ) return;
+
+    if( !m_key.get_from_dot_buf )
+    {
+      m_key.dot_buf.clear();
+      m_key.dot_buf.push(__FILE__,__LINE__,'d');
+      m_key.dot_buf.push(__FILE__,__LINE__,'w');
+    }
+    if( m_diff_mode ) m_diff.Do_dw();
+    else               CV()->Do_dw();
+  }
+}
+
+void Vis::Imp::Handle_y()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  const char C = m_key.In();
+
+  if( C == 'y' )
+  {
+    if( m_diff_mode ) m_diff.Do_yy();
+    else               CV()->Do_yy();
+  }
+  else if( C == 'w' )
+  {
+    if( m_diff_mode ) return;
+
+    CV()->Do_yw();
+  }
+}
+
+void Vis::Imp::Handle_D()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( !m_key.get_from_dot_buf )
+  {
+    m_key.dot_buf.clear();
+    m_key.dot_buf.push(__FILE__,__LINE__,'D');
+  }
+  if( m_diff_mode ) m_diff.Do_D();
+  else               CV()->Do_D();
+}
+
+void Vis::Imp::Handle_p()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( !m_key.get_from_dot_buf )
+  {
+    m_key.dot_buf.clear();
+    m_key.dot_buf.push(__FILE__,__LINE__,'p');
+  }
+  if( m_diff_mode ) m_diff.Do_p();
+  else           CV()->Do_p();
+}
+
+void Vis::Imp::Handle_P()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( !m_key.get_from_dot_buf )
+  {
+    m_key.dot_buf.clear();
+    m_key.dot_buf.push(__FILE__,__LINE__,'P');
+  }
+  if( m_diff_mode ) m_diff.Do_P();
+  else           CV()->Do_P();
+}
+
+void Vis::Imp::Handle_R()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( !m_key.get_from_dot_buf )
+  {
+    m_key.dot_buf.clear();
+    m_key.dot_buf.push(__FILE__,__LINE__,'R');
+    m_key.save_2_dot_buf = true;
+  }
+  if( m_diff_mode ) m_diff.Do_R();
+  else               CV()->Do_R();
+
+  if( !m_key.get_from_dot_buf )
+  {
+    m_key.save_2_dot_buf = false;
+  }
+}
+
+void Vis::Imp::Handle_J()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( !m_key.get_from_dot_buf )
+  {
+    m_key.dot_buf.clear();
+    m_key.dot_buf.push(__FILE__,__LINE__,'J');
+  }
+  if( m_diff_mode ) m_diff.Do_J();
+  else               CV()->Do_J();
+}
+
+void Vis::Imp::Handle_Tilda()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( !m_key.get_from_dot_buf )
+  {
+    m_key.dot_buf.clear();
+    m_key.dot_buf.push(__FILE__,__LINE__,'~');
+  }
+  if( m_diff_mode ) m_diff.Do_Tilda();
+  else               CV()->Do_Tilda();
+}
+
+void Vis::Imp::Handle_Star()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  String new_star = m_diff_mode ?  m_diff.Do_Star_GetNewPattern()
+                                :   CV()->Do_Star_GetNewPattern();
+
+  if( !m_slash && new_star == m_star ) return;
+
+  // Un-highlight old star patterns for windows displayed:
+  if( m_star.len() )
+  { // Since m_diff_mode does Console::Update(),
+    // no need to print patterns here if in m_diff_mode
+    if( !m_diff_mode ) Do_Star_PrintPatterns( false );
+  }
+  Do_Star_ClearPatterns();
+
+  m_star = new_star;
+
+  if( m_star.len() )
+  {
+    m_slash = false;
+
+    Do_Star_Update_Search_Editor();
+    Do_Star_FindPatterns();
+ 
+    // Highlight new star patterns for windows displayed:
+    if( !m_diff_mode ) Do_Star_PrintPatterns( true );
+  }
+  if( m_diff_mode ) m_diff.Update();
+  else {
+    // Print out all the changes:
+    Console::Update();
+    // Put cursor back where it was
+    CV()->PrintCursor();
+  }
+}
+
+void Vis::Imp::Handle_Slash()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  CV()->GoToCmdLineClear("/");
+
+  m_colon.GetCommand(1);
+
+  String new_slash( m_cbuf );
+
+  Handle_Slash_GotPattern( new_slash );
+}
+
+void Vis::Imp::Handle_n()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( m_diff_mode ) m_diff.Do_n();
+  else           CV()->Do_n();
+}
+
+void Vis::Imp::Handle_N()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( m_diff_mode ) m_diff.Do_N();
+  else               CV()->Do_N();
+}
+
+void Vis::Imp::Handle_u()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( m_diff_mode ) return; // Need to implement
+  else            CV()->Do_u();
+}
+
+void Vis::Imp::Handle_U()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( m_diff_mode ) return; // Need to implement
+  else            CV()->Do_U();
+}
+
+void Vis::Imp::Handle_Colon()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+  CV()->GoToCmdLineClear(":");
+  m_colon.GetCommand(1);
+  RemoveSpaces( m_cbuf );
+  m_colon.MapEnd();
+
+  if     ( strcmp( m_cbuf,"q"   )==0 ) Quit();
+  else if( strcmp( m_cbuf,"qa"  )==0 ) QuitAll();
+  else if( strcmp( m_cbuf,"help")==0 ) Help();
+  else if( strcmp( m_cbuf,"diff")==0 ) DoDiff();
+  else if( strcmp( m_cbuf,"nodiff")==0)NoDiff();
+  else if( strcmp( m_cbuf,"n"   )==0 ) GoToNextBuffer();
+  else if( strcmp( m_cbuf,"se"  )==0 ) GoToSearchBuffer();
+  else if( strcmp( m_cbuf,"vsp" )==0 ) VSplitWindow();
+  else if( strcmp( m_cbuf,"sp"  )==0 ) HSplitWindow();
+  else if( strcmp( m_cbuf,"cs1" )==0 ) { Console::Set_Color_Scheme_1(); }
+  else if( strcmp( m_cbuf,"cs2" )==0 ) { Console::Set_Color_Scheme_2(); }
+  else if( strcmp( m_cbuf,"cs3" )==0 ) { Console::Set_Color_Scheme_3(); }
+  else if( strcmp( m_cbuf,"cs4" )==0 ) { Console::Set_Color_Scheme_4(); }
+  else if( strcmp( m_cbuf,"hi"  )==0 ) m_colon.hi();
+  else if( strncmp(m_cbuf,"cd",2)==0 ) { Ch_Dir(); }
+  else if( strncmp(m_cbuf,"syn",3)==0) { Set_Syntax(); }
+  else if( strcmp( m_cbuf,"pwd" )==0 ) { GetCWD(); }
+  else if( strcmp( m_cbuf,"sh"  )==0
+        || strcmp( m_cbuf,"shell")==0) { GoToCmdBuffer(); }
 #ifndef WIN32
-void Vis::RunCommand()
+  else if( strcmp( m_cbuf,"run" )==0 ) { RunCommand(); }
+#endif
+  else if( strncmp(m_cbuf,"re",2)==0 ) { Console::Refresh(); }
+  else if( strcmp( m_cbuf,"map" )==0 )     m_colon.MapStart();
+  else if( strcmp( m_cbuf,"showmap")==0)   m_colon.MapShow();
+  else if( strcmp( m_cbuf,"cover")==0)     m_colon.Cover();
+  else if( strcmp( m_cbuf,"coverkey")==0)  m_colon.CoverKey();
+  else if( 'e' == m_cbuf[0] )              HandleColon_e();
+  else if( 'w' == m_cbuf[0] )              HandleColon_w();
+  else if( 'b' == m_cbuf[0] )              HandleColon_b();
+  else if( '0' <= m_cbuf[0] && m_cbuf[0] <= '9' )
+  {
+    // Move cursor to line:
+    const unsigned line_num = atol( m_cbuf );
+    if( m_diff_mode ) m_diff.GoToLine( line_num );
+    else               CV()->GoToLine( line_num );
+  }
+  else { // Put cursor back to line and column in edit window:
+    if( m_diff_mode ) m_diff.PrintCursor( CV() );
+    else               CV()->PrintCursor();
+  }
+}
+
+void Vis::Imp::HandleColon_b()
+{
+  if( 0 == m_cbuf[1] ) // :b
+  {
+    GoToPrevBuffer();
+  }
+  else {
+    // Switch to a different buffer:
+    if     ( '#' == m_cbuf[1] ) GoToPoundBuffer();// :b#
+    else if( 'c' == m_cbuf[1] ) GoToCurrBuffer(); // :bc
+    else if( 'e' == m_cbuf[1] ) GoToBufferEditor();   // :be
+    else if( 'm' == m_cbuf[1] ) GoToMsgBuffer();  // :bm
+    else {
+      unsigned buffer_num = atol( m_cbuf+1 ); // :b<number>
+      GoToBuffer( buffer_num );
+    }
+  }
+}
+
+void Vis::Imp::HandleColon_e()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  View* pV = CV();
+  if( 0 == m_cbuf[1] ) // :e
+  {
+    FileBuf* pfb = pV->GetFB();
+    pfb->ReReadFile();
+
+    for( unsigned w=0; w<m_num_wins; w++ )
+    {
+      if( pfb == m_views[w][ m_file_hist[w][0] ]->GetFB() )
+      {
+        // View is currently displayed, perform needed update:
+        m_views[w][ m_file_hist[w][0] ]->Update();
+      }
+    }
+  }
+  else // :e file_name
+  {
+    // Edit file of supplied file name:
+    String fname( m_cbuf + 1 );
+    if( pV->GoToDir() && FindFullFileName( fname ) )
+    {
+      unsigned file_index = 0;
+      if( HaveFile( fname.c_str(), &file_index ) )
+      {
+        GoToBuffer( file_index );
+      }
+      else {
+        FileBuf* p_fb = new(__FILE__,__LINE__) FileBuf( m_vis, fname.c_str(), true, FT_UNKNOWN );
+        p_fb->ReadFile();
+        GoToBuffer( m_views[m_win].len()-1 );
+      }
+    }
+  }
+}
+
+void Vis::Imp::HandleColon_w()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  View* pV = CV();
+
+  if( 0 == m_cbuf[1] ) // :w
+  {
+    if( pV == m_views[m_win][ CMD_FILE ] )
+    {
+      // Dont allow SHELL_BUFFER to be save with :w.
+      // Require :w filename.
+      pV->PrintCursor();
+    }
+    else {
+      pV->GetFB()->Write();
+
+      // If Write fails, current view will be message buffer, in which case
+      // we dont want to PrintCursor with the original view, because that
+      // would put the cursor in the wrong position:
+      if( CV() == pV ) pV->PrintCursor();
+    }
+  }
+  else // :w file_name
+  {
+    // Edit file of supplied file name:
+    String fname( m_cbuf + 1 );
+    if( pV->GoToDir() && FindFullFileName( fname ) )
+    {
+      unsigned file_index = 0;
+      if( HaveFile( fname.c_str(), &file_index ) )
+      {
+        GetFileBuf( file_index )->Write();
+      }
+      else if( fname.get_end() != DIR_DELIM )
+      {
+        FileBuf* p_fb = new(__FILE__,__LINE__) FileBuf( m_vis, fname.c_str(), *pV->GetFB() );
+        p_fb->Write();
+      }
+    }
+  }
+}
+
+// m_vis.m_file_hist[m_vis.m_win]:
+//-------------------------
+//| 5 | 4 | 3 | 2 | 1 | 0 |
+//-------------------------
+//:b -> GoToPrevBuffer()
+//-------------------------
+//| 4 | 3 | 2 | 1 | 0 | 5 |
+//-------------------------
+//:b -> GoToPrevBuffer()
+//-------------------------
+//| 3 | 2 | 1 | 0 | 5 | 4 |
+//-------------------------
+//:n -> GoToNextBuffer()
+//-------------------------
+//| 4 | 3 | 2 | 1 | 0 | 5 |
+//-------------------------
+//:n -> GoToNextBuffer()
+//-------------------------
+//| 5 | 4 | 3 | 2 | 1 | 0 |
+//-------------------------
+
+// After starting up:
+//-------------------------------
+//| f1 | be | bh | f4 | f3 | f2 |
+//-------------------------------
+
+#ifndef WIN32
+void Vis::Imp::RunCommand()
 {
   Trace trace( __PRETTY_FUNCTION__ );
   String cmd;
@@ -3516,7 +4031,7 @@ void Vis::RunCommand()
     CV()->PrintCursor();
   }
   else {
-    FileBuf* pfb = CV()->pfb;
+    FileBuf* pfb = CV()->GetFB();
     // Add ######################################
     pfb->PushLine();
     for( unsigned k=0; k<40; k++ ) pfb->PushChar( '#' );
@@ -3546,13 +4061,13 @@ void Vis::RunCommand()
   }
 }
 
-bool Vis::RunCommand_GetCommand( String& cmd )
+bool Vis::Imp::RunCommand_GetCommand( String& cmd )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( CMD_FILE != file_hist[win][0] ) return false;
+  if( CMD_FILE != m_file_hist[m_win][0] ) return false;
 
-  FileBuf* pfb = CV()->pfb;
+  FileBuf* pfb = CV()->GetFB();
   int LAST_LINE = pfb->NumLines() - 1;
   // Nothing in COMMAND_BUFFER so just return
   if( LAST_LINE < 0 ) return false;
@@ -3595,7 +4110,7 @@ bool Vis::RunCommand_GetCommand( String& cmd )
 }
 
 // Returns true of ran command, else false
-bool Vis::RunCommand_RunCommand( const String& cmd
+bool Vis::Imp::RunCommand_RunCommand( const String& cmd
                                , FileBuf* pfb
                                , int& exit_val )
 {
@@ -3605,11 +4120,11 @@ bool Vis::RunCommand_RunCommand( const String& cmd
   FILE* fp = POpenRead( cmd.c_str(), child_pid );
   if( NULL == fp )
   {
-    Window_Message("\nPOpenRead( %s ) failed\n\n", cmd.c_str() );
+    m_vis.Window_Message("\nPOpenRead( %s ) failed\n\n", cmd.c_str() );
     return false;
   }
   pfb->PushLine();
-  m_run_mode = true;
+  m_cmd_mode = true;
   // Move cursor to bottom of file
   const unsigned NUM_LINES = pfb->NumLines();
   CV()->GoToCrsPos_NoWrite( NUM_LINES-1, 0 );
@@ -3632,127 +4147,246 @@ bool Vis::RunCommand_RunCommand( const String& cmd
     }
   }
   exit_val = PClose( fp, child_pid );
-  m_run_mode = false;
+  m_cmd_mode = false;
   return true;
 }
 #endif
 
-// Line returned has at least SIZE, but zero length
+Vis::Vis()
+  : m( *new(__FILE__, __LINE__) Imp( *this ) )
+{
+}
+
+void Vis::Init( const int ARGC, const char* const ARGV[] )
+{
+  m.Init( ARGC, ARGV );
+}
+
+Vis::~Vis()
+{
+  delete &m;
+}
+
+void Vis::Run()
+{
+  m.Run();
+}
+
+void Vis::Stop()
+{
+  m.Stop();
+}
+
+View* Vis::CV() const
+{
+  return m.CV();
+}
+
+View* Vis::WinView( const unsigned w ) const
+{
+  return m.WinView( w );
+}
+
+unsigned Vis::GetNumWins() const
+{
+  return m.GetNumWins();
+}
+
+Paste_Mode Vis::GetPasteMode() const
+{
+  return m.GetPasteMode();
+}
+
+void Vis::SetPasteMode( Paste_Mode pm )
+{
+  m.SetPasteMode( pm );
+}
+
+bool Vis::InDiffMode() const
+{
+  return m.InDiffMode();
+}
+
+bool Vis::RunningCmd() const
+{
+  return m.RunningCmd();
+}
+
+bool Vis::RunningDot() const
+{
+  return m.RunningDot();
+}
+
+FileBuf* Vis::GetFileBuf( const unsigned index ) const
+{
+  return m.GetFileBuf( index );
+}
+
+unsigned Vis::GetStarLen() const
+{
+  return m.GetStarLen();
+}
+
+const char* Vis::GetStar() const
+{
+  return m.GetStar();
+}
+
+bool Vis::GetSlash() const
+{
+  return m.GetSlash();
+}
+
+void Vis::CheckWindowSize()
+{
+  return m.CheckWindowSize();
+}
+
+void Vis::CheckFileModTime()
+{
+  return m.CheckFileModTime();
+}
+
+void Vis::Add_FileBuf_2_Lists_Create_Views( FileBuf* pfb, const char* fname )
+{
+  return m.Add_FileBuf_2_Lists_Create_Views( pfb, fname );
+}
+
+// Print a command line message.
+// Put cursor back in edit window.
 //
-Line* Vis::BorrowLine( const char*    _FILE_
+void Vis::CmdLineMessage( const char* const msg_fmt, ... )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  const int BUF_SZ = 2048;
+  char msg_buf[ BUF_SZ ];
+
+  va_list argp;
+  va_start( argp, msg_fmt );
+  vsprintf( msg_buf, msg_fmt, argp );
+  va_end( argp );
+
+  m.CmdLineMessage( msg_buf );
+}
+
+void Vis::Window_Message( const char* const msg_fmt, ... )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  const int BUF_SZ = 2048;
+  char msg_buf[ BUF_SZ ];
+
+  va_list argp;
+  va_start( argp, msg_fmt );
+  vsprintf( msg_buf, msg_fmt, argp );
+  va_end( argp );
+
+  m.Window_Message( msg_buf );
+}
+
+void Vis::UpdateAll()
+{
+  m.UpdateAll();
+}
+
+bool Vis::Update_Status_Lines()
+{
+  return m.Update_Status_Lines();
+}
+
+bool Vis::Update_Change_Statuses()
+{
+  return m.Update_Change_Statuses();
+}
+
+void Vis::PrintCursor()
+{
+  m.PrintCursor();
+}
+
+bool Vis::HaveFile( const char* file_name, unsigned* index )
+{
+  return m.HaveFile( file_name, index );
+}
+
+bool Vis::File_Is_Displayed( const String& full_fname )
+{
+  return m.File_Is_Displayed( full_fname );
+}
+
+void Vis::ReleaseFileName( const String& full_fname )
+{
+  return m.ReleaseFileName( full_fname );
+}
+
+bool Vis::GoToBuffer_Fname( String& fname )
+{
+  return m.GoToBuffer_Fname( fname );
+}
+
+void Vis::Handle_f()
+{
+  m.Handle_f();
+}
+
+void Vis::Handle_z()
+{
+  m.Handle_z();
+}
+
+void Vis::Handle_SemiColon()
+{
+  m.Handle_SemiColon();
+}
+
+void Vis::Handle_Slash_GotPattern( const String& pattern
+                            , const bool MOVE_TO_FIRST_PATTERN )
+{
+  m.Handle_Slash_GotPattern( pattern, MOVE_TO_FIRST_PATTERN );
+}
+
+Line* Vis::BorrowLine( const char* _FILE_
                      , const unsigned _LINE_
                      , const unsigned SIZE )
 {
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  Line* lp = 0;
-
-  if( line_cache.len() )
-  {
-    bool ok = line_cache.pop( lp );
-    ASSERT( __LINE__, ok, "ok" );
-
-    ok = lp->inc_size( __FILE__, __LINE__, SIZE );
-    ASSERT( __LINE__, ok, "ok" );
-
-    lp->clear();
-  }
-  else {
-    lp = new( _FILE_, _LINE_ ) Line( __FILE__, __LINE__, SIZE );
-  }
-  return lp;
+  return m.BorrowLine( _FILE_, _LINE_, SIZE );
 }
 
-// Line returned has LEN and is filled up to LEN with FILL
-//
-Line* Vis::BorrowLine( const char*    _FILE_
+Line* Vis::BorrowLine( const char* _FILE_
                      , const unsigned _LINE_
-                     , const unsigned LEN
-                     , const uint8_t  FILL )
+                     , const unsigned LEN, const uint8_t FILL )
 {
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  Line* lp = 0;
-
-  if( line_cache.len() )
-  {
-    bool ok = line_cache.pop( lp );
-    ASSERT( __LINE__, ok, "ok" );
-
-    ok = lp->set_len(__FILE__,__LINE__, LEN );
-    ASSERT( __LINE__, ok, "ok" );
-
-    for( unsigned k=0; k<LEN; k++ ) lp->set( k, FILL );
-  }
-  else {
-    lp = new(_FILE_,_LINE_) Line( __FILE__, __LINE__, LEN, FILL );
-  }
-  return lp;
+  return m.BorrowLine( _FILE_, _LINE_, LEN, FILL );
 }
 
-// Line returned has same len and contents as line
-//
-Line* Vis::BorrowLine( const char*    _FILE_
+Line* Vis::BorrowLine( const char* _FILE_
                      , const unsigned _LINE_
-                     , const Line&    line )
+                     , const Line& line )
 {
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  Line* lp = 0;
-
-  if( line_cache.len() )
-  {
-    bool ok = line_cache.pop( lp );
-    ASSERT( __LINE__, ok, "ok" );
-
-    ok = lp->copy( line );
-    ASSERT( __LINE__, ok, "ok" );
-  }
-  else {
-    lp = new(_FILE_,_LINE_) Line( line );
-  }
-  return lp;
+  return m.BorrowLine( _FILE_, _LINE_, line );
 }
 
 void Vis::ReturnLine( Line* lp )
 {
-  if( lp ) line_cache.push( lp );
+  m.ReturnLine( lp );
 }
 
 LineChange* Vis::BorrowLineChange( const ChangeType type
                                  , const unsigned   lnum
                                  , const unsigned   cpos )
 {
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  LineChange* lcp = 0;
-
-  if( change_cache.len() )
-  {
-    bool ok = change_cache.pop( lcp );
-
-    lcp->type = type;
-    lcp->lnum = lnum;
-    lcp->cpos = cpos;
-    lcp->line.clear();
-  }
-  else {
-    lcp = new(__FILE__,__LINE__) LineChange( type, lnum, cpos );
-  }
-  return lcp;
+  return m.BorrowLineChange( type, lnum, cpos );
 }
 
 void Vis::ReturnLineChange( LineChange* lcp )
 {
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  if( lcp ) change_cache.push( lcp );
+  m.ReturnLineChange( lcp );
 }
 
 int main( int argc, char* argv[] )
 {
   PROG_NAME = argv[0];
-//printf("%s(%i)\n", __FILE__,__LINE__); fflush( stdout );
 
   Console::SetSignals();
 
@@ -3761,19 +4395,18 @@ int main( int argc, char* argv[] )
     atexit( Console::AtExit );
 
     Console::Allocate();
+    Trace  ::Allocate();
 
-    gl_pCall_Stack = new(__FILE__,__LINE__) ConstCharList(__FILE__,__LINE__);
-    gl_pKey        = new(__FILE__,__LINE__) Key;
-    gl_pVis        = new(__FILE__,__LINE__) Vis( argc, argv );
+    Vis* pVis = new(__FILE__,__LINE__) Vis();
 
-    gl_pVis->Run();
+    pVis->Init( argc, argv );
+    pVis->Run();
 
     Trace::Print();
 
-    MemMark(__FILE__,__LINE__); delete gl_pVis       ; gl_pVis        = 0;
-    MemMark(__FILE__,__LINE__); delete gl_pKey       ; gl_pKey        = 0;
-    MemMark(__FILE__,__LINE__); delete gl_pCall_Stack; gl_pCall_Stack = 0;
+    MemMark(__FILE__,__LINE__); delete pVis; pVis = 0;
 
+    Trace  ::Cleanup();
     Console::Cleanup();
   }
   MemClean();

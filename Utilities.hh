@@ -26,6 +26,7 @@
 
 #include <stdio.h> // printf, stderr, FILE, fopen, fclose
 #include <signal.h>
+#include "Types.hh"
 
 class Line;
 class String;
@@ -97,7 +98,12 @@ public:
   Trace( const char* func_name );
   ~Trace();
 
+  static void Allocate();
+  static void Cleanup();
+
   static void Print();
+private:
+  static ConstCharList* mp_Call_Stack;
 };
 
 #endif

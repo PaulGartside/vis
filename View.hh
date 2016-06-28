@@ -24,52 +24,40 @@
 #ifndef __VIEW_HH__
 #define __VIEW_HH__
 
-#include "Types.hh"
-#include "String.hh"
-
+class Vis;
+class Key;
 class FileBuf;
-
-static unsigned top___border = 1;
-static unsigned bottomborder = 1;
-static unsigned left__border = 1;
-static unsigned right_border = 1;
+class String;
 
 class View // Window View
 {
 public:
-  View( FileBuf* pfb );
+  View( Vis& vis, Key& key, FileBuf& fb, LinesList& reg );
+  ~View();
 
-  FileBuf* pfb;
-  bool sts_line_needs_update;
-  bool us_change_sts; // un-saved change status, true if '+", false if ' '
+  FileBuf* GetFB() const;
 
-  Tile_Pos  tile_pos;
-  unsigned  nCols;       // number of rows in buffer view
-  unsigned  nRows;       // number of columns in buffer view
-  unsigned  x;           // Top left x-position of buffer view in parent window
-  unsigned  y;           // Top left y-position of buffer view in parent window
-  unsigned  topLine;     // top  of buffer view line number.
-  unsigned  topLine_displayed;
-  unsigned  leftChar;    // left of buffer view character number.
-  unsigned  leftChar_displayed;
-  unsigned  crsRow;      // cursor row    in buffer view. 0 <= crsRow < WorkingRows().
-  unsigned  crsRow_displayed;
-  unsigned  crsCol;      // cursor column in buffer view. 0 <= crsCol < WorkingCols().
-  unsigned  crsCol_displayed;
+  unsigned WinCols() const;
+  unsigned WinRows() const;
+  unsigned X() const;
+  unsigned Y() const;
 
-  unsigned v_st_line;  // Visual start line number
-  unsigned v_st_char;  // Visual start char number on line
-  unsigned v_fn_line;  // Visual ending line number
-  unsigned v_fn_char;  // Visual ending char number on line
+  unsigned GetTopLine () const;
+  unsigned GetLeftChar() const;
+  unsigned GetCrsRow  () const;
+  unsigned GetCrsCol  () const;
 
-  unsigned WinCols() const { return nCols; }
-  unsigned WinRows() const { return nRows; }
-  unsigned WorkingRows() const { return WinRows()-3-top___border-bottomborder; }
-  unsigned WorkingCols() { return WinCols()-  left__border-right_border; }
-  unsigned CrsLine  ()   { return topLine  + crsRow; }
-  unsigned BotLine  () const { return topLine  + WorkingRows()-1; }
-  unsigned CrsChar  ()   { return leftChar + crsCol; }
-  unsigned RightChar()   { return leftChar + WorkingCols()-1; }
+  void SetTopLine ( const unsigned val );
+  void SetLeftChar( const unsigned val );
+  void SetCrsRow  ( const unsigned val );
+  void SetCrsCol  ( const unsigned val );
+
+  unsigned WorkingRows() const;
+  unsigned WorkingCols() const;
+  unsigned CrsLine  () const;
+  unsigned BotLine  () const;
+  unsigned CrsChar  () const;
+  unsigned RightChar() const;
 
   unsigned Row_Win_2_GL( const unsigned win_row ) const;
   unsigned Col_Win_2_GL( const unsigned win_col ) const;
@@ -78,74 +66,77 @@ public:
   unsigned Sts__Line_Row() const;
   unsigned File_Line_Row() const;
   unsigned Cmd__Line_Row() const;
+  Tile_Pos GetTilePos() const;
+  void     SetTilePos( const Tile_Pos tp );
+  void     SetViewPos();
 
-  void SetTilePos( const Tile_Pos tp );
-  void SetViewPos();
-  void TilePos_2_x();
-  void TilePos_2_y();
-  void TilePos_2_nRows();
-  void TilePos_2_nCols();
+  bool GetInsertMode() const;
+  void SetInsertMode( const bool val );
+  bool GetReplaceMode() const;
+  void SetReplaceMode( const bool val );
 
-  void Update();
-  void UpdateLines( const unsigned st_line, const unsigned fn_line );
+  void GoToBegOfLine();
+  void GoToEndOfLine();
+  void GoToBegOfNextLine();
+  void GoToTopLineInView();
+  void GoToMidLineInView();
+  void GoToBotLineInView();
+  void GoToEndOfFile();
+  void GoToPrevWord();
+  void GoToNextWord();
+  void GoToEndOfWord();
+  void GoToLine( const unsigned user_line_num );
+  void GoToStartOfRow();
+  void GoToEndOfRow();
+  void GoToTopOfFile();
+  void GoToOppositeBracket();
+  void GoToLeftSquigglyBracket();
+  void GoToRightSquigglyBracket();
+  void GoToCrsPos_NoWrite( const unsigned ncp_crsLine
+                         , const unsigned ncp_crsChar );
+  void GoToCrsPos_Write( const unsigned ncp_crsLine
+                       , const unsigned ncp_crsChar );
+  bool GoToFile_GetFileName( String& fname );
   void GoToCmdLineClear( const char* S );
 
+  void GoUp();
+  void GoDown();
+  void GoLeft();
+  void GoRight();
+  void PageDown();
+  void PageUp();
+
+  bool MoveInBounds();
+  void MoveCurrLineToTop();
+  void MoveCurrLineCenter();
+  void MoveCurrLineToBottom();
+
   void Do_i();
-  void Do_i_vb();
-  void Do_a_vb();
-  void InsertBackspace_vb();
-  void InsertAddChar_vb( const char c );
+  bool Do_v();
+  bool Do_V();
   void Do_a();
   void Do_A();
   void Do_o();
   void Do_O();
-  bool Do_v();
-  bool Do_V();
-  bool Do_visualMode();
-  void Undo_v();
-  void Do_v_Handle_g();
-  void Do_v_Handle_gf();
-  void Do_v_Handle_gp();
+  void Do_x();
+  void Do_s();
+  void Do_cw();
+  void Do_D();
+  void Do_f( const char FAST_CHAR );
+  void Do_n();
+  void Do_N();
+  void Do_dd();
+  int  Do_dw();
+  void Do_yy();
+  void Do_yw();
+  void Do_p();
+  void Do_P();
+  void Do_R();
+  void Do_J();
+  void Do_Tilda();
+  void Do_u();
+  void Do_U();
 
-  void InsertAddChar( const char c );
-  void InsertAddReturn();
-  void InsertBackspace();
-  void InsertBackspace_RmC( const unsigned OCL
-                          , const unsigned OCP );
-  void InsertBackspace_RmNL( const unsigned OCL );
-
-  void ReplaceAddReturn();
-  void ReplaceBackspace( Line* lp );
-  void ReplaceAddChars( const char C );
-
-  void DisplayBanner();
-  void Remove_Banner();
-  void DisplayMapping();
-
-  void RepositionView();
-
-  void Replace_Crs_Char( Style style );
-
-  void PrintWorkingView();
-  void PrintWorkingView_Set( const unsigned LL
-                           , const unsigned G_ROW
-                           , const unsigned col
-                           , const unsigned i
-                           , const unsigned byte
-                           , const Style    s );
-  void PrintLines( const unsigned st_line, const unsigned fn_line );
-  void Print_Borders();
-  void Print_Borders_Top   ( const Style S );
-  void Print_Borders_Bottom( const Style S );
-  void Print_Borders_Left  ( const Style S );
-  void Print_Borders_Right ( const Style S );
-  void PrintStsLine();
-  void PrintFileLine();
-  void PrintCmdLine();
-  void PrintCursor();
-  void PrintDo_n();
-
-public:
   bool InVisualArea ( const unsigned line, const unsigned pos );
   bool InVisualStFn ( const unsigned line, const unsigned pos );
   bool InVisualBlock( const unsigned line, const unsigned pos );
@@ -157,125 +148,38 @@ public:
   bool InStar       ( const unsigned line, const unsigned pos );
   bool InNonAscii   ( const unsigned line, const unsigned pos );
 
-  void GoUp();
-  void GoDown();
-  void GoLeft();
-  void GoRight();
-  bool GoToFile_GetFileName( String& fname );
-  void GoToLine( const unsigned user_line_num );
-  void GoToTopLineInView();
-  void GoToBotLineInView();
-  void GoToMidLineInView();
-  void GoToBegOfLine();
-  void GoToEndOfLine();
-  void GoToBegOfNextLine();
-  void GoToStartOfRow();
-  void GoToEndOfRow();
-  void GoToTopOfFile();
-  void GoToEndOfFile();
-  void GoToNextWord();
-  bool GoToNextWord_GetPosition( CrsPos& ncp );
-  void GoToPrevWord();
-  bool GoToPrevWord_GetPosition( CrsPos& ncp );
-  void GoToEndOfWord();
-  bool GoToEndOfWord_GetPosition( CrsPos& ncp );
-  void GoToOppositeBracket();
-  void GoToLeftSquigglyBracket();
-  void GoToRightSquigglyBracket();
-  void GoToOppositeBracket_Forward( const char ST_C, const char FN_C );
-  void GoToOppositeBracket_Backward( const char ST_C, const char FN_C );
-  void GoToCrsPos_Write( const unsigned ncp_crsLine
-                       , const unsigned ncp_crsChar );
-  void GoToCrsPos_Write_Visual( const unsigned OCL, const unsigned OCP
-                              , const unsigned NCL, const unsigned NCP );
-  void GoToCrsPos_WV_Forward( const unsigned OCL, const unsigned OCP
-                            , const unsigned NCL, const unsigned NCP );
-  void GoToCrsPos_WV_Backward( const unsigned OCL, const unsigned OCP
-                             , const unsigned NCL, const unsigned NCP );
-  void GoToCrsPos_Write_VisualBlock( const unsigned OCL
-                                   , const unsigned OCP
-                                   , const unsigned NCL
-                                   , const unsigned NCP );
-  void GoToCrsPos_NoWrite( const unsigned ncp_crsLine
-                         , const unsigned ncp_crsChar );
-  bool GoToDir();
+  void Update();
+  void RepositionView();
+  void Print_Borders();
+  void PrintStsLine();
+  void PrintFileLine();
+  void PrintCmdLine();
+  void PrintCursor();
+  void PrintWorkingView();
+  void PrintWorkingView_Set( const unsigned LL
+                           , const unsigned G_ROW
+                           , const unsigned col
+                           , const unsigned i
+                           , const unsigned byte
+                           , const Style    s );
+  void DisplayMapping();
 
-  bool MoveInBounds();
-  void MoveCurrLineToTop();
-  void MoveCurrLineCenter();
-  void MoveCurrLineToBottom();
-
-  void PageDown();
-  void PageDown_v();
-  void PageUp();
-  void PageUp_v();
+  bool GetStsLineNeedsUpdate() const;
+  bool GetUnSavedChangeSts() const;
+  void SetStsLineNeedsUpdate( const bool val );
+  void SetUnSavedChangeSts( const bool val );
 
   String Do_Star_GetNewPattern();
   void   PrintPatterns( const bool HIGHLIGHT );
 
-  void Do_n();
-  void Do_N();
-  bool Do_n_FindNextPattern( CrsPos& ncp );
-  bool Do_N_FindPrevPattern( CrsPos& ncp );
-  void Do_f( const char FAST_CHAR );
-
-  void Do_u();
-  void Do_U();
-
-  void Do_Tilda();
-  void Do_x();
-  void Do_x_v();
-  void Do_D_v();  void Do_D_v_line();
-  void Do_s();
-  void Do_s_v();
-  void Do_cw();
-  int  Do_dw();
-  bool Do_dw_get_fn( const int st_line, const int st_char
-                   , unsigned& fn_line, unsigned& fn_char );
-  void Do_Tilda_v(); void Do_Tilda_v_st_fn(); void Do_Tilda_v_block();
-  void Do_dd();
-  void Do_yy();
-  void Do_yw();
-  void Do_y_v(); void Do_y_v_st_fn(); void Do_y_v_block();
-  void Do_Y_v(); void Do_Y_v_st_fn();
-  void Do_D();
-  void Do_p();
-  void Do_p_line();
-  void Do_p_or_P_st_fn( Paste_Pos paste_pos );
-  void Do_p_block();
-  void Do_P();
-  void Do_P_line();
-  void Do_P_block();
-  void Do_R();
-  void Do_J();
-  void Do_x_range( unsigned st_line, unsigned st_char
-                 , unsigned fn_line, unsigned fn_char );
-  void Do_x_range_block( unsigned st_line, unsigned st_char
-                       , unsigned fn_line, unsigned fn_char );
-  void Do_x_range_pre( unsigned& st_line, unsigned& st_char
-                     , unsigned& fn_line, unsigned& fn_char );
-  void Do_x_range_post( const unsigned st_line, const unsigned st_char );
-  void Do_x_range_single( const unsigned L
-                        , const unsigned st_char
-                        , const unsigned fn_char );
-  void Do_x_range_multiple( const unsigned st_line, const unsigned st_char
-                          , const unsigned fn_line, const unsigned fn_char );
   bool Has_Context();
   void Set_Context( View& vr );
 
-  bool inInsertMode; // true if in insert  mode, else false
-  bool inReplaceMode;
+  bool GoToDir();
 
 private:
-  void Do_dd_BufferEditor( const unsigned ONL );
-  void Do_dd_Normal( const unsigned ONL );
-
-  bool  RV_Style( const Style s ) const;
-  Style RV_Style_2_NonRV( const Style RVS ) const;
-  Style Get_Style( const unsigned line, const unsigned pos );
-
-  bool inVisualMode;
-  bool inVisualBlock;
+  class Imp;
+  Imp& m;
 };
 
 #endif

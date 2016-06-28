@@ -31,7 +31,9 @@ class Highlight_ODB : public Highlight_Base
 public:
   Highlight_ODB( FileBuf& rfb );
 
+private:
   void Run_Range( const CrsPos st, const unsigned fn );
+
   void Hi_In_None( unsigned& l, unsigned& p );
   void Hi_BegCPP_Comment( unsigned& l, unsigned& p );
   void Hi_In_CPP_Comment( unsigned& l, unsigned& p );
@@ -42,7 +44,6 @@ public:
   void Hi_NumberFraction( unsigned& l, unsigned& p );
   void Hi_NumberExponent( unsigned& l, unsigned& p );
 
-private:
   typedef Highlight_ODB ME;
   typedef void (Highlight_ODB::*HiStateFunc) ( unsigned&, unsigned& );
 

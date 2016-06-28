@@ -31,9 +31,9 @@ class Highlight_HTML : public Highlight_Base
 public:
   Highlight_HTML( FileBuf& rfb );
 
+private:
   void Run_Range( const CrsPos st, const unsigned fn );
 
-private:
   void Hi_In_None  ( unsigned& l, unsigned& p );
   void Hi_Comment  ( unsigned& l, unsigned& p );
   void Hi_Tag_Open ( unsigned& l, unsigned& p );

@@ -31,10 +31,12 @@ class Highlight_Text : public Highlight_Base
 public:
   Highlight_Text( FileBuf& rfb );
 
+private:
   void Run_Range( const CrsPos st, const unsigned fn );
+
   void Hi_In_None( unsigned& l, unsigned& p );
   void Hi_In_Define( unsigned& l, unsigned& p );
-private:
+
   typedef Highlight_Text ME;
   typedef void (Highlight_Text::*HiStateFunc) ( unsigned&, unsigned& );
 

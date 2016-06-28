@@ -24,28 +24,21 @@
 #ifndef __COLON_HH__
 #define __COLON_HH__
 
-typedef unsigned char  uint8_t;
-
-class FileBuf;
-class String;
 class Vis;
-
-enum ColonOp
-{ 
-  OP_unknown,
-  OP_e,
-  OP_w
-};
+class Key;
+class Diff;
 
 class Colon
 {
 public:
-  Colon( Vis& vis );
+  Colon( Vis& vis, Key& key, Diff& diff, char* cbuf, String& sbuf );
+  ~Colon();
+
   void GetCommand( const unsigned MSG_LEN, const bool HIDE=false );
 
-  void b();
-  void e();
-  void w();
+//void b();
+//void e();
+//void w();
   void hi();
   void MapStart();
   void MapEnd();
@@ -54,34 +47,8 @@ public:
   void CoverKey();
 
 private:
-  void Reset_File_Name_Completion_Variables();
-
-  void HandleNormal( const unsigned MSG_LEN
-                   , const bool     HIDE
-                   , const uint8_t  c
-                   ,       char*&   p );
-
-  void HandleTab( const unsigned  MSG_LEN
-                ,       char*&    p );
-
-  bool Find_File_Name_Completion_Variables();
-  bool Have_File_Name_Completion_Variables();
-
-  bool FindFileBuf();
-
-  void DisplaySbuf( char*& p );
-
-  Vis&     m_vis;
-  View*    m_cv;
-  FileBuf* m_fb;
-  char*    m_cbuf;
-  String&  m_sbuf;
-  String   m_cover_key;
-  Line     m_cover_buf;
-  unsigned m_file_index;
-  String   m_partial_path;
-  String   m_search__head;
-  ColonOp  m_colon_op;
+  struct Imp;
+  Imp& m;
 };
 
 #endif

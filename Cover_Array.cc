@@ -21,7 +21,9 @@
 // DEALINGS IN THE SOFTWARE.                                                  //
 ////////////////////////////////////////////////////////////////////////////////
 
+#include "String.hh"
 #include "MemLog.hh"
+#include "FileBuf.hh"
 #include "Cover_Array.hh"
 
 extern MemLog<MEM_LOG_BUF_SIZE> Log;

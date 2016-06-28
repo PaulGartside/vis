@@ -44,8 +44,12 @@
 #include "View.hh"
 #include "Console.hh"
 
-extern Vis* gl_pVis;
 extern MemLog<MEM_LOG_BUF_SIZE> Log;
+
+//Vis* Console::mp_vis = 0;
+static Vis*     mp_vis   = 0;
+static unsigned num_rows = 0;
+static unsigned num_cols = 0;
 
 // Diff has Blue background:
 
@@ -116,8 +120,8 @@ Color VISUAL_DIFF_BG = Red;
 Color DELETED_DIFF_FG = White;
 Color DELETED_DIFF_BG = Red;
 
-unsigned Console::num_rows = 0;
-unsigned Console::num_cols = 0;
+//unsigned Console::num_rows = 0;
+//unsigned Console::num_cols = 0;
 
 static LinesList* lines__p = 0; // list of screen lines  pending to be written.
 static LinesList* lines__w = 0; // list of screen lines  already written.
@@ -126,12 +130,12 @@ static LinesList* styles_w = 0; // list of screen styles already written.
 static Line*      touched  = 0; // list of screen lines that have been changed.
 static Line*      out_buf  = 0; // output buffer to reduce number of write calls.
 
-HANDLE Console::m_stdin = 0;
-HANDLE Console::m_stdout = 0;
-HANDLE Console::m_stderr = 0;
-DWORD  Console::orig_console_mode = 0;
+HANDLE m_stdin = 0;
+HANDLE m_stdout = 0;
+HANDLE m_stderr = 0;
+DWORD  orig_console_mode = 0;
 
-uint8_t Console::Byte2out( uint8_t C )
+uint8_t Byte2out( uint8_t C )
 {
   char C_out = '?';
 
@@ -183,7 +187,12 @@ void Console::Cleanup()
   }
 }
 
-unsigned Console::PrintC( uint8_t C )
+void Console::SetVis( Vis* p_vis )
+{
+  mp_vis = p_vis;
+}
+
+unsigned PrintC( uint8_t C )
 {
   unsigned bytes_written = 1;
 
@@ -194,7 +203,7 @@ unsigned Console::PrintC( uint8_t C )
   return bytes_written;
 }
 
-unsigned Console::PrintB( Line& B )
+unsigned PrintB( Line& B )
 {
   const unsigned LEN = B.len();
 
@@ -212,7 +221,7 @@ void Console::Flush()
   // Needed only by UNIX
 }
 
-void Console::Move_2_Home()
+void Move_2_Home()
 {
   COORD pos = { 0, 0 };
 
@@ -251,6 +260,153 @@ void Console::SetS( const unsigned ROW
   {
     Set( ROW, COL+k, str[k], S );
   }
+}
+
+int Background_2_Code( const Color BG )
+{
+  int code = 0;
+
+  if     ( BG == Black  ) code = 0;
+  else if( BG == Red    ) code = BACKGROUND_RED;
+  else if( BG == Green  ) code = BACKGROUND_GREEN;
+  else if( BG == Yellow ) code = BACKGROUND_RED   | BACKGROUND_GREEN;
+  else if( BG == Blue   ) code = BACKGROUND_BLUE;
+  else if( BG == Magenta) code = BACKGROUND_RED   | BACKGROUND_BLUE;
+  else if( BG == Cyan   ) code = BACKGROUND_GREEN | BACKGROUND_BLUE;
+  else if( BG == White  ) code = BACKGROUND_RED   | BACKGROUND_GREEN | BACKGROUND_BLUE;
+
+  if( code ) code |= BACKGROUND_INTENSITY ;
+
+  return code;
+}
+
+int Foreground_2_Code( const Color FG )
+{
+  int code = 0;
+
+  if     ( FG == Black  ) code = 0;
+  else if( FG == Red    ) code = FOREGROUND_RED;
+  else if( FG == Green  ) code = FOREGROUND_GREEN;
+  else if( FG == Yellow ) code = FOREGROUND_RED   | FOREGROUND_GREEN;
+  else if( FG == Blue   ) code = FOREGROUND_BLUE;
+  else if( FG == Magenta) code = FOREGROUND_RED   | FOREGROUND_BLUE;
+  else if( FG == Cyan   ) code = FOREGROUND_GREEN | FOREGROUND_BLUE;
+  else if( FG == White  ) code = FOREGROUND_RED   | FOREGROUND_GREEN | FOREGROUND_BLUE;
+
+  if( code ) code |= FOREGROUND_INTENSITY ;
+
+  return code;
+}
+
+void Set_Style( const Color BG, const Color FG, const bool BB )
+{
+  WORD attributes = Background_2_Code( BG )
+                  | Foreground_2_Code( FG );
+
+  BOOL ok = SetConsoleTextAttribute( m_stdout, attributes );
+
+  ASSERT( __LINE__, ok, "ok" );
+}
+
+Color Style_2_FG( const uint8_t S )
+{
+  Color c = White; // Default
+
+  switch( S )
+  {
+  case S_NORMAL   : c = NORMAL_FG;    break;
+  case S_STATUS   : c = STATUS_FG;    break;
+  case S_BORDER   : c = STATUS_FG;    break;
+  case S_BORDER_HI: c = BORDER_HI_FG; break;
+  case S_BANNER   : c = BANNER_FG;    break;
+  case S_STAR     : c = STAR_FG;      break;
+  case S_COMMENT  : c = COMMENT_FG;   break;
+  case S_DEFINE   : c = DEFINE_FG;    break;
+  case S_CONST    : c = QUOTE_FG;     break;
+  case S_CONTROL  : c = CONTROL_FG;   break;
+  case S_VARTYPE  : c = VARTYPE_FG;   break;
+  case S_VISUAL   : c = VISUAL_FG;    break;
+  case S_NONASCII : c = NONASCII_FG;  break;
+  case S_EMPTY    : c = EMPTY_FG;     break;
+
+  case S_RV_NORMAL   : c = NORMAL_FG_RV;    break;
+  case S_RV_STATUS   : c = STATUS_FG_RV;    break;
+  case S_RV_BORDER   : c = STATUS_FG_RV;    break;
+  case S_RV_BORDER_HI: c = BORDER_HI_FG_RV; break;
+  case S_RV_BANNER   : c = BANNER_FG_RV;    break;
+  case S_RV_STAR     : c = STAR_FG_RV;      break;
+  case S_RV_COMMENT  : c = COMMENT_FG_RV;   break;
+  case S_RV_DEFINE   : c = DEFINE_FG_RV;    break;
+  case S_RV_CONST    : c = QUOTE_FG_RV;     break;
+  case S_RV_CONTROL  : c = CONTROL_FG_RV;   break;
+  case S_RV_VARTYPE  : c = VARTYPE_FG_RV;   break;
+  case S_RV_VISUAL   : c = VISUAL_FG_RV;    break;
+  case S_RV_NONASCII : c = NONASCII_FG_RV;  break;
+
+  case S_DIFF_NORMAL : c = NORMAL_DIFF_FG;  break;
+  case S_DIFF_STAR   : c = STAR_DIFF_FG;    break;
+  case S_DIFF_COMMENT: c = COMMENT_DIFF_FG; break;
+  case S_DIFF_DEFINE : c = DEFINE_DIFF_FG;  break;
+  case S_DIFF_CONST  : c = QUOTE_DIFF_FG;   break;
+  case S_DIFF_CONTROL: c = CONTROL_DIFF_FG; break;
+  case S_DIFF_VARTYPE: c = VARTYPE_DIFF_FG; break;
+  case S_DIFF_VISUAL : c = VISUAL_DIFF_FG;  break;
+  case S_DIFF_DEL    : c = DELETED_DIFF_FG; break;
+  }
+  return c;
+}
+
+Color Style_2_BG( const uint8_t S )
+{
+  Color c = Black; // Default
+
+  switch( S )
+  {
+  case S_NORMAL   : c = NORMAL_BG;    break;
+  case S_STATUS   : c = STATUS_BG;    break;
+  case S_BORDER   : c = STATUS_BG;    break;
+  case S_BORDER_HI: c = BORDER_HI_BG; break;
+  case S_BANNER   : c = BANNER_BG;    break;
+  case S_STAR     : c = STAR_BG;      break;
+  case S_COMMENT  : c = COMMENT_BG;   break;
+  case S_DEFINE   : c = DEFINE_BG;    break;
+  case S_CONST    : c = QUOTE_BG;     break;
+  case S_CONTROL  : c = CONTROL_BG;   break;
+  case S_VARTYPE  : c = VARTYPE_BG;   break;
+  case S_VISUAL   : c = VISUAL_BG;    break;
+  case S_NONASCII : c = NONASCII_BG;  break;
+  case S_EMPTY    : c = EMPTY_BG;     break;
+
+  case S_RV_NORMAL   : c = NORMAL_BG_RV;    break;
+  case S_RV_STATUS   : c = STATUS_BG_RV;    break;
+  case S_RV_BORDER   : c = STATUS_BG_RV;    break;
+  case S_RV_BORDER_HI: c = BORDER_HI_BG_RV; break;
+  case S_RV_BANNER   : c = BANNER_BG_RV;    break;
+  case S_RV_STAR     : c = STAR_BG_RV;      break;
+  case S_RV_COMMENT  : c = COMMENT_BG_RV;   break;
+  case S_RV_DEFINE   : c = DEFINE_BG_RV;    break;
+  case S_RV_CONST    : c = QUOTE_BG_RV;     break;
+  case S_RV_CONTROL  : c = CONTROL_BG_RV;   break;
+  case S_RV_VARTYPE  : c = VARTYPE_BG_RV;   break;
+  case S_RV_VISUAL   : c = VISUAL_BG_RV;    break;
+  case S_RV_NONASCII : c = NONASCII_BG_RV;  break;
+
+  case S_DIFF_NORMAL : c = NORMAL_DIFF_BG;  break;
+  case S_DIFF_STAR   : c = STAR_DIFF_BG;    break;
+  case S_DIFF_COMMENT: c = COMMENT_DIFF_BG; break;
+  case S_DIFF_DEFINE : c = DEFINE_DIFF_BG;  break;
+  case S_DIFF_CONST  : c = QUOTE_DIFF_BG;   break;
+  case S_DIFF_CONTROL: c = CONTROL_DIFF_BG; break;
+  case S_DIFF_VARTYPE: c = VARTYPE_DIFF_BG; break;
+  case S_DIFF_VISUAL : c = VISUAL_DIFF_BG;  break;
+  case S_DIFF_DEL    : c = DELETED_DIFF_BG; break;
+  }
+  return c;
+}
+
+bool Style_2_BB( const uint8_t S )
+{
+  return true;
 }
 
 bool Console::Update()
@@ -328,7 +484,7 @@ void Console::Refresh()
  
   Update();
 
-  gl_pVis->CV()->PrintCursor();
+  mp_vis->CV()->PrintCursor();
 }
 
 void Console::NewLine()
@@ -654,155 +810,8 @@ void Console::Set_Color_Scheme_5()
   Refresh();
 }
 
-Color Console::Style_2_BG( const uint8_t S )
-{
-  Color c = Black; // Default
-
-  switch( S )
-  {
-  case S_NORMAL   : c = NORMAL_BG;    break;
-  case S_STATUS   : c = STATUS_BG;    break;
-  case S_BORDER   : c = STATUS_BG;    break;
-  case S_BORDER_HI: c = BORDER_HI_BG; break;
-  case S_BANNER   : c = BANNER_BG;    break;
-  case S_STAR     : c = STAR_BG;      break;
-  case S_COMMENT  : c = COMMENT_BG;   break;
-  case S_DEFINE   : c = DEFINE_BG;    break;
-  case S_CONST    : c = QUOTE_BG;     break;
-  case S_CONTROL  : c = CONTROL_BG;   break;
-  case S_VARTYPE  : c = VARTYPE_BG;   break;
-  case S_VISUAL   : c = VISUAL_BG;    break;
-  case S_NONASCII : c = NONASCII_BG;  break;
-  case S_EMPTY    : c = EMPTY_BG;     break;
-
-  case S_RV_NORMAL   : c = NORMAL_BG_RV;    break;
-  case S_RV_STATUS   : c = STATUS_BG_RV;    break;
-  case S_RV_BORDER   : c = STATUS_BG_RV;    break;
-  case S_RV_BORDER_HI: c = BORDER_HI_BG_RV; break;
-  case S_RV_BANNER   : c = BANNER_BG_RV;    break;
-  case S_RV_STAR     : c = STAR_BG_RV;      break;
-  case S_RV_COMMENT  : c = COMMENT_BG_RV;   break;
-  case S_RV_DEFINE   : c = DEFINE_BG_RV;    break;
-  case S_RV_CONST    : c = QUOTE_BG_RV;     break;
-  case S_RV_CONTROL  : c = CONTROL_BG_RV;   break;
-  case S_RV_VARTYPE  : c = VARTYPE_BG_RV;   break;
-  case S_RV_VISUAL   : c = VISUAL_BG_RV;    break;
-  case S_RV_NONASCII : c = NONASCII_BG_RV;  break;
-
-  case S_DIFF_NORMAL : c = NORMAL_DIFF_BG;  break;
-  case S_DIFF_STAR   : c = STAR_DIFF_BG;    break;
-  case S_DIFF_COMMENT: c = COMMENT_DIFF_BG; break;
-  case S_DIFF_DEFINE : c = DEFINE_DIFF_BG;  break;
-  case S_DIFF_CONST  : c = QUOTE_DIFF_BG;   break;
-  case S_DIFF_CONTROL: c = CONTROL_DIFF_BG; break;
-  case S_DIFF_VARTYPE: c = VARTYPE_DIFF_BG; break;
-  case S_DIFF_VISUAL : c = VISUAL_DIFF_BG;  break;
-  case S_DIFF_DEL    : c = DELETED_DIFF_BG; break;
-  }
-  return c;
-}
-
-Color Console::Style_2_FG( const uint8_t S )
-{
-  Color c = White; // Default
-
-  switch( S )
-  {
-  case S_NORMAL   : c = NORMAL_FG;    break;
-  case S_STATUS   : c = STATUS_FG;    break;
-  case S_BORDER   : c = STATUS_FG;    break;
-  case S_BORDER_HI: c = BORDER_HI_FG; break;
-  case S_BANNER   : c = BANNER_FG;    break;
-  case S_STAR     : c = STAR_FG;      break;
-  case S_COMMENT  : c = COMMENT_FG;   break;
-  case S_DEFINE   : c = DEFINE_FG;    break;
-  case S_CONST    : c = QUOTE_FG;     break;
-  case S_CONTROL  : c = CONTROL_FG;   break;
-  case S_VARTYPE  : c = VARTYPE_FG;   break;
-  case S_VISUAL   : c = VISUAL_FG;    break;
-  case S_NONASCII : c = NONASCII_FG;  break;
-  case S_EMPTY    : c = EMPTY_FG;     break;
-
-  case S_RV_NORMAL   : c = NORMAL_FG_RV;    break;
-  case S_RV_STATUS   : c = STATUS_FG_RV;    break;
-  case S_RV_BORDER   : c = STATUS_FG_RV;    break;
-  case S_RV_BORDER_HI: c = BORDER_HI_FG_RV; break;
-  case S_RV_BANNER   : c = BANNER_FG_RV;    break;
-  case S_RV_STAR     : c = STAR_FG_RV;      break;
-  case S_RV_COMMENT  : c = COMMENT_FG_RV;   break;
-  case S_RV_DEFINE   : c = DEFINE_FG_RV;    break;
-  case S_RV_CONST    : c = QUOTE_FG_RV;     break;
-  case S_RV_CONTROL  : c = CONTROL_FG_RV;   break;
-  case S_RV_VARTYPE  : c = VARTYPE_FG_RV;   break;
-  case S_RV_VISUAL   : c = VISUAL_FG_RV;    break;
-  case S_RV_NONASCII : c = NONASCII_FG_RV;  break;
-
-  case S_DIFF_NORMAL : c = NORMAL_DIFF_FG;  break;
-  case S_DIFF_STAR   : c = STAR_DIFF_FG;    break;
-  case S_DIFF_COMMENT: c = COMMENT_DIFF_FG; break;
-  case S_DIFF_DEFINE : c = DEFINE_DIFF_FG;  break;
-  case S_DIFF_CONST  : c = QUOTE_DIFF_FG;   break;
-  case S_DIFF_CONTROL: c = CONTROL_DIFF_FG; break;
-  case S_DIFF_VARTYPE: c = VARTYPE_DIFF_FG; break;
-  case S_DIFF_VISUAL : c = VISUAL_DIFF_FG;  break;
-  case S_DIFF_DEL    : c = DELETED_DIFF_FG; break;
-  }
-  return c;
-}
-
-bool Console::Style_2_BB( const uint8_t S )
-{
-  return true;
-}
-
 void Console::Set_Normal()
 {
-}
-
-void Console::Set_Style( const Color BG, const Color FG, const bool BB )
-{
-  WORD attributes = Background_2_Code( BG )
-                  | Foreground_2_Code( FG );
-
-  BOOL ok = SetConsoleTextAttribute( m_stdout, attributes );
-
-  ASSERT( __LINE__, ok, "ok" );
-}
-
-int Console::Background_2_Code( const Color BG )
-{
-  int code = 0;
-
-  if     ( BG == Black  ) code = 0;
-  else if( BG == Red    ) code = BACKGROUND_RED;
-  else if( BG == Green  ) code = BACKGROUND_GREEN;
-  else if( BG == Yellow ) code = BACKGROUND_RED   | BACKGROUND_GREEN;
-  else if( BG == Blue   ) code = BACKGROUND_BLUE;
-  else if( BG == Magenta) code = BACKGROUND_RED   | BACKGROUND_BLUE;
-  else if( BG == Cyan   ) code = BACKGROUND_GREEN | BACKGROUND_BLUE;
-  else if( BG == White  ) code = BACKGROUND_RED   | BACKGROUND_GREEN | BACKGROUND_BLUE;
-
-  if( code ) code |= BACKGROUND_INTENSITY ;
-
-  return code;
-}
-
-int Console::Foreground_2_Code( const Color FG )
-{
-  int code = 0;
-
-  if     ( FG == Black  ) code = 0;
-  else if( FG == Red    ) code = FOREGROUND_RED;
-  else if( FG == Green  ) code = FOREGROUND_GREEN;
-  else if( FG == Yellow ) code = FOREGROUND_RED   | FOREGROUND_GREEN;
-  else if( FG == Blue   ) code = FOREGROUND_BLUE;
-  else if( FG == Magenta) code = FOREGROUND_RED   | FOREGROUND_BLUE;
-  else if( FG == Cyan   ) code = FOREGROUND_GREEN | FOREGROUND_BLUE;
-  else if( FG == White  ) code = FOREGROUND_RED   | FOREGROUND_GREEN | FOREGROUND_BLUE;
-
-  if( code ) code |= FOREGROUND_INTENSITY ;
-
-  return code;
 }
 
 void Console::AtExit()
@@ -878,18 +887,18 @@ bool Console::GetWindowSize()
   {
     while( lines__p->len() < num_rows )
     {
-      lines__p->push( gl_pVis->BorrowLine(__FILE__,__LINE__) );
-      lines__w->push( gl_pVis->BorrowLine(__FILE__,__LINE__) );
-      styles_p->push( gl_pVis->BorrowLine(__FILE__,__LINE__) );
-      styles_w->push( gl_pVis->BorrowLine(__FILE__,__LINE__) );
+      lines__p->push( mp_vis->BorrowLine(__FILE__,__LINE__) );
+      lines__w->push( mp_vis->BorrowLine(__FILE__,__LINE__) );
+      styles_p->push( mp_vis->BorrowLine(__FILE__,__LINE__) );
+      styles_w->push( mp_vis->BorrowLine(__FILE__,__LINE__) );
     }
     while( num_rows < lines__p->len() )
     {
       Line* lp = 0;
-      lines__p->pop( lp ); gl_pVis->ReturnLine( lp );
-      lines__w->pop( lp ); gl_pVis->ReturnLine( lp );
-      styles_p->pop( lp ); gl_pVis->ReturnLine( lp );
-      styles_w->pop( lp ); gl_pVis->ReturnLine( lp );
+      lines__p->pop( lp ); mp_vis->ReturnLine( lp );
+      lines__w->pop( lp ); mp_vis->ReturnLine( lp );
+      styles_p->pop( lp ); mp_vis->ReturnLine( lp );
+      styles_w->pop( lp ); mp_vis->ReturnLine( lp );
     }
     for( unsigned k=0; k<num_rows; k++ )
     {
@@ -967,16 +976,16 @@ char Console::KeyIn()
     if( !read_key )
     {
       // Try to use less CPU time while waiting:
-      if( 0==count ) gl_pVis->CheckWindowSize(); // If window has resized, update window
-      if( 4==count ) gl_pVis->CheckFileModTime();
+      if( 0==count ) mp_vis->CheckWindowSize(); // If window has resized, update window
+      if( 4==count ) mp_vis->CheckFileModTime();
 
-      bool updated_sts_line = gl_pVis->Update_Status_Lines();
-      bool updated_chg_sts  = gl_pVis->Update_Change_Statuses();
+      bool updated_sts_line = mp_vis->Update_Status_Lines();
+      bool updated_chg_sts  = mp_vis->Update_Change_Statuses();
 
       if( updated_sts_line || updated_chg_sts )
       {
         Console::Update();
-        gl_pVis->CV()->PrintCursor();
+        mp_vis->CV()->PrintCursor();
         Console::Flush();
       }
       count++;

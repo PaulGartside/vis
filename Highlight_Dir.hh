@@ -31,9 +31,11 @@ class Highlight_Dir : public Highlight_Base
 public:
   Highlight_Dir( FileBuf& rfb );
 
-  void Run_Range( const CrsPos st, const unsigned fn );
-  void Hi_In_None( unsigned& l, unsigned& p );
 private:
+  void Run_Range( const CrsPos st, const unsigned fn );
+
+  void Hi_In_None( unsigned& l, unsigned& p );
+
   typedef Highlight_Dir ME;
   typedef void (Highlight_Dir::*HiStateFunc) ( unsigned&, unsigned& );
 

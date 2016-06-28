@@ -31,7 +31,9 @@ class Highlight_Code : public Highlight_Base
 public:
   Highlight_Code( FileBuf& rfb );
 
+private:
   void Run_Range( const CrsPos st, const unsigned fn );
+
   void Hi_In_None( unsigned& l, unsigned& p );
   void Hi_In_Define( unsigned& l, unsigned& p );
   void Hi_BegC_Comment( unsigned& l, unsigned& p );
@@ -52,7 +54,6 @@ public:
   void Hi_NumberFraction( unsigned& l, unsigned& p );
   void Hi_NumberExponent( unsigned& l, unsigned& p );
 
-private:
   typedef Highlight_Code ME;
   typedef void (ME::*HiStateFunc) ( unsigned&, unsigned& );
 

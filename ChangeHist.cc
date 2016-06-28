@@ -23,18 +23,18 @@
 
 #include <stdarg.h>    // va_list, va_start, va_end
 
-#include "FileBuf.hh"
 #include "MemLog.hh"
 #include "Utilities.hh"
+#include "FileBuf.hh"
 #include "Vis.hh"
 #include "View.hh"
 #include "ChangeHist.hh"
 
-extern Vis* gl_pVis;
 extern MemLog<MEM_LOG_BUF_SIZE> Log;
 
-ChangeHist::ChangeHist( FileBuf& fb )
-  : fb( fb )
+ChangeHist::ChangeHist( Vis& vis, FileBuf& fb )
+  : m_vis( vis )
+  , m_fb( fb )
   , changes()
 {}
 
@@ -46,7 +46,7 @@ void ChangeHist::Clear()
 
   while( changes.pop( plc ) )
   {
-    gl_pVis->ReturnLineChange( plc );
+    m_vis.ReturnLineChange( plc );
   }
 }
 
@@ -55,7 +55,7 @@ bool ChangeHist::Has_Changes() const
   return !! changes.len();
 }
 
-void ChangeHist::Undo( View* const pV )
+void ChangeHist::Undo( View& rV )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -64,23 +64,23 @@ void ChangeHist::Undo( View* const pV )
   if( changes.pop( plc ) )
   {
     const ChangeType ct = plc->type;
-    if     ( ct ==  Insert_Line ) Undo_InsertLine( plc, pV );
-    else if( ct ==  Remove_Line ) Undo_RemoveLine( plc, pV );
-    else if( ct ==  Insert_Text ) Undo_InsertChar( plc, pV );
-    else if( ct ==  Remove_Text ) Undo_RemoveChar( plc, pV );
-    else if( ct == Replace_Text ) Undo_Set       ( plc, pV );
+    if     ( ct ==  Insert_Line ) Undo_InsertLine( plc, rV );
+    else if( ct ==  Remove_Line ) Undo_RemoveLine( plc, rV );
+    else if( ct ==  Insert_Text ) Undo_InsertChar( plc, rV );
+    else if( ct ==  Remove_Text ) Undo_RemoveChar( plc, rV );
+    else if( ct == Replace_Text ) Undo_Set       ( plc, rV );
 
-    gl_pVis->ReturnLineChange( plc );
+    m_vis.ReturnLineChange( plc );
   }
 }
 
-void ChangeHist::UndoAll( View* const pV )
+void ChangeHist::UndoAll( View& rV )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
   while( 0 < changes.len() )
   {
-    Undo( pV );
+    Undo( rV );
   }
 }
 
@@ -106,7 +106,7 @@ void ChangeHist::Save_Set( const unsigned l_num
   }
   else {
     // Start of new replacement:
-    LineChange* lc = gl_pVis->BorrowLineChange( Replace_Text, l_num, c_pos );
+    LineChange* lc = m_vis.BorrowLineChange( Replace_Text, l_num, c_pos );
     lc->line.push( __FILE__, __LINE__, old_C );
 
     changes.push( lc );
@@ -117,7 +117,7 @@ void ChangeHist::Save_InsertLine( const unsigned l_num )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  LineChange* lc = gl_pVis->BorrowLineChange( Insert_Line, l_num, 0 );
+  LineChange* lc = m_vis.BorrowLineChange( Insert_Line, l_num, 0 );
 
   changes.push( lc );
 }
@@ -141,7 +141,7 @@ void ChangeHist::Save_InsertChar( const unsigned l_num
   }
   else {
     // Start of new insertion:
-    LineChange* lc = gl_pVis->BorrowLineChange( Insert_Text, l_num, c_pos );
+    LineChange* lc = m_vis.BorrowLineChange( Insert_Text, l_num, c_pos );
     lc->line.push( __FILE__, __LINE__, 0 );
 
     changes.push( lc );
@@ -153,7 +153,7 @@ void ChangeHist::Save_RemoveLine( const unsigned l_num
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  LineChange* lc = gl_pVis->BorrowLineChange( Remove_Line, l_num, 0 );
+  LineChange* lc = m_vis.BorrowLineChange( Remove_Line, l_num, 0 );
 
   // Copy line into lc-Line:
   lc->line.clear();
@@ -180,7 +180,7 @@ void ChangeHist::Save_RemoveChar( const unsigned l_num
   }
   else {
     // Start of new removal:
-    LineChange* lc = gl_pVis->BorrowLineChange( Remove_Text, l_num, c_pos );
+    LineChange* lc = m_vis.BorrowLineChange( Remove_Text, l_num, c_pos );
     lc->line.push( __FILE__, __LINE__, old_C );
 
     changes.push( lc );
@@ -192,7 +192,7 @@ void ChangeHist::Save_SwapLines( const unsigned l_num_1
 {
 }
 
-void ChangeHist::Undo_Set( LineChange* plc, View* const pV )
+void ChangeHist::Undo_Set( LineChange* plc, View& rV )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -202,43 +202,43 @@ void ChangeHist::Undo_Set( LineChange* plc, View* const pV )
   {
     const uint8_t C = plc->line.get(k);
 
-    fb.Set( plc->lnum, plc->cpos+k, C );
+    m_fb.Set( plc->lnum, plc->cpos+k, C );
   }
-  pV->GoToCrsPos_Write( plc->lnum, plc->cpos );
+  rV.GoToCrsPos_Write( plc->lnum, plc->cpos );
 
-  fb.Update();
+  m_fb.Update();
 }
 
-void ChangeHist::Undo_InsertLine( LineChange* plc, View* const pV )
+void ChangeHist::Undo_InsertLine( LineChange* plc, View& rV )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
   // Undo an inserted line by removing the inserted line
-  fb.RemoveLine( plc->lnum, plc->line );
+  m_fb.RemoveLine( plc->lnum, plc->line );
 
   // If last line of file was just removed, plc->lnum is out of range,
   // so go to NUM_LINES-1 instead:
-  const unsigned NUM_LINES = fb.NumLines();
+  const unsigned NUM_LINES = m_fb.NumLines();
   const unsigned LINE_NUM  = plc->lnum < NUM_LINES ? plc->lnum : NUM_LINES-1;
 
-  pV->GoToCrsPos_Write( LINE_NUM, plc->cpos );
+  rV.GoToCrsPos_Write( LINE_NUM, plc->cpos );
 
-  fb.Update();
+  m_fb.Update();
 }
 
-void ChangeHist::Undo_RemoveLine( LineChange* plc, View* const pV )
+void ChangeHist::Undo_RemoveLine( LineChange* plc, View& rV )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
   // Undo a removed line by inserting the removed line
-  fb.InsertLine( plc->lnum, plc->line );
+  m_fb.InsertLine( plc->lnum, plc->line );
 
-  pV->GoToCrsPos_Write( plc->lnum, plc->cpos );
+  rV.GoToCrsPos_Write( plc->lnum, plc->cpos );
 
-  fb.Update();
+  m_fb.Update();
 }
 
-void ChangeHist::Undo_InsertChar( LineChange* plc, View* const pV )
+void ChangeHist::Undo_InsertChar( LineChange* plc, View& rV )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -247,14 +247,14 @@ void ChangeHist::Undo_InsertChar( LineChange* plc, View* const pV )
   // Undo inserted chars by removing the inserted chars
   for( unsigned k=0; k<LINE_LEN; k++ )
   {
-    fb.RemoveChar( plc->lnum, plc->cpos );
+    m_fb.RemoveChar( plc->lnum, plc->cpos );
   }
-  pV->GoToCrsPos_Write( plc->lnum, plc->cpos );
+  rV.GoToCrsPos_Write( plc->lnum, plc->cpos );
 
-  fb.Update();
+  m_fb.Update();
 }
 
-void ChangeHist::Undo_RemoveChar( LineChange* plc, View* const pV )
+void ChangeHist::Undo_RemoveChar( LineChange* plc, View& rV )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -265,10 +265,10 @@ void ChangeHist::Undo_RemoveChar( LineChange* plc, View* const pV )
   {
     const uint8_t C = plc->line.get(k);
 
-    fb.InsertChar( plc->lnum, plc->cpos+k, C );
+    m_fb.InsertChar( plc->lnum, plc->cpos+k, C );
   }
-  pV->GoToCrsPos_Write( plc->lnum, plc->cpos );
+  rV.GoToCrsPos_Write( plc->lnum, plc->cpos );
 
-  fb.Update();
+  m_fb.Update();
 }
 
