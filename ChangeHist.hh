@@ -47,7 +47,7 @@ struct LineChange
   {}
 };
 
-class ChangeHist 
+class ChangeHist
 {
 public:
   ChangeHist( Vis& vis, FileBuf& fb );

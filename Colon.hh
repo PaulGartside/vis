@@ -46,9 +46,10 @@ public:
   void Cover();
   void CoverKey();
 
+  struct Data;
+
 private:
-  struct Imp;
-  Imp& m;
+  Data& m;
 };
 
 #endif

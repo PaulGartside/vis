@@ -25,6 +25,8 @@
 #include <string.h>    // memcpy, memset
 #include <unistd.h>    // readlink
 #include <sys/stat.h>  // lstat
+#include <stdio.h>     // printf, stderr, FILE, fopen, fclose
+#include <dirent.h>
 
 #include "String.hh"
 #include "ChangeHist.hh"
@@ -78,7 +80,7 @@ struct FileBuf::Data
   ViewList        views; // List of views that display this file
   bool            need_2_find_stars;
   bool            need_2_clear_stars;
-  
+
   bool       save_history;
   unsList    lineOffsets; // absolute byte offset of beginning of line in file
   LinesList  lines;    // list of file lines.
@@ -154,11 +156,11 @@ bool Find_File_Type_Bash( FileBuf::Data& m )
    || ( 5 < LEN && m.file_name.has_at(".bash"    , LEN-5 ) )
    || ( 9 < LEN && m.file_name.has_at(".bash.new", LEN-9 ) )
    || ( 9 < LEN && m.file_name.has_at(".bash.old", LEN-9 ) )
-   || ( 6 < LEN && m.file_name.has_at(".alias", LEN-6 ) )
-   || ( 13 < LEN && m.file_name.has_at(".bash_profile", LEN-13 ) )
-   || ( 12 < LEN && m.file_name.has_at(".bash_logout", LEN-12 ) )
-   || ( 7 < LEN && m.file_name.has_at(".bashrc", LEN-7 ) )
-   || ( 8 < LEN && m.file_name.has_at(".profile", LEN-8 ) ) )
+   || ( 6 < LEN && m.file_name.has_at(".alias"   , LEN-6 ) )
+   || ( 7 < LEN && m.file_name.has_at(".bashrc"  , LEN-7 ) )
+   || ( 8 < LEN && m.file_name.has_at(".profile" , LEN-8 ) )
+   || (13 < LEN && m.file_name.has_at(".bash_profile", LEN-13 ) )
+   || (12 < LEN && m.file_name.has_at(".bash_logout" , LEN-12 ) ) )
   {
     m.file_type = FT_BASH;
     m.pHi = new(__FILE__,__LINE__) Highlight_Bash( m.self );
@@ -595,7 +597,7 @@ void ReadExistingDir( FileBuf::Data& m, DIR* dp, String dir_path )
 #ifndef WIN32
         IS_LNK = 0==err && S_ISLNK( stat_buf.st_mode );
 #endif
-        if( IS_DIR ) m.self.PushChar( LINE_NUM, DIR_DELIM );
+        if     ( IS_DIR ) m.self.PushChar( LINE_NUM, DIR_DELIM );
         else if( IS_LNK ) ReadExistingDir_AddLink( m, dir_path_fname, LINE_NUM );
       }
     }
@@ -665,7 +667,7 @@ CrsPos Update_Styles_Find_St( FileBuf::Data& m, const unsigned first_line )
         st.crsLine = l;
         st.crsChar = p;
         done = true;
-      } 
+      }
     }
   }
   return st;
@@ -1842,7 +1844,7 @@ void FileBuf::Update()
   for( unsigned w=0; w<MAX_WINS; w++ )
   {
     View* const pV = m.views[w];
- 
+
     for( unsigned w2=0; w2<m.vis.GetNumWins(); w2++ )
     {
       if( pV == m.vis.WinView( w2 ) )
@@ -2003,7 +2005,9 @@ void FileBuf::SetSyntaxStyle( const unsigned l_num
   sp->set( c_num, s );
 }
 
-bool FileBuf::HasStyle( const unsigned l_num, const unsigned c_num, const unsigned style )
+bool FileBuf::HasStyle( const unsigned l_num
+                      , const unsigned c_num
+                      , const unsigned style )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   ASSERT( __LINE__, l_num < m.styles.len(), "l_num < m.styles.len()" );

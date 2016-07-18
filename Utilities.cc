@@ -365,7 +365,7 @@ void ExecShell( const char* cmd )
   const char*           shell_prog = getenv("VIT_SHELL");
   if( 0 == shell_prog ) shell_prog = getenv("SHELL");
   if( 0 == shell_prog ) shell_prog = "/bin/bash";
- 
+
   execl( shell_prog, shell_prog, "-c", cmd, (char*) 0 );
 }
 

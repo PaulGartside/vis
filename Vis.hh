@@ -57,7 +57,7 @@ public:
   bool Update_Status_Lines();
   bool Update_Change_Statuses();
   void PrintCursor();
-  bool HaveFile( const char* file_name, unsigned* index=0 );
+  bool HaveFile( const char* file_name, unsigned* file_index=0 );
   bool File_Is_Displayed( const String& full_fname );
   void ReleaseFileName( const String& full_fname );
   bool GoToBuffer_Fname( String& fname );
@@ -77,9 +77,10 @@ public:
                               , const unsigned   cpos );
   void  ReturnLineChange( LineChange* lcp );
 
+  struct Data;
+
 private:
-  class Imp;
-  Imp& m;
+  Data& m;
 };
 
 #endif

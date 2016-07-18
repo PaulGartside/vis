@@ -41,74 +41,57 @@ extern MemLog<MEM_LOG_BUF_SIZE> Log;
 struct ColonOp
 {
   enum E
-  { 
+  {
     unknown,
     e,
     w
   };
 };
 
-struct Colon::Imp
+struct Colon::Data
 {
-  Imp( Vis& vis, Key& key, Diff& diff, char* cbuf, String& sbuf );
+  Colon&     colon;
+  Vis&       vis;
+  Key&       key;
+  Diff&      diff;
+  View*      cv;
+  FileBuf*   fb;
+  char*      cbuf;
+  String&    sbuf;
+  String     cover_key;
+  Line       cover_buf;
+  unsigned   file_index;
+  String     partial_path;
+  String     search__head;
+  ColonOp::E colon_op;
 
-  void GetCommand( const unsigned MSG_LEN, const bool HIDE=false );
-//void b();
-//void e();
-//void w();
-  void hi();
-  void MapStart();
-  void MapEnd();
-  void MapShow();
-  void Cover();
-  void CoverKey();
-
-private:
-  void Reset_File_Name_Completion_Variables();
-
-  void HandleNormal( const unsigned MSG_LEN
-                   , const bool     HIDE
-                   , const uint8_t  c
-                   ,       char*&   p );
-
-  void HandleTab( const unsigned  MSG_LEN
-                ,       char*&    p );
-
-  bool Find_File_Name_Completion_Variables();
-  bool Have_File_Name_Completion_Variables();
-
-  bool FindFileBuf();
-
-  void DisplaySbuf( char*& p );
-
-  Vis&       m_vis;
-  Key&       m_key;
-  Diff&      m_diff;
-  View*      m_cv;
-  FileBuf*   m_fb;
-  char*      m_cbuf;
-  String&    m_sbuf;
-  String     m_cover_key;
-  Line       m_cover_buf;
-  unsigned   m_file_index;
-  String     m_partial_path;
-  String     m_search__head;
-  ColonOp::E m_colon_op;
+  Data( Colon&  colon
+      , Vis&    vis
+      , Key&    key
+      , Diff&   diff
+      , char*   cbuf
+      , String& sbuf );
 };
 
-Colon::Imp::Imp( Vis& vis, Key& key, Diff& diff, char* cbuf, String& sbuf )
-  : m_vis( vis )
-  , m_key( key )
-  , m_diff( diff )
-  , m_cv( 0 )
-  , m_fb( 0 )
-  , m_cbuf( cbuf )
-  , m_sbuf( sbuf )
-  , m_cover_key()
-  , m_cover_buf()
-  , m_file_index( 0 )
-  , m_partial_path()
-  , m_search__head()
+Colon::Data::Data( Colon&  colon
+                 , Vis&    vis
+                 , Key&    key
+                 , Diff&   diff
+                 , char*   cbuf
+                 , String& sbuf )
+  : colon( colon )
+  , vis( vis )
+  , key( key )
+  , diff( diff )
+  , cv( 0 )
+  , fb( 0 )
+  , cbuf( cbuf )
+  , sbuf( sbuf )
+  , cover_key()
+  , cover_buf()
+  , file_index( 0 )
+  , partial_path()
+  , search__head()
 {
 }
 
@@ -218,194 +201,29 @@ Colon::Imp::Imp( Vis& vis, Key& key, Diff& diff, char* cbuf, String& sbuf )
 //  }
 //}
 
-void Colon::Imp::hi()
+void Reset_File_Name_Completion_Variables( Colon::Data& m )
 {
-  m_cv = m_vis.CV();
-  m_cv->GetFB()->ClearStyles();
-
-  if( m_vis.InDiffMode() ) m_diff.Update();
-  else                      m_cv->Update();
+  m.cv          = m.vis.CV();
+  m.fb          = 0;
+  m.file_index  = 0;
+  m.colon_op    = ColonOp::unknown;
+  m.partial_path.clear();
+  m.search__head.clear();
 }
 
-void Colon::Imp::MapStart()
-{
-  m_cv = m_vis.CV();
-
-  m_key.map_buf.clear();
-  m_key.save_2_map_buf = true;
-  m_cv->DisplayMapping();
-}
-
-void Colon::Imp::MapEnd()
-{
-  if( m_key.save_2_map_buf )
-  {
-    m_key.save_2_map_buf = false;
-    // Remove trailing ':' from m_key.map_buf:
-    Line& map_buf = m_key.map_buf;
-    map_buf.pop(); // '\n'
-    map_buf.pop(); // ':'
-  }
-}
-
-void Colon::Imp::MapShow()
+void HandleNormal( Colon::Data& m
+                 , const unsigned MSG_LEN
+                 , const bool     HIDE
+                 , const uint8_t  c
+                 ,       char*&   p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
-  m_cv = m_vis.CV();
-  const unsigned ROW = m_cv->Cmd__Line_Row();
-  const unsigned ST  = m_cv->Col_Win_2_GL( 0 );
-  const unsigned WC  = m_cv->WorkingCols();
-  const unsigned MAP_LEN = m_key.map_buf.len();
-
-  // Print :
-  Console::Set( ROW, ST, ':', S_NORMAL );
-
-  // Print map
-  unsigned offset = 1;
-  for( unsigned k=0; k<MAP_LEN && offset+k<WC; k++ )
-  {
-    const char C = m_key.map_buf.get( k );
-    if( C == '\n' )
-    {
-      Console::Set( ROW, ST+offset+k, '<', S_NORMAL ); offset++;
-      Console::Set( ROW, ST+offset+k, 'C', S_NORMAL ); offset++;
-      Console::Set( ROW, ST+offset+k, 'R', S_NORMAL ); offset++;
-      Console::Set( ROW, ST+offset+k, '>', S_NORMAL );
-    }
-    else if( C == '\E' )
-    {
-      Console::Set( ROW, ST+offset+k, '<', S_NORMAL ); offset++;
-      Console::Set( ROW, ST+offset+k, 'E', S_NORMAL ); offset++;
-      Console::Set( ROW, ST+offset+k, 'S', S_NORMAL ); offset++;
-      Console::Set( ROW, ST+offset+k, 'C', S_NORMAL ); offset++;
-      Console::Set( ROW, ST+offset+k, '>', S_NORMAL );
-    }
-    else {
-      Console::Set( ROW, ST+offset+k, C, S_NORMAL );
-    }
-  }
-  // Print empty space after map
-  for( unsigned k=MAP_LEN; offset+k<WC; k++ )
-  {
-    Console::Set( ROW, ST+offset+k, ' ', S_NORMAL );
-  }
-  Console::Update();
-  if( m_vis.InDiffMode() ) m_diff.PrintCursor( m_cv );
-  else                      m_cv->PrintCursor();
-}
-
-void Colon::Imp::Cover()
-{
-  m_cv = m_vis.CV();
-  m_fb = m_cv->GetFB();
-
-  if( m_fb->IsDir() )
-  {
-    m_cv->PrintCursor();
-  }
-  else {
-    const uint8_t seed = m_fb->GetSize() % 256;
-
-    Cover_Array( *m_fb, m_cover_buf, seed, m_cover_key );
-
-    // Fill in m_cover_buf from old file data:
-    // Clear old file:
-    m_fb->ClearChanged();
-    m_fb->ClearLines();
-    // Read in covered file:
-    m_fb->ReadArray( m_cover_buf );
-
-    // Reset view position:
-    m_cv->SetTopLine( 0 );
-    m_cv->SetLeftChar( 0 );
-    m_cv->SetCrsRow( 0 );
-    m_cv->SetCrsCol( 0 );
-
-    m_cv->Update();
-  }
-}
-
-void Colon::Imp::CoverKey()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  m_cv = m_vis.CV();
-
-  const char* msg = "Enter cover key:";
-  const unsigned msg_len = strlen( msg );
-  m_cv->GoToCmdLineClear( msg );
-
-  GetCommand( msg_len, true );
-
-  m_cover_key = m_cbuf;
-
-  m_cv->PrintCursor();
-}
-
-void Colon::Imp::Reset_File_Name_Completion_Variables()
-{
-  m_cv          = m_vis.CV();
-  m_fb          = 0;
-  m_file_index  = 0;
-  m_colon_op    = ColonOp::unknown;
-  m_partial_path.clear();
-  m_search__head.clear();
-}
-
-void Colon::Imp::GetCommand( const unsigned MSG_LEN, const bool HIDE )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  Reset_File_Name_Completion_Variables();
-
-  char* p = m_cbuf;
-
-  for( uint8_t c=m_key.In(); !IsEndOfLineDelim( c ); c=m_key.In() )
-  {
-    if( !HIDE && '\t' == c && m_cbuf < p )
-    {
-      HandleTab( MSG_LEN, p );
-    }
-    else {                  // Clear
-      Reset_File_Name_Completion_Variables();
-
-      if( BS != c && DEL != c )
-      {
-        HandleNormal( MSG_LEN, HIDE, c, p );
-      }
-      else {  // Backspace or Delete key
-        if( m_cbuf < p )
-        {
-          // Replace last typed char with space:
-          const unsigned G_ROW = m_cv->Cmd__Line_Row(); // Global row
-          const unsigned G_COL = m_cv->Col_Win_2_GL( p-m_cbuf+MSG_LEN-1 );
-
-          Console::Set( G_ROW, G_COL, ' ', S_NORMAL );
-          // Display space:
-          Console::Update();
-          // Move back onto new space:
-          Console::Move_2_Row_Col( G_ROW, G_COL );
-          p--;
-        }
-      }
-    }
-    Console::Flush();
-  }
-  *p++ = 0;
-}
-
-void Colon::Imp::HandleNormal( const unsigned MSG_LEN
-                        , const bool     HIDE
-                        , const uint8_t  c
-                        ,       char*&   p )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-  const unsigned WC    = m_cv->WorkingCols();
-  const unsigned G_ROW = m_cv->Cmd__Line_Row(); // Global row
+  const unsigned WC    = m.cv->WorkingCols();
+  const unsigned G_ROW = m.cv->Cmd__Line_Row(); // Global row
 
   *p++ = c;
-  const unsigned local_COL = Min( p-m_cbuf+MSG_LEN-1, WC-2 );
-  const unsigned G_COL = m_cv->Col_Win_2_GL( local_COL );
+  const unsigned local_COL = Min( p-m.cbuf+MSG_LEN-1, WC-2 );
+  const unsigned G_COL = m.cv->Col_Win_2_GL( local_COL );
 
   Console::Set( G_ROW, G_COL, (HIDE ? '*' : c), S_NORMAL );
 
@@ -419,118 +237,12 @@ void Colon::Imp::HandleNormal( const unsigned MSG_LEN
   }
 }
 
-void Colon::Imp::HandleTab( const unsigned  MSG_LEN
-                     ,       char*&    p )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-  *p = 0;
-  bool found_tab_fname = false;
-
-  if( 0 == m_fb )
-  {
-    found_tab_fname = Find_File_Name_Completion_Variables();
-  }
-  else { // Put list of file names in tab_fnames:
-    found_tab_fname = Have_File_Name_Completion_Variables();
-  }
-  if( found_tab_fname )
-  {
-    DisplaySbuf( p );
-  }
-  else {
-    // If we fall through, just treat tab like a space:
-    HandleNormal( MSG_LEN, false, ' ', p );
-  }
-}
-
-// Returns true if found tab filename, else false
-bool Colon::Imp::Find_File_Name_Completion_Variables()
-{
-  bool found_tab_fname = false;
-
-  m_sbuf = m_cbuf;
-  m_sbuf.trim(); // Remove leading and trailing white space
-  if( m_sbuf.has_at("e ", 0)
-   || m_sbuf=="e" )
-  {
-    m_colon_op = ColonOp::e;
-  }
-  else if( m_sbuf.has_at("w ", 0)
-        || m_sbuf=="w" )
-  {
-    m_colon_op = ColonOp::w;
-  }
-
-  if( ColonOp::e == m_colon_op
-   || ColonOp::w == m_colon_op )
-  {
-    m_sbuf.shift(1); m_sbuf.trim_beg(); // Remove initial 'e' and space after 'e'
-
-    if( FindFileBuf() )
-    {
-      // Have FileBuf, so add matching files names to tab_fnames
-      for( unsigned k=0; !found_tab_fname && k<m_fb->NumLines(); k++ )
-      {
-        Line l = m_fb->GetLine( k );
-        const char* fname = l.c_str( 0 );
-
-        if( fname && 0==strncmp( fname, m_search__head.c_str(), m_search__head.len() ) )
-        {
-          found_tab_fname = true;
-          m_file_index = k;
-          m_sbuf = m_partial_path;
-          if( 0<m_sbuf.len() )
-          {
-            m_sbuf.push('/'); // Dont append '/' if no m_partial_path
-          }
-          // Cant use m_sbuf.append here because Line is not NULL terminated:
-          for( unsigned i=0; i<l.len(); i++ ) m_sbuf.push( l.get(i) );
-        }
-      }
-    }
-    // Removed "e" above, so add it back here:
-    if( ColonOp::e == m_colon_op ) m_sbuf.insert( 0, "e ");
-    else                           m_sbuf.insert( 0, "w ");
-  }
-  return found_tab_fname;
-}
-
-// Returns true if found tab filename, else false
-bool Colon::Imp::Have_File_Name_Completion_Variables()
-{
-  bool found_tab_fname = false;
-
-  // Already have a FileBuf, just search for next matching filename:
-  for( unsigned k=m_file_index+1
-     ; !found_tab_fname && k<m_file_index+m_fb->NumLines(); k++ )
-  {
-    Line l = m_fb->GetLine( k % m_fb->NumLines() );
-    const char* fname = l.c_str( 0 );
-
-    if( 0==strncmp( fname, m_search__head.c_str(), m_search__head.len() ) )
-    {
-      found_tab_fname = true;
-      m_file_index = k;
-      m_sbuf = m_partial_path;
-      if( 0<m_sbuf.len() )
-      {
-        m_sbuf.push('/'); // Done append '/' if no m_partial_path
-      }
-      // Cant use m_sbuf.append here because Line is not NULL terminated:
-      for( unsigned i=0; i<l.len(); i++ ) m_sbuf.push( l.get(i) );
-      if( ColonOp::e == m_colon_op ) m_sbuf.insert( 0, "e ");
-      else                           m_sbuf.insert( 0, "w ");
-    }
-  }
-  return found_tab_fname;
-}
-
 // in_out_fname goes in as         some/path/partial_file_name
 // and if successful, comes out as some/path
 // the relative path to the files
-bool Colon::Imp::FindFileBuf()
+bool FindFileBuf( Colon::Data& m )
 {
-  const char*    in_fname     = m_sbuf.c_str();
+  const char*    in_fname     = m.sbuf.c_str();
   const unsigned in_fname_len = strlen( in_fname );
 
   // 1. seperate in_fname into f_name_tail and f_name_head
@@ -557,20 +269,23 @@ bool Colon::Imp::FindFileBuf()
   char orig_dir[ FILE_NAME_LEN ];
   bool got_orig_dir = !! getcwd( orig_dir, FILE_NAME_LEN );
 
-  if( m_cv->GoToDir() && FindFullFileName( f_full_path ) )
+  if( m.cv->GoToDir() && FindFullFileName( f_full_path ) )
   {
-    m_partial_path = f_name_tail;
-    m_search__head = f_name_head;
+    m.partial_path = f_name_tail;
+    m.search__head = f_name_head;
     // f_full_path is now the full path to the directory
     // to search for matches to f_name_head
     unsigned file_index = 0;
-    if( m_vis.HaveFile( f_full_path.c_str(), &file_index ) )
+    if( m.vis.HaveFile( f_full_path.c_str(), &file_index ) )
     {
-      m_fb = m_vis.GetFileBuf( file_index );
+      m.fb = m.vis.GetFileBuf( file_index );
     }
     else {
-      m_fb = new(__FILE__,__LINE__) FileBuf( m_vis, f_full_path.c_str(), true, FT_UNKNOWN );
-      m_fb->ReadFile();
+      // This is not a memory leak.
+      // m.fb gets added to m.vis.m.files in Vis::Add_FileBuf_2_Lists_Create_Views()
+      m.fb = new(__FILE__,__LINE__)
+             FileBuf( m.vis, f_full_path.c_str(), true, FT_UNKNOWN );
+      m.fb->ReadFile();
     }
     // Restore original directory, for next call to FindFullFileName()
     if( got_orig_dir ) chdir( orig_dir );
@@ -579,28 +294,110 @@ bool Colon::Imp::FindFileBuf()
   return false;
 }
 
-void Colon::Imp::DisplaySbuf( char*& p )
+// Returns true if found tab filename, else false
+bool Find_File_Name_Completion_Variables( Colon::Data& m )
 {
-  // Display m_cbuf on command line:
-  const unsigned ROW = m_cv->Cmd__Line_Row();
-  const unsigned ST  = m_cv->Col_Win_2_GL( 0 );
-  const unsigned WC  = m_cv->WorkingCols();
+  bool found_tab_fname = false;
+
+  m.sbuf = m.cbuf;
+  m.sbuf.trim(); // Remove leading and trailing white space
+  if( m.sbuf.has_at("e ", 0)
+   || m.sbuf=="e" )
+  {
+    m.colon_op = ColonOp::e;
+  }
+  else if( m.sbuf.has_at("w ", 0)
+        || m.sbuf=="w" )
+  {
+    m.colon_op = ColonOp::w;
+  }
+
+  if( ColonOp::e == m.colon_op
+   || ColonOp::w == m.colon_op )
+  {
+    m.sbuf.shift(1); m.sbuf.trim_beg(); // Remove initial 'e' and space after 'e'
+
+    if( FindFileBuf(m) )
+    {
+      // Have FileBuf, so add matching files names to tab_fnames
+      for( unsigned k=0; !found_tab_fname && k<m.fb->NumLines(); k++ )
+      {
+        Line l = m.fb->GetLine( k );
+        const char* fname = l.c_str( 0 );
+
+        if( fname && 0==strncmp( fname, m.search__head.c_str(), m.search__head.len() ) )
+        {
+          found_tab_fname = true;
+          m.file_index = k;
+          m.sbuf = m.partial_path;
+          if( 0<m.sbuf.len() )
+          {
+            m.sbuf.push('/'); // Dont append '/' if no m.partial_path
+          }
+          // Cant use m.sbuf.append here because Line is not NULL terminated:
+          for( unsigned i=0; i<l.len(); i++ ) m.sbuf.push( l.get(i) );
+        }
+      }
+    }
+    // Removed "e" above, so add it back here:
+    if( ColonOp::e == m.colon_op ) m.sbuf.insert( 0, "e ");
+    else                           m.sbuf.insert( 0, "w ");
+  }
+  return found_tab_fname;
+}
+
+// Returns true if found tab filename, else false
+bool Have_File_Name_Completion_Variables( Colon::Data& m )
+{
+  bool found_tab_fname = false;
+
+  // Already have a FileBuf, just search for next matching filename:
+  for( unsigned k=m.file_index+1
+     ; !found_tab_fname && k<m.file_index+m.fb->NumLines(); k++ )
+  {
+    Line l = m.fb->GetLine( k % m.fb->NumLines() );
+    const char* fname = l.c_str( 0 );
+
+    if( 0==strncmp( fname, m.search__head.c_str(), m.search__head.len() ) )
+    {
+      found_tab_fname = true;
+      m.file_index = k;
+      m.sbuf = m.partial_path;
+      if( 0<m.sbuf.len() )
+      {
+        m.sbuf.push('/'); // Done append '/' if no m.partial_path
+      }
+      // Cant use m.sbuf.append here because Line is not NULL terminated:
+      for( unsigned i=0; i<l.len(); i++ ) m.sbuf.push( l.get(i) );
+      if( ColonOp::e == m.colon_op ) m.sbuf.insert( 0, "e ");
+      else                           m.sbuf.insert( 0, "w ");
+    }
+  }
+  return found_tab_fname;
+}
+
+void DisplaySbuf( Colon::Data& m, char*& p )
+{
+  // Display m.cbuf on command line:
+  const unsigned ROW = m.cv->Cmd__Line_Row();
+  const unsigned ST  = m.cv->Col_Win_2_GL( 0 );
+  const unsigned WC  = m.cv->WorkingCols();
   Console::Set( ROW, ST, ':', S_NORMAL );
 
-  // Put m_sbuf into m_cbuf:
-  p = m_cbuf;
-  for( unsigned k=0; k<m_sbuf.len(); k++ ) *p++ = m_sbuf.get(k);
+  // Put m.sbuf into m.cbuf:
+  p = m.cbuf;
+  for( unsigned k=0; k<m.sbuf.len(); k++ ) *p++ = m.sbuf.get(k);
   *p = 0;
 
-  const char*    S     = m_cbuf;
+  const char*    S     = m.cbuf;
         unsigned S_LEN = strlen( S );
   if( WC-3 < S_LEN )
   {
-    // Put end of m_sbuf into m_cbuf:
-    p = m_cbuf + S_LEN-(WC-3);
-    for( unsigned k=S_LEN-(WC-3); k<m_sbuf.len(); k++ ) *p++ = m_sbuf.get(k);
+    // Put end of m.sbuf into m.cbuf:
+    p = m.cbuf + S_LEN-(WC-3);
+    for( unsigned k=S_LEN-(WC-3); k<m.sbuf.len(); k++ ) *p++ = m.sbuf.get(k);
     *p = 0;
-    S     = m_cbuf + S_LEN-(WC-3);
+    S     = m.cbuf + S_LEN-(WC-3);
     S_LEN = strlen( S );
   }
   for( unsigned k=0; k<S_LEN; k++ )
@@ -612,12 +409,41 @@ void Colon::Imp::DisplaySbuf( char*& p )
     Console::Set( ROW, ST+k+1, ' ', S_NORMAL );
   }
   Console::Update();
-  Console::Move_2_Row_Col( ROW, m_cv->Col_Win_2_GL( S_LEN+1 ) );
+  Console::Move_2_Row_Col( ROW, m.cv->Col_Win_2_GL( S_LEN+1 ) );
 }
 
-Colon::Colon( Vis& vis, Key& key, Diff& diff, char* cbuf, String& sbuf )
+void HandleTab( Colon::Data& m
+              , const unsigned MSG_LEN
+              ,       char*&   p )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+  *p = 0;
+  bool found_tab_fname = false;
+
+  if( 0 == m.fb )
+  {
+    found_tab_fname = Find_File_Name_Completion_Variables(m);
+  }
+  else { // Put list of file names in tab_fnames:
+    found_tab_fname = Have_File_Name_Completion_Variables(m);
+  }
+  if( found_tab_fname )
+  {
+    DisplaySbuf( m, p );
+  }
+  else {
+    // If we fall through, just treat tab like a space:
+    HandleNormal( m, MSG_LEN, false, ' ', p );
+  }
+}
+
+Colon::Colon( Vis&    vis
+            , Key&    key
+            , Diff&   diff
+            , char*   cbuf
+            , String& sbuf )
   : m( *new(__FILE__, __LINE__)
-        Colon::Imp( vis, key, diff, cbuf, sbuf ) )
+        Colon::Data( *this, vis, key, diff, cbuf, sbuf ) )
 {
 }
 
@@ -628,16 +454,167 @@ Colon::~Colon()
 
 void Colon::GetCommand( const unsigned MSG_LEN, const bool HIDE )
 {
-  m.GetCommand( MSG_LEN, HIDE );
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  Reset_File_Name_Completion_Variables(m);
+
+  char* p = m.cbuf;
+
+  for( uint8_t c=m.key.In(); !IsEndOfLineDelim( c ); c=m.key.In() )
+  {
+    if( !HIDE && '\t' == c && m.cbuf < p )
+    {
+      HandleTab( m, MSG_LEN, p );
+    }
+    else {                  // Clear
+      Reset_File_Name_Completion_Variables(m);
+
+      if( BS != c && DEL != c )
+      {
+        HandleNormal( m, MSG_LEN, HIDE, c, p );
+      }
+      else {  // Backspace or Delete key
+        if( m.cbuf < p )
+        {
+          // Replace last typed char with space:
+          const unsigned G_ROW = m.cv->Cmd__Line_Row(); // Global row
+          const unsigned G_COL = m.cv->Col_Win_2_GL( p-m.cbuf+MSG_LEN-1 );
+
+          Console::Set( G_ROW, G_COL, ' ', S_NORMAL );
+          // Display space:
+          Console::Update();
+          // Move back onto new space:
+          Console::Move_2_Row_Col( G_ROW, G_COL );
+          p--;
+        }
+      }
+    }
+    Console::Flush();
+  }
+  *p++ = 0;
 }
 
-//void Colon::b()        { return m.b();        }
-//void Colon::e()        { return m.e();        }
-//void Colon::w()        { return m.w();        }
-void Colon::hi()       { return m.hi();       }
-void Colon::MapStart() { return m.MapStart(); }
-void Colon::MapEnd()   { return m.MapEnd();   }
-void Colon::MapShow()  { return m.MapShow();  }
-void Colon::Cover()    { return m.Cover();    }
-void Colon::CoverKey() { return m.CoverKey(); }
+void Colon::hi()
+{
+  m.cv = m.vis.CV();
+  m.cv->GetFB()->ClearStyles();
+
+  if( m.vis.InDiffMode() ) m.diff.Update();
+  else                      m.cv->Update();
+}
+
+void Colon::MapStart()
+{
+  m.cv = m.vis.CV();
+
+  m.key.map_buf.clear();
+  m.key.save_2_map_buf = true;
+  m.cv->DisplayMapping();
+}
+
+void Colon::MapEnd()
+{
+  if( m.key.save_2_map_buf )
+  {
+    m.key.save_2_map_buf = false;
+    // Remove trailing ':' from m.key.map_buf:
+    Line& map_buf = m.key.map_buf;
+    map_buf.pop(); // '\n'
+    map_buf.pop(); // ':'
+  }
+}
+
+void Colon::MapShow()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+  m.cv = m.vis.CV();
+  const unsigned ROW = m.cv->Cmd__Line_Row();
+  const unsigned ST  = m.cv->Col_Win_2_GL( 0 );
+  const unsigned WC  = m.cv->WorkingCols();
+  const unsigned MAP_LEN = m.key.map_buf.len();
+
+  // Print :
+  Console::Set( ROW, ST, ':', S_NORMAL );
+
+  // Print map
+  unsigned offset = 1;
+  for( unsigned k=0; k<MAP_LEN && offset+k<WC; k++ )
+  {
+    const char C = m.key.map_buf.get( k );
+    if( C == '\n' )
+    {
+      Console::Set( ROW, ST+offset+k, '<', S_NORMAL ); offset++;
+      Console::Set( ROW, ST+offset+k, 'C', S_NORMAL ); offset++;
+      Console::Set( ROW, ST+offset+k, 'R', S_NORMAL ); offset++;
+      Console::Set( ROW, ST+offset+k, '>', S_NORMAL );
+    }
+    else if( C == '\E' )
+    {
+      Console::Set( ROW, ST+offset+k, '<', S_NORMAL ); offset++;
+      Console::Set( ROW, ST+offset+k, 'E', S_NORMAL ); offset++;
+      Console::Set( ROW, ST+offset+k, 'S', S_NORMAL ); offset++;
+      Console::Set( ROW, ST+offset+k, 'C', S_NORMAL ); offset++;
+      Console::Set( ROW, ST+offset+k, '>', S_NORMAL );
+    }
+    else {
+      Console::Set( ROW, ST+offset+k, C, S_NORMAL );
+    }
+  }
+  // Print empty space after map
+  for( unsigned k=MAP_LEN; offset+k<WC; k++ )
+  {
+    Console::Set( ROW, ST+offset+k, ' ', S_NORMAL );
+  }
+  Console::Update();
+  if( m.vis.InDiffMode() ) m.diff.PrintCursor( m.cv );
+  else                      m.cv->PrintCursor();
+}
+
+void Colon::Cover()
+{
+  m.cv = m.vis.CV();
+  m.fb = m.cv->GetFB();
+
+  if( m.fb->IsDir() )
+  {
+    m.cv->PrintCursor();
+  }
+  else {
+    const uint8_t seed = m.fb->GetSize() % 256;
+
+    Cover_Array( *m.fb, m.cover_buf, seed, m.cover_key );
+
+    // Fill in m.cover_buf from old file data:
+    // Clear old file:
+    m.fb->ClearChanged();
+    m.fb->ClearLines();
+    // Read in covered file:
+    m.fb->ReadArray( m.cover_buf );
+
+    // Reset view position:
+    m.cv->SetTopLine( 0 );
+    m.cv->SetLeftChar( 0 );
+    m.cv->SetCrsRow( 0 );
+    m.cv->SetCrsCol( 0 );
+
+    m.cv->Update();
+  }
+}
+
+void Colon::CoverKey()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  m.cv = m.vis.CV();
+
+  const char* msg = "Enter cover key:";
+  const unsigned msg_len = strlen( msg );
+  m.cv->GoToCmdLineClear( msg );
+
+  GetCommand( msg_len, true );
+
+  m.cover_key = m.cbuf;
+
+  m.cv->PrintCursor();
+}
 

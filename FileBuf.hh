@@ -24,9 +24,6 @@
 #ifndef __FILE_BUF_HH__
 #define __FILE_BUF_HH__
 
-#include <stdio.h>     // printf, stderr, FILE, fopen, fclose
-#include <dirent.h>
-
 #include "Types.hh"
 
 class String;
@@ -62,7 +59,8 @@ public:
   void     InsertLine( const unsigned l_num, Line* const pLine );
   void     InsertLine( const unsigned l_num );
   void     InsertLine_Adjust_Views_topLines( const unsigned l_num );
-  void     InsertChar( const unsigned l_num, const unsigned c_num, const uint8_t C );
+  void     InsertChar( const unsigned l_num, const unsigned c_num
+                     , const uint8_t C );
   void     PushLine( const Line& line );
   void     PushLine( Line* const pLine );
   void     PushLine();
@@ -98,40 +96,19 @@ public:
 
   // File bytes container methods
   uint8_t  Get( const unsigned l_num, const unsigned c_num ) const;
-  void     Set( const unsigned l_num, const unsigned c_num, const uint8_t C, const bool continue_last_update=true );
+  void     Set( const unsigned l_num, const unsigned c_num
+              , const uint8_t C, const bool continue_last_update=true );
   bool     Has_LF_at_EOF();
   void ClearStyles();
   void Find_Styles( const unsigned up_to_line );
   void Find_Stars();
   void ClearStars();
   void ClearSyntaxStyles( const unsigned l_num, const unsigned c_num );
-  void SetSyntaxStyle( const unsigned l_num, const unsigned c_num, const unsigned style );
-  bool HasStyle( const unsigned l_num, const unsigned c_num, const unsigned style );
-
+  void SetSyntaxStyle( const unsigned l_num, const unsigned c_num
+                     , const unsigned style );
+  bool HasStyle( const unsigned l_num, const unsigned c_num
+               , const unsigned style );
   struct Data;
-private:
-//void Find_File_Type_FirstLine();
-//void ReadExistingFile( FILE* fp );
-//void ReadExistingDir ( DIR * dp, String dir_path );
-//void ReadExistingDir_AddLink( const String& dir_path_fname, const unsigned LINE_NUM );
-//void ReadExistingDir_Sort();
-//uint8_t  GetEnd( const unsigned l_num ) const;
-//void     RemoveLine_Adjust_Views_topLines( const unsigned l_num );
-//uint8_t  PopChar( const unsigned l_num );
-//void     SwapLines( const unsigned l_num_1, const unsigned l_num_2 );
-//CrsPos Update_Styles_Find_St( const unsigned first_line );
-//void Find_Styles_In_Range( const CrsPos st, const int fn );
-//void Find_Stars_In_Range( const CrsPos st, const int fn );
-//
-//void ClearStars_In_Range( const CrsPos st, const int fn );
-//
-//void ClearAllStyles( const unsigned l_num, const unsigned c_num );
-//void ClearStarStyle( const unsigned l_num, const unsigned c_num );
-//void SetStarStyle( const unsigned l_num, const unsigned c_num );
-//
-//bool SavingHist() const;
-//
-//void ChangedLine( const unsigned line_num );
 
 private:
   Data& m;

@@ -820,7 +820,7 @@ void Diff::Imp::PrintWorkingView_DT_CHANGED( View* pV
       Diff_Type dt = (*di.pLineInfo)[i];
 
       if( DT_SAME == dt )
-      { 
+      {
         Style s    = Get_Style( pV, dl, vl, cp );
         int   byte = pV->GetFB()->Get( vl, cp );
         pV->PrintWorkingView_Set( LL, G_ROW, col, cp, byte, s );
@@ -1401,7 +1401,7 @@ void Diff::Imp::Popu_DI_List_DiffAndSame( const CompArea CA )
     // Start with DiffArea, and then alternate between SameArea and DiffArea.
     // There should be at least as many DiffArea's as SameArea's.
     ASSERT( __LINE__, SLL<=DLL, "SLL<=DLL" );
- 
+
     for( unsigned k=0; k<SLL; k++ )
     {
       DiffArea da = diffList[ k ]; Popu_DI_List_AddDiff( da );
@@ -1417,7 +1417,7 @@ void Diff::Imp::Popu_DI_List_DiffAndSame( const CompArea CA )
     // Start with SameArea, and then alternate between DiffArea and SameArea.
     // There should be at least as many SameArea's as DiffArea's.
     ASSERT( __LINE__, DLL<=SLL, "DLL<=SLL" );
- 
+
     for( unsigned k=0; k<DLL; k++ )
     {
       SameArea sa = sameList[ k ]; Popu_DI_List_AddSame( sa );
@@ -1823,21 +1823,21 @@ void Diff::Imp::GoToCrsPos_Write( const unsigned ncp_crsLine
     const bool MOVE_RIGHT = RightChar( pV ) < NCP;
     const bool MOVE_UP    = NCL < topLine;
     const bool MOVE_LEFT  = NCP < leftChar;
- 
+
     bool redraw = MOVE_DOWN || MOVE_RIGHT || MOVE_UP || MOVE_LEFT;
- 
+
     if( redraw )
     {
       if     ( MOVE_DOWN ) topLine = NCL - WorkingRows( pV ) + 1;
       else if( MOVE_UP   ) topLine = NCL;
- 
+
       if     ( MOVE_RIGHT ) leftChar = NCP - WorkingCols( pV ) + 1;
       else if( MOVE_LEFT  ) leftChar = NCP;
- 
+
       // crsRow and crsCol must be set to new values before calling CalcNewCrsByte
       crsRow = NCL - topLine;
       crsCol = NCP - leftChar;
- 
+
       Update();
     }
     else if( inVisualMode )
@@ -1849,9 +1849,9 @@ void Diff::Imp::GoToCrsPos_Write( const unsigned ncp_crsLine
       // crsRow and crsCol must be set to new values before calling CalcNewCrsByte and PrintCursor
       crsRow = NCL - topLine;
       crsCol = NCP - leftChar;
- 
+
       PrintCursor( pV );  // Put cursor into position.
- 
+
       sts_line_needs_update = true;
     }
   }
@@ -2271,7 +2271,7 @@ void Diff::Imp::GoToLine( const unsigned user_line_num )
     PrintCursor( pV );
   }
   else {
-    const unsigned NCLd = DiffLine( pV, NCLv ); 
+    const unsigned NCLd = DiffLine( pV, NCLv );
 
     GoToCrsPos_Write( NCLd, 0 );
   }
@@ -3588,7 +3588,7 @@ void Diff::Imp::Do_x()
       m_reg.clear();
       m_reg.push( nlp );
       m_vis.SetPasteMode( PM_ST_FN );
-    
+
       const unsigned NLL = pfb->LineLen( VL ); // New line length
 
       // Reposition the cursor:
@@ -3702,7 +3702,7 @@ void Diff::Imp::Do_dd()
         // m_reg will own lp
         m_reg.clear();
         m_reg.push( lp );
-    
+
         m_vis.SetPasteMode( PM_LINE );
       }
       Patch_Diff_Info_Deleted( pV, DL );
@@ -4007,7 +4007,7 @@ void Diff::Imp::Do_s_v()
   if( inVisualBlock )
   {
   //if( CURSOR_AT_END_OF_LINE ) Do_a_vb();
-  //else                        Do_i_vb(); 
+  //else                        Do_i_vb();
   }
   else {
     if( CURSOR_AT_END_OF_LINE ) Do_a();
@@ -4281,7 +4281,7 @@ void Diff::Imp::Do_p()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  const Paste_Mode PM = m_vis.GetPasteMode();  
+  const Paste_Mode PM = m_vis.GetPasteMode();
 
   if     ( PM_ST_FN == PM ) return Do_p_or_P_st_fn( PP_After );
   else if( PM_BLOCK == PM ) return Do_p_block();
@@ -4598,7 +4598,7 @@ void Diff::Imp::Do_P()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  const Paste_Mode PM = m_vis.GetPasteMode();  
+  const Paste_Mode PM = m_vis.GetPasteMode();
 
   if     ( PM_ST_FN == PM ) return Do_p_or_P_st_fn( PP_Before );
   else if( PM_BLOCK == PM ) return Do_P_block();
@@ -5251,19 +5251,19 @@ void Diff::Imp::Print_L()
     }
     else if( DT_SAME     == di.diff_type )
     {
-      fprintf( fpL, "S:%u:", LN ); 
+      fprintf( fpL, "S:%u:", LN );
       const unsigned LL = pfL->LineLen( LN );
       for( unsigned i=0; i<LL; i++ ) fprintf( fpL, "%c", pfL->Get( LN, i ) );
     }
     else if( DT_CHANGED  == di.diff_type )
     {
-      fprintf( fpL, "C:%u:", LN ); 
+      fprintf( fpL, "C:%u:", LN );
       const unsigned LL = pfL->LineLen( LN );
       for( unsigned i=0; i<LL; i++ ) fprintf( fpL, "%c", pfL->Get( LN, i ) );
     }
     else if( DT_INSERTED == di.diff_type )
     {
-      fprintf( fpL, "I:%u:", LN ); 
+      fprintf( fpL, "I:%u:", LN );
       const unsigned LL = pfL->LineLen( LN );
       for( unsigned i=0; i<LL; i++ ) fprintf( fpL, "%c", pfL->Get( LN, i ) );
     }
@@ -5293,19 +5293,19 @@ void Diff::Imp::Print_S()
     }
     else if( DT_SAME     == di.diff_type )
     {
-      fprintf( fpS, "S:%u:", LN ); 
+      fprintf( fpS, "S:%u:", LN );
       const unsigned LL = pfS->LineLen( LN );
       for( unsigned i=0; i<LL; i++ ) fprintf( fpS, "%c", pfS->Get( LN, i ) );
     }
     else if( DT_CHANGED  == di.diff_type )
     {
-      fprintf( fpS, "C:%u:", LN ); 
+      fprintf( fpS, "C:%u:", LN );
       const unsigned LL = pfS->LineLen( LN );
       for( unsigned i=0; i<LL; i++ ) fprintf( fpS, "%c", pfS->Get( LN, i ) );
     }
     else if( DT_INSERTED == di.diff_type )
     {
-      fprintf( fpS, "I:%u:", LN ); 
+      fprintf( fpS, "I:%u:", LN );
       const unsigned LL = pfS->LineLen( LN );
       for( unsigned i=0; i<LL; i++ ) fprintf( fpS, "%c", pfS->Get( LN, i ) );
     }

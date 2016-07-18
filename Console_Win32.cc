@@ -164,7 +164,7 @@ uint8_t Byte2out( uint8_t C )
 void Console::Allocate()
 {
   if( 0 == lines__p )
-  { 
+  {
     lines__p = new(__FILE__,__LINE__) LinesList;
     lines__w = new(__FILE__,__LINE__) LinesList;
     styles_p = new(__FILE__,__LINE__) LinesList;
@@ -481,7 +481,7 @@ void Console::Invalidate()
 void Console::Refresh()
 {
   Invalidate();
- 
+
   Update();
 
   mp_vis->CV()->PrintCursor();

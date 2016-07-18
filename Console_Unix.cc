@@ -546,7 +546,7 @@ void Sig_Handle_HW( int signo )
 void Console::Allocate()
 {
   if( 0 == lines__p )
-  { 
+  {
     lines__p = new(__FILE__,__LINE__) LinesList;
     lines__w = new(__FILE__,__LINE__) LinesList;
     styles_p = new(__FILE__,__LINE__) LinesList;

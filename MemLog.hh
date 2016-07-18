@@ -34,7 +34,7 @@ class MemLog
 {
 public:
   MemLog();
-  
+
   // Returns true if message was logged
   bool Log( const char* msg, ... );
 

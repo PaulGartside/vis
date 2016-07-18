@@ -125,10 +125,10 @@ typedef  Array_t<CmntPos>     CmntList;
 typedef gArray_t<LineChange*> ChangeList;
 
 enum ChangeType
-{ 
-   Insert_Line, 
-   Remove_Line, 
-   Insert_Text, 
+{
+   Insert_Line,
+   Remove_Line,
+   Insert_Text,
    Remove_Text,
   Replace_Text
 };

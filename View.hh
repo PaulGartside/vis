@@ -177,9 +177,10 @@ public:
 
   bool GoToDir();
 
+  struct Data;
+
 private:
-  class Imp;
-  Imp& m;
+  Data& m;
 };
 
 #endif
