@@ -1023,10 +1023,8 @@ void FileBuf::ReReadFile()
   for( unsigned w=0; w<MAX_WINS; w++ )
   {
     View* const pV = m.views[w];
-    pV->SetTopLine( 0 );
-    pV->SetLeftChar( 0 );
-    pV->SetCrsRow( 0 );
-    pV->SetCrsCol( 0 );
+
+    pV->Clear_Context();
   }
   m.save_history = true;
   m.need_2_find_stars = true;

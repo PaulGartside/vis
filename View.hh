@@ -172,6 +172,7 @@ public:
   String Do_Star_GetNewPattern();
   void   PrintPatterns( const bool HIGHLIGHT );
 
+  void Clear_Context();
   bool Has_Context();
   void Set_Context( View& vr );
 

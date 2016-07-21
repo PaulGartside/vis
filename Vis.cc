@@ -371,6 +371,8 @@ void GoToBuffer( Vis::Data& m, const unsigned buf_idx )
       CV(m)->PrintCursor();
     }
     else {
+      m.vis.NoDiff();
+
       m.file_hist[m.win].insert(__FILE__,__LINE__, 0, buf_idx );
 
       // Remove subsequent buf_idx's from m.file_hist[m.win]:
@@ -438,6 +440,8 @@ void GoToNextBuffer( Vis::Data& m )
     CV(m)->PrintCursor();
   }
   else {
+    m.vis.NoDiff();
+
     View*    const pV_old = CV(m);
     Tile_Pos const tp_old = pV_old->GetTilePos();
 
@@ -463,6 +467,8 @@ void GoToCurrBuffer( Vis::Data& m )
    || CVI == HELP_FILE
    || CVI == SE_FILE )
   {
+    m.vis.NoDiff();
+
     GoToBuffer( m, m.file_hist[m.win][1] );
   }
   else {
@@ -484,6 +490,8 @@ void GoToPrevBuffer( Vis::Data& m )
     CV(m)->PrintCursor();
   }
   else {
+    m.vis.NoDiff();
+
     View*    const pV_old = CV(m);
     Tile_Pos const tp_old = pV_old->GetTilePos();
 
@@ -500,6 +508,8 @@ void GoToPrevBuffer( Vis::Data& m )
 
 void GoToPoundBuffer( Vis::Data& m )
 {
+  m.vis.NoDiff();
+
   if( BE_FILE == m.file_hist[m.win][1] )
   {
     GoToBuffer( m, m.file_hist[m.win][2] );
@@ -1779,6 +1789,8 @@ void Quit( Vis::Data& m )
 
   if( m.num_wins <= 1 ) QuitAll(m);
   else {
+    m.diff_mode = false;
+
     if( m.win < m.num_wins-1 )
     {
       Quit_ShiftDown(m);
@@ -2449,15 +2461,15 @@ View* DoDiff_FindRegFileView( Vis::Data& m
   return pv;
 }
 
-void NoDiff( Vis::Data& m )
-{
-  if( true == m.diff_mode )
-  {
-    m.diff_mode = false;
-
-    m.vis.UpdateAll();
-  }
-}
+//void NoDiff( Vis::Data& m )
+//{
+//  if( true == m.diff_mode )
+//  {
+//    m.diff_mode = false;
+//
+//    m.vis.UpdateAll();
+//  }
+//}
 
 void DoDiff( Vis::Data& m )
 {
@@ -2518,6 +2530,8 @@ void DoDiff( Vis::Data& m )
 void VSplitWindow( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
+
+  m.vis.NoDiff();
 
   View* cv = CV(m);
   const Tile_Pos cv_tp = cv->GetTilePos();
@@ -2599,6 +2613,8 @@ void VSplitWindow( Vis::Data& m )
 void HSplitWindow( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
+
+  m.vis.NoDiff();
 
   View* cv = CV(m);
   const Tile_Pos cv_tp = cv->GetTilePos();
@@ -2912,7 +2928,7 @@ void Handle_Colon( Vis::Data& m )
   else if( strcmp( m.cbuf,"qa"  )==0 ) QuitAll(m);
   else if( strcmp( m.cbuf,"help")==0 ) Help(m);
   else if( strcmp( m.cbuf,"diff")==0 ) DoDiff(m);
-  else if( strcmp( m.cbuf,"nodiff")==0)NoDiff(m);
+  else if( strcmp( m.cbuf,"nodiff")==0)m.vis.NoDiff();
   else if( strcmp( m.cbuf,"n"   )==0 ) GoToNextBuffer(m);
   else if( strcmp( m.cbuf,"se"  )==0 ) GoToSearchBuffer(m);
   else if( strcmp( m.cbuf,"vsp" )==0 ) VSplitWindow(m);
@@ -3441,9 +3457,7 @@ void Window_Message( Vis::Data& m, const char* const msg )
 
   // Initially, put cursor at top of Message Buffer:
   View* pV = m.views[m.win][MSG_FILE];
-  pV->SetCrsRow( 0 );
-  pV->SetCrsCol( 0 );
-  pV->SetTopLine( 0 );
+  pV->Clear_Context();
 
   GoToMsgBuffer(m);
 }
@@ -3548,6 +3562,16 @@ Paste_Mode Vis::GetPasteMode() const
 void Vis::SetPasteMode( Paste_Mode pm )
 {
   m.paste_mode = pm;
+}
+
+void Vis::NoDiff()
+{
+  if( true == m.diff_mode )
+  {
+    m.diff_mode = false;
+
+    UpdateAll();
+  }
 }
 
 bool Vis::InDiffMode() const
@@ -3731,15 +3755,18 @@ bool Vis::Update_Status_Lines()
   return updated_a_sts_line;
 }
 
+// This ensures that proper change status is displayed around each window:
+// '+++' for unsaved changes, and
+// '   ' for no unsaved changes
 bool Vis::Update_Change_Statuses()
 {
   // Update buffer changed status around windows:
   bool updated_change_sts = false;
 
-  for( unsigned k=0; k<m.num_wins; k++ )
+  for( unsigned w=0; w<m.num_wins; w++ )
   {
     // pV points to currently displayed view in window w:
-    View* const pV = m.views[k][ m.file_hist[k][0] ];
+    View* const pV = m.views[w][ m.file_hist[w][0] ];
 
     if( pV->GetUnSavedChangeSts() != pV->GetFB()->Changed() )
     {

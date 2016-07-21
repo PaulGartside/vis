@@ -572,6 +572,8 @@ void Colon::MapShow()
 
 void Colon::Cover()
 {
+  m.vis.NoDiff();
+
   m.cv = m.vis.CV();
   m.fb = m.cv->GetFB();
 
@@ -591,11 +593,11 @@ void Colon::Cover()
     // Read in covered file:
     m.fb->ReadArray( m.cover_buf );
 
+    // Make sure all windows have proper change status in borders
+    m.vis.Update_Change_Statuses();
+
     // Reset view position:
-    m.cv->SetTopLine( 0 );
-    m.cv->SetLeftChar( 0 );
-    m.cv->SetCrsRow( 0 );
-    m.cv->SetCrsCol( 0 );
+    m.cv->Clear_Context();
 
     m.cv->Update();
   }

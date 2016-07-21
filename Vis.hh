@@ -40,6 +40,7 @@ public:
   unsigned    GetNumWins() const;
   Paste_Mode  GetPasteMode() const;
   void        SetPasteMode( Paste_Mode pm );
+  void        NoDiff();
   bool        InDiffMode() const;
   bool        RunningDot() const;
   bool        RunningCmd() const;

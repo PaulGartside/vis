@@ -3869,6 +3869,14 @@ void View::PrintPatterns( const bool HIGHLIGHT )
   }
 }
 
+void View::Clear_Context()
+{
+  m.topLine  = 0;
+  m.leftChar = 0;
+  m.crsRow   = 0;
+  m.crsCol   = 0;
+}
+
 bool View::Has_Context()
 {
   return 0 != m.topLine
