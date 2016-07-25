@@ -92,9 +92,10 @@ public:
   void PrintCursor( View* pV );
   bool Update_Status_Lines();
 
+  struct Data;
+
 private:
-  class Imp;
-  Imp& m;
+  Data& m;
 };
 
 #endif

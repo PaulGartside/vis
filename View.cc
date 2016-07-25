@@ -625,23 +625,46 @@ void PageUp_v( View::Data& m )
   }
 }
 
+void Swap_Visual_Block_If_Needed( View::Data& m )
+{
+  if( m.v_fn_line < m.v_st_line )
+  {
+    unsigned T = m.v_st_line; m.v_st_line = m.v_fn_line; m.v_fn_line = T;
+  }
+  if( m.v_fn_char < m.v_st_char )
+  {
+    unsigned T = m.v_st_char; m.v_st_char = m.v_fn_char; m.v_fn_char = T;
+  }
+}
+
+void Swap_Visual_St_Fn_If_Needed( View::Data& m )
+{
+  if( m.v_fn_line < m.v_st_line
+   || (m.v_fn_line == m.v_st_line && m.v_fn_char < m.v_st_char) )
+  {
+    // Visual mode went backwards over multiple lines, or
+    // Visual mode went backwards over one line
+    unsigned T = m.v_st_line; m.v_st_line = m.v_fn_line; m.v_fn_line = T;
+             T = m.v_st_char; m.v_st_char = m.v_fn_char; m.v_fn_char = T;
+  }
+}
+
 void Do_y_v_block( View::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  unsigned v_st_line = m.v_st_line;  unsigned v_st_char = m.v_st_char;
-  unsigned v_fn_line = m.v_fn_line;  unsigned v_fn_char = m.v_fn_char;
+  const unsigned old_v_st_line = m.v_st_line;
+  const unsigned old_v_st_char = m.v_st_char;
 
-  if( v_fn_line < v_st_line ) Swap( v_st_line, v_fn_line );
-  if( v_fn_char < v_st_char ) Swap( v_st_char, v_fn_char );
+  Swap_Visual_Block_If_Needed( m );
 
-  for( unsigned L=v_st_line; L<=v_fn_line; L++ )
+  for( unsigned L=m.v_st_line; L<=m.v_fn_line; L++ )
   {
     Line* nlp = m.vis.BorrowLine( __FILE__,__LINE__ );
 
     const unsigned LL = m.fb.LineLen( L );
 
-    for( unsigned P = v_st_char; P<LL && P <= v_fn_char; P++ )
+    for( unsigned P = m.v_st_char; P<LL && P <= m.v_fn_char; P++ )
     {
       nlp->push(__FILE__,__LINE__, m.fb.Get( L, P ) );
     }
@@ -650,14 +673,14 @@ void Do_y_v_block( View::Data& m )
   }
   m.vis.SetPasteMode( PM_BLOCK );
 
-  // Try to put cursor at (m.v_st_line, m.v_st_char), but
+  // Try to put cursor at (old_v_st_line, old_v_st_char), but
   // make sure the cursor is in bounds after the deletion:
   const unsigned NUM_LINES = m.fb.NumLines();
-  unsigned ncl = m.v_st_line;
+  unsigned ncl = old_v_st_line;
   if( NUM_LINES <= ncl ) ncl = NUM_LINES-1;
   const unsigned NLL = m.fb.LineLen( ncl );
   unsigned ncc = 0;
-  if( NLL ) ncc = NLL <= m.v_st_char ? NLL-1 : m.v_st_char;
+  if( NLL ) ncc = NLL <= old_v_st_char ? NLL-1 : old_v_st_char;
 
   m.view.GoToCrsPos_NoWrite( ncl, ncc );
 }
@@ -666,20 +689,16 @@ void Do_y_v_st_fn( View::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  unsigned v_st_line = m.v_st_line;  unsigned v_st_char = m.v_st_char;
-  unsigned v_fn_line = m.v_fn_line;  unsigned v_fn_char = m.v_fn_char;
+  Swap_Visual_St_Fn_If_Needed( m );
 
-  if( v_fn_line < v_st_line ) Swap( v_st_line, v_fn_line );
-  if( v_fn_char < v_st_char ) Swap( v_st_char, v_fn_char );
-
-  for( unsigned L=v_st_line; L<=v_fn_line; L++ )
+  for( unsigned L=m.v_st_line; L<=m.v_fn_line; L++ )
   {
     Line* nlp = m.vis.BorrowLine( __FILE__,__LINE__ );
 
     const unsigned LL = m.fb.LineLen( L );
     if( LL ) {
-      const unsigned P_st = (L==v_st_line) ? v_st_char : 0;
-      const unsigned P_fn = (L==v_fn_line) ? Min(LL-1,v_fn_char) : LL-1;
+      const unsigned P_st = (L==m.v_st_line) ? m.v_st_char : 0;
+      const unsigned P_fn = (L==m.v_fn_line) ? Min(LL-1,m.v_fn_char) : LL-1;
 
       for( unsigned P = P_st; P <= P_fn; P++ )
       {

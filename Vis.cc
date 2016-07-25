@@ -3718,8 +3718,11 @@ void Vis::UpdateAll()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( !m.diff_mode )
+  if( m.diff_mode )
   {
+    m.diff.Update();
+  }
+  else {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
       m.views[k][ m.file_hist[k][0] ]->Update();
