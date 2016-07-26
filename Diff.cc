@@ -2804,6 +2804,18 @@ void Swap_Visual_Block_If_Needed( Diff::Data& m )
   if( m.v_fn_char < m.v_st_char ) Swap( m.v_st_char, m.v_fn_char );
 }
 
+void Swap_Visual_St_Fn_If_Needed( Diff::Data& m )
+{
+  if( m.v_fn_line < m.v_st_line
+   || (m.v_fn_line == m.v_st_line && m.v_fn_char < m.v_st_char) )
+  {
+    // Visual mode went backwards over multiple lines, or
+    // Visual mode went backwards over one line
+    Swap( m.v_st_line, m.v_fn_line );
+    Swap( m.v_st_char, m.v_fn_char );
+  }
+}
+
 void Do_y_v_block( Diff::Data& m )
 {
   View*    pV  = m.vis.CV();
@@ -2846,7 +2858,7 @@ void Do_y_v_st_fn( Diff::Data& m )
   View*    pV  = m.vis.CV();
   FileBuf* pfb = pV->GetFB();
 
-  Swap_Visual_Block_If_Needed(m);
+  Swap_Visual_St_Fn_If_Needed( m );
 
   for( unsigned L=m.v_st_line; L<=m.v_fn_line; L++ )
   {
@@ -2895,7 +2907,7 @@ void Do_Y_v_st_fn( Diff::Data& m )
   View*    pV  = m.vis.CV();
   FileBuf* pfb = pV->GetFB();
 
-  Swap_Visual_Block_If_Needed(m);
+  if( m.v_fn_line < m.v_st_line ) Swap( m.v_st_line, m.v_fn_line );
 
   for( unsigned L=m.v_st_line; L<=m.v_fn_line; L++ )
   {
@@ -3281,7 +3293,7 @@ void Do_Tilda_v( Diff::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  Swap_Visual_Block_If_Needed(m);
+  Swap_Visual_St_Fn_If_Needed( m );
 
   if( m.inVisualBlock ) Do_Tilda_v_block(m);
   else                  Do_Tilda_v_st_fn(m);
@@ -3698,7 +3710,7 @@ void Do_v_Handle_gp( Diff::Data& m )
 
     for( int P = m.v_st_char; P<=m.v_fn_char; P++ )
     {
-      pattern.push( pfb->Get( m.v_st_line, P  ) );
+      pattern.push( pfb->Get( m.v_st_line, P ) );
     }
     m.vis.Handle_Slash_GotPattern( pattern, false );
 

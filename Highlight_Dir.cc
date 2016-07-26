@@ -80,11 +80,26 @@ void Highlight_Dir::Hi_In_None( unsigned& l, unsigned& p )
           m_fb.SetSyntaxStyle( l, 1, HI_DEFINE );
         }
         else {
+          bool found_sym_link = false;
           for( int k=0; k<LL; k++ )
           {
-            const char C = m_fb.Get( l, k );
-            if( C == '.' )
+            const char C0 = 0<k ? m_fb.Get( l, k-1 ) : 0;
+            const char C1 =       m_fb.Get( l, k );
+            if( C1 == '.' )
+            {
               m_fb.SetSyntaxStyle( l, k, HI_VARTYPE );
+            }
+            else if( C0 == '-' && C1 == '>' )
+            {
+              found_sym_link = true;
+              // -> means symbolic link
+              m_fb.SetSyntaxStyle( l, k-1, HI_DEFINE );
+              m_fb.SetSyntaxStyle( l, k  , HI_DEFINE );
+            }
+            else if( found_sym_link && C1 == DIR_DELIM )
+            {
+              m_fb.SetSyntaxStyle( l, k, HI_CONST );
+            }
           }
         }
       }

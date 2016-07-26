@@ -34,31 +34,40 @@ extern MemLog<MEM_LOG_BUF_SIZE> Log;
 
 static HiKeyVal HiPairs[] =
 {
+  { "PRAGMA", HI_DEFINE },
+
+  { "NULL", HI_CONST },
+
   { "AUTOINCREMENT", HI_CONTROL },
+  { "BEGIN"        , HI_CONTROL },
   { "CASCADE"      , HI_CONTROL },
   { "CHECK"        , HI_CONTROL },
+  { "COMMIT"       , HI_CONTROL },
   { "CREATE"       , HI_CONTROL },
   { "DEFAULT"      , HI_CONTROL },
   { "DELETE"       , HI_CONTROL },
   { "DROP"         , HI_CONTROL },
   { "EXISTS"       , HI_CONTROL },
+  { "FROM"         , HI_CONTROL },
   { "IF"           , HI_CONTROL },
   { "INSERT"       , HI_CONTROL },
   { "INTO"         , HI_CONTROL },
   { "NOT"          , HI_CONTROL },
   { "ON"           , HI_CONTROL },
+  { "TRANSACTION"  , HI_CONTROL },
   { "UPDATE"       , HI_CONTROL },
   { "VALUES"       , HI_CONTROL },
 
   { "FOREIGN"   , HI_VARTYPE },
   { "KEY"       , HI_VARTYPE },
+  { "BOOL"      , HI_VARTYPE },
   { "INTEGER"   , HI_VARTYPE },
+  { "NUMERIC"   , HI_VARTYPE },
   { "PRIMARY"   , HI_VARTYPE },
   { "REFERENCES", HI_VARTYPE },
   { "TABLE"     , HI_VARTYPE },
   { "TEXT"      , HI_VARTYPE },
 
-  { "NULL", HI_CONST },
   { 0 }
 };
 

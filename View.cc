@@ -549,19 +549,35 @@ void Do_v_Handle_gf( View::Data& m )
   }
 }
 
+void Swap_Visual_Block_If_Needed( View::Data& m )
+{
+  if( m.v_fn_line < m.v_st_line ) Swap( m.v_st_line, m.v_fn_line );
+  if( m.v_fn_char < m.v_st_char ) Swap( m.v_st_char, m.v_fn_char );
+}
+
+void Swap_Visual_St_Fn_If_Needed( View::Data& m )
+{
+  if( m.v_fn_line < m.v_st_line
+   || (m.v_fn_line == m.v_st_line && m.v_fn_char < m.v_st_char) )
+  {
+    // Visual mode went backwards over multiple lines, or
+    // Visual mode went backwards over one line
+    Swap( m.v_st_line, m.v_fn_line );
+    Swap( m.v_st_char, m.v_fn_char );
+  }
+}
+
 void Do_v_Handle_gp( View::Data& m )
 {
   if( m.v_st_line == m.v_fn_line )
   {
-    const unsigned v_st_char = m.v_st_char < m.v_fn_char
-                             ? m.v_st_char : m.v_fn_char;
-    const unsigned v_fn_char = m.v_st_char < m.v_fn_char
-                             ? m.v_fn_char : m.v_st_char;
+    Swap_Visual_Block_If_Needed(m);
+
     String pattern;
 
-    for( unsigned P = v_st_char; P<=v_fn_char; P++ )
+    for( unsigned P = m.v_st_char; P<=m.v_fn_char; P++ )
     {
-      pattern.push( m.fb.Get( m.v_st_line, P  ) );
+      pattern.push( m.fb.Get( m.v_st_line, P ) );
     }
     m.vis.Handle_Slash_GotPattern( pattern, false );
 
@@ -622,30 +638,6 @@ void PageUp_v( View::Data& m )
     if( NCL < 0 ) NCL = 0;
 
     m.view.GoToCrsPos_Write( NCL, 0 );
-  }
-}
-
-void Swap_Visual_Block_If_Needed( View::Data& m )
-{
-  if( m.v_fn_line < m.v_st_line )
-  {
-    unsigned T = m.v_st_line; m.v_st_line = m.v_fn_line; m.v_fn_line = T;
-  }
-  if( m.v_fn_char < m.v_st_char )
-  {
-    unsigned T = m.v_st_char; m.v_st_char = m.v_fn_char; m.v_fn_char = T;
-  }
-}
-
-void Swap_Visual_St_Fn_If_Needed( View::Data& m )
-{
-  if( m.v_fn_line < m.v_st_line
-   || (m.v_fn_line == m.v_st_line && m.v_fn_char < m.v_st_char) )
-  {
-    // Visual mode went backwards over multiple lines, or
-    // Visual mode went backwards over one line
-    unsigned T = m.v_st_line; m.v_st_line = m.v_fn_line; m.v_fn_line = T;
-             T = m.v_st_char; m.v_st_char = m.v_fn_char; m.v_fn_char = T;
   }
 }
 
@@ -723,12 +715,9 @@ void Do_y_v( View::Data& m )
 
 void Do_Y_v_st_fn( View::Data& m )
 {
-  unsigned v_st_line = m.v_st_line;
-  unsigned v_fn_line = m.v_fn_line;
+  if( m.v_fn_line < m.v_st_line ) Swap( m.v_st_line, m.v_fn_line );
 
-  if( v_fn_line < v_st_line ) Swap( v_st_line, v_fn_line );
-
-  for( unsigned L=v_st_line; L<=v_fn_line; L++ )
+  for( unsigned L=m.v_st_line; L<=m.v_fn_line; L++ )
   {
     Line* nlp = m.vis.BorrowLine( __FILE__,__LINE__ );
 
@@ -941,8 +930,7 @@ void Do_D_v_line( View::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( m.v_fn_line < m.v_st_line ) Swap( m.v_st_line, m.v_fn_line );
-  if( m.v_fn_char < m.v_st_char ) Swap( m.v_st_char, m.v_fn_char );
+  Swap_Visual_Block_If_Needed(m);
 
   m.reg.clear();
 
@@ -1168,8 +1156,7 @@ void Do_Tilda_v( View::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( m.v_fn_line < m.v_st_line ) Swap( m.v_st_line, m.v_fn_line );
-  if( m.v_fn_char < m.v_st_char ) Swap( m.v_st_char, m.v_fn_char );
+  Swap_Visual_St_Fn_If_Needed( m );
 
   if( m.inVisualBlock ) Do_Tilda_v_block(m);
   else                  Do_Tilda_v_st_fn(m);
