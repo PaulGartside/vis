@@ -37,6 +37,11 @@ public:
   bool   Run( View* const pv0, View* const pv1 );
   void Update();
 
+  unsigned GetTopLine () const;
+  unsigned GetLeftChar() const;
+  unsigned GetCrsRow  () const;
+  unsigned GetCrsCol  () const;
+
   void PageDown();
   void PageUp();
   void GoDown();

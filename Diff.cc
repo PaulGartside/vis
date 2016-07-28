@@ -913,6 +913,8 @@ void Popu_DI_List( Diff::Data& m, const CompArea CA )
   else                Popu_DI_List_DiffAndSame( m, CA );
 }
 
+unsigned DiffLine( Diff::Data& m, const View* pV, const unsigned view_line );
+
 void RunDiff( Diff::Data& m, const CompArea CA )
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -924,6 +926,13 @@ void RunDiff( Diff::Data& m, const CompArea CA )
 //PrintDiffList();
   Popu_DI_List( m, CA );
 //PrintDI_List( CA );
+
+  View* pV = m.vis.CV();
+
+  m.topLine  = DiffLine( m, pV, pV->GetTopLine() );
+  m.leftChar =                  pV->GetLeftChar();
+  m.crsRow   =                  pV->GetCrsRow  ();
+  m.crsCol   =                  pV->GetCrsCol  ();
 
   m.diff.Update();
 }
@@ -4094,6 +4103,13 @@ bool Diff::Run( View* const pv0, View* const pv1 )
     {
       if( DiffSameAsPrev( m, pv0, pv1 ) )
       {
+        View* pV = m.vis.CV();
+
+        m.topLine  = DiffLine( m, pV, pV->GetTopLine() );
+        m.leftChar =                  pV->GetLeftChar();
+        m.crsRow   =                  pV->GetCrsRow  ();
+        m.crsCol   =                  pV->GetCrsCol  ();
+
         // Dont need to re-run the diff, just display the results:
         Update();
       }
@@ -4152,6 +4168,26 @@ void Diff::Update()
   Console::Update();
 
   PrintCursor( m.vis.CV() );
+}
+
+unsigned Diff::GetTopLine () const
+{
+  return ViewLine( m, m.vis.CV(), m.topLine );
+}
+
+unsigned Diff::GetLeftChar() const
+{
+  return m.leftChar;
+}
+
+unsigned Diff::GetCrsRow  () const
+{
+  return m.crsRow;
+}
+
+unsigned Diff::GetCrsCol  () const
+{
+  return m.crsCol;
 }
 
 void Diff::PageDown()

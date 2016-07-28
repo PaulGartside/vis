@@ -255,6 +255,7 @@ void InitHelpBuffer( Vis::Data& m )
   // Help buffer, 1
   FileBuf* pfb = new(__FILE__,__LINE__)
                  FileBuf( m.vis, HELP_BUF_NAME, false, FT_TEXT );
+  pfb->ReadString( HELP_STR );
 }
 
 void InitSearchEditor( Vis::Data& m )
@@ -3569,6 +3570,13 @@ void Vis::NoDiff()
   if( true == m.diff_mode )
   {
     m.diff_mode = false;
+
+    View* pV = CV();
+
+    pV->SetTopLine ( m.diff.GetTopLine () );
+    pV->SetLeftChar( m.diff.GetLeftChar() );
+    pV->SetCrsRow  ( m.diff.GetCrsRow  () );
+    pV->SetCrsCol  ( m.diff.GetCrsCol  () );
 
     UpdateAll();
   }
