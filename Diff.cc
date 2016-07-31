@@ -3946,6 +3946,26 @@ void ReplaceAddChar( Diff::Data& m, const char C )
   m.diff.Update();
 }
 
+void RepositionViews( Diff::Data& m )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+  // If a window re-size has taken place, and the window has gotten
+  // smaller, change top line and left char if needed, so that the
+  // cursor is in the buffer when it is re-drawn
+  View* pV = m.vis.CV();
+
+  if( WorkingRows( pV ) <= m.crsRow )
+  {
+    m.topLine += ( m.crsRow - WorkingRows( pV ) + 1 );
+    m.crsRow  -= ( m.crsRow - WorkingRows( pV ) + 1 );
+  }
+  if( WorkingCols( pV ) <= m.crsCol )
+  {
+    m.leftChar += ( m.crsCol - WorkingCols( pV ) + 1 );
+    m.crsCol   -= ( m.crsCol - WorkingCols( pV ) + 1 );
+  }
+}
+
 void Print_L( Diff::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -4146,7 +4166,8 @@ void Diff::Update()
   m.pfL->ClearStars();
   m.pfL->Find_Stars();
 
-  m.pvL->RepositionView();
+  RepositionViews( m );
+
   m.pvL->Print_Borders();
   PrintWorkingView( m, m.pvL );
   PrintStsLine( m, m.pvL );
@@ -4158,7 +4179,6 @@ void Diff::Update()
   m.pfS->ClearStars();
   m.pfS->Find_Stars();
 
-  m.pvS->RepositionView();
   m.pvS->Print_Borders();
   PrintWorkingView( m, m.pvS );
   PrintStsLine( m, m.pvS );
@@ -4170,9 +4190,23 @@ void Diff::Update()
   PrintCursor( m.vis.CV() );
 }
 
-unsigned Diff::GetTopLine () const
+View* Diff::GetViewShort() const
 {
-  return ViewLine( m, m.vis.CV(), m.topLine );
+  return m.pvS;
+}
+
+View* Diff::GetViewLong() const
+{
+  return m.pvL;
+}
+
+unsigned Diff::GetTopLine( View* const pV ) const
+{
+  if( pV == m.pvS || pV == m.pvL )
+  {
+    return ViewLine( m, pV, m.topLine );
+  }
+  return 0;
 }
 
 unsigned Diff::GetLeftChar() const

@@ -130,6 +130,17 @@ bool Line::append( const char* _FILE_, const unsigned _LINE_, const Line& a )
   return m_data.append( _FILE_, _LINE_, a.m_data );
 }
 
+bool Line::ends_with( const uint8_t C )
+{
+  const unsigned LEN = m_data.len();
+
+  if( 0 < LEN )
+  {
+    return C == m_data[ LEN-1 ];
+  }
+  return false;
+}
+
 unsigned Line::chksum()
 {
   if( !m_chksum_valid )

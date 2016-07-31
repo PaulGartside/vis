@@ -48,6 +48,7 @@ void Highlight_Dir::Run_Range( const CrsPos   st
 void Highlight_Dir::Hi_In_None( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
+
   for( ; l<m_fb.NumLines(); l++ )
   {
     const Line&    lr = m_fb.GetLine( l );
@@ -59,53 +60,78 @@ void Highlight_Dir::Hi_In_None( unsigned& l, unsigned& p )
 
       if( c_end == DIR_DELIM )
       {
-        for( int k=0; k<LL-1; k++ )
-        {
-          const char C = m_fb.Get( l, k );
-          if( C == '.' )
-            m_fb.SetSyntaxStyle( l, k, HI_VARTYPE );
-          else
-            m_fb.SetSyntaxStyle( l, k, HI_CONTROL );
-        }
-        m_fb.SetSyntaxStyle( l, LL-1, HI_CONST );
+        Hi_In_None_Dir( l, LL );
       }
       else if( 1<LL )
       {
-        const char c0 = m_fb.Get( l, 0 );
-        const char c1 = m_fb.Get( l, 1 );
-
-        if( c0=='.' && c1=='.' )
-        {
-          m_fb.SetSyntaxStyle( l, 0, HI_DEFINE );
-          m_fb.SetSyntaxStyle( l, 1, HI_DEFINE );
-        }
-        else {
-          bool found_sym_link = false;
-          for( int k=0; k<LL; k++ )
-          {
-            const char C0 = 0<k ? m_fb.Get( l, k-1 ) : 0;
-            const char C1 =       m_fb.Get( l, k );
-            if( C1 == '.' )
-            {
-              m_fb.SetSyntaxStyle( l, k, HI_VARTYPE );
-            }
-            else if( C0 == '-' && C1 == '>' )
-            {
-              found_sym_link = true;
-              // -> means symbolic link
-              m_fb.SetSyntaxStyle( l, k-1, HI_DEFINE );
-              m_fb.SetSyntaxStyle( l, k  , HI_DEFINE );
-            }
-            else if( found_sym_link && C1 == DIR_DELIM )
-            {
-              m_fb.SetSyntaxStyle( l, k, HI_CONST );
-            }
-          }
-        }
+        Hi_In_None_File( l, LL );
       }
     }
     p = 0;
   }
   m_state = 0;
+}
+
+void Highlight_Dir::Hi_In_None_Dir( const unsigned l, const unsigned LL )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  for( int k=0; k<LL-1; k++ )
+  {
+    const char C0 = 0<k ? m_fb.Get( l, k-1 ) : 0;
+    const char C1 =       m_fb.Get( l, k );
+
+    if( C1 == '.' )
+    {
+      m_fb.SetSyntaxStyle( l, k, HI_VARTYPE );
+    }
+    else if( C0 == '-' && C1 == '>' )
+    {
+      // -> means symbolic link
+      m_fb.SetSyntaxStyle( l, k-1, HI_DEFINE );
+      m_fb.SetSyntaxStyle( l, k  , HI_DEFINE );
+    }
+    else {
+      m_fb.SetSyntaxStyle( l, k, HI_CONTROL );
+    }
+  }
+  m_fb.SetSyntaxStyle( l, LL-1, HI_CONST );
+}
+
+void Highlight_Dir::Hi_In_None_File( const unsigned l, const unsigned LL )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  const char c0 = m_fb.Get( l, 0 );
+  const char c1 = m_fb.Get( l, 1 );
+
+  if( c0=='.' && c1=='.' )
+  {
+    m_fb.SetSyntaxStyle( l, 0, HI_DEFINE );
+    m_fb.SetSyntaxStyle( l, 1, HI_DEFINE );
+  }
+  else {
+    bool found_sym_link = false;
+    for( int k=0; k<LL; k++ )
+    {
+      const char C0 = 0<k ? m_fb.Get( l, k-1 ) : 0;
+      const char C1 =       m_fb.Get( l, k );
+      if( C1 == '.' )
+      {
+        m_fb.SetSyntaxStyle( l, k, HI_VARTYPE );
+      }
+      else if( C0 == '-' && C1 == '>' )
+      {
+        found_sym_link = true;
+        // -> means symbolic link
+        m_fb.SetSyntaxStyle( l, k-1, HI_DEFINE );
+        m_fb.SetSyntaxStyle( l, k  , HI_DEFINE );
+      }
+      else if( found_sym_link && C1 == DIR_DELIM )
+      {
+        m_fb.SetSyntaxStyle( l, k, HI_CONST );
+      }
+    }
+  }
 }
 

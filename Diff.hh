@@ -37,7 +37,10 @@ public:
   bool   Run( View* const pv0, View* const pv1 );
   void Update();
 
-  unsigned GetTopLine () const;
+  View* GetViewShort() const;
+  View* GetViewLong() const;
+
+  unsigned GetTopLine ( View* const pV ) const;
   unsigned GetLeftChar() const;
   unsigned GetCrsRow  () const;
   unsigned GetCrsCol  () const;

@@ -496,6 +496,32 @@ void ReadExistingFile( FileBuf::Data& m, FILE* fp )
   }
 }
 
+// Add byte C to the end of line l_num
+//
+void Append_DirDelim( FileBuf::Data& m, const unsigned l_num )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+  ASSERT( __LINE__, l_num <  m.lines.len(), "l_num < m.lines.len()" );
+  ASSERT( __LINE__, l_num < m.styles.len(), "l_num < m.styles.len()" );
+
+  Line* lp =  m.lines[ l_num ];
+  Line* sp = m.styles[ l_num ];
+
+  if( !lp->ends_with( DIR_DELIM ) )
+  {
+    bool ok = lp->push(__FILE__,__LINE__, DIR_DELIM )
+           && sp->push(__FILE__,__LINE__, 0 );
+
+    ASSERT( __LINE__, ok, "ok" );
+
+    ChangedLine( m, l_num );
+
+    if( SavingHist( m ) ) m.history.Save_InsertChar( l_num, lp->len()-1 );
+
+    m.hi_touched_line = Min( m.hi_touched_line, l_num );
+  }
+}
+
 // Add symbolic link info, i.e., -> symbolic_link_path, to file name
 //
 void ReadExistingDir_AddLink( FileBuf::Data& m
@@ -516,6 +542,15 @@ void ReadExistingDir_AddLink( FileBuf::Data& m
     for( unsigned k=0; k<rval; k++ )
     {
       m.self.PushChar( LINE_NUM, mbuf[k] );
+    }
+    if( rval < 1024 )
+    {
+      mbuf[ rval ] = 0;
+      // See if file linked to is directory:
+      struct stat stat_buf ;
+      int err = my_stat( mbuf, stat_buf );
+      bool IS_DIR = 0==err && S_ISDIR( stat_buf.st_mode );
+      if( IS_DIR ) Append_DirDelim( m, LINE_NUM );
     }
   }
 #endif
@@ -597,7 +632,7 @@ void ReadExistingDir( FileBuf::Data& m, DIR* dp, String dir_path )
 #ifndef WIN32
         IS_LNK = 0==err && S_ISLNK( stat_buf.st_mode );
 #endif
-        if     ( IS_DIR ) m.self.PushChar( LINE_NUM, DIR_DELIM );
+        if     ( IS_DIR ) Append_DirDelim( m, LINE_NUM );
         else if( IS_LNK ) ReadExistingDir_AddLink( m, dir_path_fname, LINE_NUM );
       }
     }

@@ -3571,13 +3571,23 @@ void Vis::NoDiff()
   {
     m.diff_mode = false;
 
-    View* pV = CV();
+    View* pvS = m.diff.GetViewShort();
+    View* pvL = m.diff.GetViewLong();
 
-    pV->SetTopLine ( m.diff.GetTopLine () );
-    pV->SetLeftChar( m.diff.GetLeftChar() );
-    pV->SetCrsRow  ( m.diff.GetCrsRow  () );
-    pV->SetCrsCol  ( m.diff.GetCrsCol  () );
-
+    if( 0 != pvS )
+    {
+      pvS->SetTopLine ( m.diff.GetTopLine ( pvS ) );
+      pvS->SetLeftChar( m.diff.GetLeftChar() );
+      pvS->SetCrsRow  ( m.diff.GetCrsRow  () );
+      pvS->SetCrsCol  ( m.diff.GetCrsCol  () );
+    }
+    if( 0 != pvS )
+    {
+      pvL->SetTopLine ( m.diff.GetTopLine ( pvL ) );
+      pvL->SetLeftChar( m.diff.GetLeftChar() );
+      pvL->SetCrsRow  ( m.diff.GetCrsRow  () );
+      pvL->SetCrsCol  ( m.diff.GetCrsCol  () );
+    }
     UpdateAll();
   }
 }

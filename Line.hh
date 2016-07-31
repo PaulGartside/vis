@@ -45,6 +45,8 @@ public:
 
   bool append( const char* _FILE_, const unsigned _LINE_, const Line& a );
 
+  bool ends_with( const uint8_t C );
+
   unsigned chksum();
 
 private:

@@ -35,6 +35,8 @@ private:
   void Run_Range( const CrsPos st, const unsigned fn );
 
   void Hi_In_None( unsigned& l, unsigned& p );
+  void Hi_In_None_Dir( const unsigned l, const unsigned LL );
+  void Hi_In_None_File( const unsigned l, const unsigned LL );
 
   typedef Highlight_Dir ME;
   typedef void (Highlight_Dir::*HiStateFunc) ( unsigned&, unsigned& );
