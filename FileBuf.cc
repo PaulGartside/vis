@@ -1546,6 +1546,8 @@ void FileBuf::RemoveLine( const unsigned l_num, Line& line )
 
   ASSERT( __LINE__, ok, "ok" );
 
+  ChangedLine( m, l_num );
+
   line = *lp;
 
   if( SavingHist( m ) ) m.history.Save_RemoveLine( l_num, line );
@@ -1556,8 +1558,6 @@ void FileBuf::RemoveLine( const unsigned l_num, Line& line )
 
   m.vis.ReturnLine( lp );
   m.vis.ReturnLine( sp );
-
-  ChangedLine( m, l_num );
 }
 
 // Remove a line from FileBuf without deleting it and return pointer to it.

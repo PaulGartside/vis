@@ -97,6 +97,11 @@ unsigned Max( const unsigned a, const unsigned b )
   return a > b ? a : b;
 }
 
+unsigned LLM1( const unsigned LL )
+{
+  return 0 < LL ? LL-1 : 0;
+}
+
 void Swap( unsigned& A, unsigned& B )
 {
   unsigned T = B;

@@ -75,23 +75,62 @@ public:
   bool GetReplaceMode() const;
   void SetReplaceMode( const bool val );
 
+  void GoUp();
+  void GoDown();
+  void GoLeft();
+  void GoRight();
+  void PageDown();
+  void PageUp();
   void GoToBegOfLine();
   void GoToEndOfLine();
   void GoToBegOfNextLine();
   void GoToTopLineInView();
   void GoToMidLineInView();
   void GoToBotLineInView();
-  void GoToEndOfFile();
-  void GoToPrevWord();
-  void GoToNextWord();
-  void GoToEndOfWord();
   void GoToLine( const unsigned user_line_num );
+  void GoToTopOfFile();
+  void GoToEndOfFile();
   void GoToStartOfRow();
   void GoToEndOfRow();
-  void GoToTopOfFile();
+  void GoToNextWord();
+  void GoToPrevWord();
+  void GoToEndOfWord();
   void GoToOppositeBracket();
   void GoToLeftSquigglyBracket();
   void GoToRightSquigglyBracket();
+  void MoveCurrLineToTop();
+  void MoveCurrLineCenter();
+  void MoveCurrLineToBottom();
+
+  void Do_a();
+  void Do_A();
+  void Do_cw();
+  void Do_dd();
+  int  Do_dw();
+  void Do_D();
+  void Do_f( const char FAST_CHAR );
+  void Do_i();
+  void Do_J();
+  void Do_n();
+  void Do_N();
+  void Do_o();
+  void Do_O();
+  void Do_p();
+  void Do_P();
+  void Do_R();
+  void Do_s();
+  void Do_Tilda();
+  void Do_u();
+  void Do_U();
+  bool Do_v();
+  bool Do_V();
+  void Do_x();
+  void Do_yy();
+  void Do_yw();
+
+  String Do_Star_GetNewPattern();
+  void   PrintPatterns( const bool HIGHLIGHT );
+
   void GoToCrsPos_NoWrite( const unsigned ncp_crsLine
                          , const unsigned ncp_crsChar );
   void GoToCrsPos_Write( const unsigned ncp_crsLine
@@ -99,43 +138,7 @@ public:
   bool GoToFile_GetFileName( String& fname );
   void GoToCmdLineClear( const char* S );
 
-  void GoUp();
-  void GoDown();
-  void GoLeft();
-  void GoRight();
-  void PageDown();
-  void PageUp();
-
   bool MoveInBounds();
-  void MoveCurrLineToTop();
-  void MoveCurrLineCenter();
-  void MoveCurrLineToBottom();
-
-  void Do_i();
-  bool Do_v();
-  bool Do_V();
-  void Do_a();
-  void Do_A();
-  void Do_o();
-  void Do_O();
-  void Do_x();
-  void Do_s();
-  void Do_cw();
-  void Do_D();
-  void Do_f( const char FAST_CHAR );
-  void Do_n();
-  void Do_N();
-  void Do_dd();
-  int  Do_dw();
-  void Do_yy();
-  void Do_yw();
-  void Do_p();
-  void Do_P();
-  void Do_R();
-  void Do_J();
-  void Do_Tilda();
-  void Do_u();
-  void Do_U();
 
   bool InVisualArea ( const unsigned line, const unsigned pos );
   bool InVisualStFn ( const unsigned line, const unsigned pos );
@@ -168,9 +171,6 @@ public:
   bool GetUnSavedChangeSts() const;
   void SetStsLineNeedsUpdate( const bool val );
   void SetUnSavedChangeSts( const bool val );
-
-  String Do_Star_GetNewPattern();
-  void   PrintPatterns( const bool HIGHLIGHT );
 
   void Clear_Context();
   bool Has_Context();

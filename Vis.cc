@@ -1992,9 +1992,8 @@ void Handle_c( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( m.diff_mode ) return;
-
   const char C = m.key.In();
+
   if( C == 'w' )
   {
     if( !m.key.get_from_dot_buf )
@@ -2004,7 +2003,8 @@ void Handle_c( Vis::Data& m )
       m.key.dot_buf.push(__FILE__,__LINE__,'w');
       m.key.save_2_dot_buf = true;
     }
-    CV(m)->Do_cw();
+    if( m.diff_mode ) m.diff.Do_cw();
+    else              CV(m)->Do_cw();
 
     if( !m.key.get_from_dot_buf )
     {
@@ -2020,8 +2020,8 @@ void Handle_c( Vis::Data& m )
       m.key.dot_buf.push(__FILE__,__LINE__,'$');
       m.key.save_2_dot_buf = true;
     }
-    CV(m)->Do_D();
-    CV(m)->Do_a();
+    if( m.diff_mode ) { m.diff.Do_D(); m.diff.Do_a(); }
+    else              { CV(m)->Do_D(); CV(m)->Do_a(); }
 
     if( !m.key.get_from_dot_buf )
     {
@@ -2313,8 +2313,6 @@ void Handle_d( Vis::Data& m )
   }
   else if( C == 'w' )
   {
-    if( m.diff_mode ) return;
-
     if( !m.key.get_from_dot_buf )
     {
       m.key.dot_buf.clear();
@@ -2339,9 +2337,8 @@ void Handle_y( Vis::Data& m )
   }
   else if( C == 'w' )
   {
-    if( m.diff_mode ) return;
-
-    CV(m)->Do_yw();
+    if( m.diff_mode ) m.diff.Do_yw();
+    else              CV(m)->Do_yw();
   }
 }
 
@@ -3001,7 +2998,7 @@ void Handle_u( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( m.diff_mode ) return; // Need to implement
+  if( m.diff_mode ) m.diff.Do_u();
   else              CV(m)->Do_u();
 }
 
@@ -3009,7 +3006,7 @@ void Handle_U( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( m.diff_mode ) return; // Need to implement
+  if( m.diff_mode ) m.diff.Do_U();
   else              CV(m)->Do_U();
 }
 
@@ -3801,13 +3798,8 @@ bool Vis::Update_Change_Statuses()
 
 void Vis::PrintCursor()
 {
-  if( m.diff_mode )
-  {
-   m.diff.PrintCursor( CV() );
-  }
-  else {
-    CV()->PrintCursor();
-  }
+  if( m.diff_mode ) m.diff.PrintCursor( CV() );
+  else               CV()->PrintCursor();
 }
 
 bool Vis::HaveFile( const char* file_name, unsigned* file_index )

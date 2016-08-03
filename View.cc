@@ -549,21 +549,24 @@ void Do_v_Handle_gf( View::Data& m )
   }
 }
 
-void Swap_Visual_Block_If_Needed( View::Data& m )
-{
-  if( m.v_fn_line < m.v_st_line ) Swap( m.v_st_line, m.v_fn_line );
-  if( m.v_fn_char < m.v_st_char ) Swap( m.v_st_char, m.v_fn_char );
-}
-
 void Swap_Visual_St_Fn_If_Needed( View::Data& m )
 {
-  if( m.v_fn_line < m.v_st_line
-   || (m.v_fn_line == m.v_st_line && m.v_fn_char < m.v_st_char) )
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( m.inVisualBlock )
   {
-    // Visual mode went backwards over multiple lines, or
-    // Visual mode went backwards over one line
-    Swap( m.v_st_line, m.v_fn_line );
-    Swap( m.v_st_char, m.v_fn_char );
+    if( m.v_fn_line < m.v_st_line ) Swap( m.v_st_line, m.v_fn_line );
+    if( m.v_fn_char < m.v_st_char ) Swap( m.v_st_char, m.v_fn_char );
+  }
+  else {
+    if( m.v_fn_line < m.v_st_line
+     || (m.v_fn_line == m.v_st_line && m.v_fn_char < m.v_st_char) )
+    {
+      // Visual mode went backwards over multiple lines, or
+      // Visual mode went backwards over one line
+      Swap( m.v_st_line, m.v_fn_line );
+      Swap( m.v_st_char, m.v_fn_char );
+    }
   }
 }
 
@@ -571,7 +574,7 @@ void Do_v_Handle_gp( View::Data& m )
 {
   if( m.v_st_line == m.v_fn_line )
   {
-    Swap_Visual_Block_If_Needed(m);
+    Swap_Visual_St_Fn_If_Needed(m);
 
     String pattern;
 
@@ -648,7 +651,7 @@ void Do_y_v_block( View::Data& m )
   const unsigned old_v_st_line = m.v_st_line;
   const unsigned old_v_st_char = m.v_st_char;
 
-  Swap_Visual_Block_If_Needed( m );
+  Swap_Visual_St_Fn_If_Needed( m );
 
   for( unsigned L=m.v_st_line; L<=m.v_fn_line; L++ )
   {
@@ -930,7 +933,7 @@ void Do_D_v_line( View::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  Swap_Visual_Block_If_Needed(m);
+  Swap_Visual_St_Fn_If_Needed(m);
 
   m.reg.clear();
 
@@ -1955,15 +1958,15 @@ bool Do_N_FindPrevPattern( View::Data& m, CrsPos& ncp )
 }
 
 bool Do_dw_get_fn( View::Data& m
-                 , const int st_line, const int st_char
-                 , unsigned& fn_line, unsigned& fn_char )
+                 , const unsigned  st_line, const unsigned  st_char
+                 ,       unsigned& fn_line,       unsigned& fn_char )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
   const unsigned LL = m.fb.LineLen( st_line );
   const uint8_t  C  = m.fb.Get( st_line, st_char );
 
   if( IsSpace( C )      // On white space
-    || ( st_char < LL-1 // On non-white space before white space
-     //&& NotSpace( C )
+    || ( st_char < LLM1(LL) // On non-white space before white space
        && IsSpace( m.fb.Get( st_line, st_char+1 ) ) ) )
   {
     // w:
@@ -1996,6 +1999,7 @@ bool Do_dw_get_fn( View::Data& m
 
 void Do_dd_Normal( View::Data& m, const unsigned ONL )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
   const unsigned OCL = m.view.CrsLine();           // Old cursor line
   const unsigned OCP = m.view.CrsChar();           // Old cursor position
   const unsigned OLL = m.fb.LineLen( OCL ); // Old line length
@@ -2022,6 +2026,7 @@ void Do_dd_Normal( View::Data& m, const unsigned ONL )
 
 void Do_dd_BufferEditor( View::Data& m, const unsigned ONL )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
   const unsigned OCL = m.view.CrsLine(); // Old cursor line
 
   // Can only delete one of the user files out of buffer editor
@@ -2308,6 +2313,118 @@ void View::SetInsertMode( const bool val ) { m.inInsertMode = val; }
 bool View::GetReplaceMode() const { return m.inReplaceMode; }
 void View::SetReplaceMode( const bool val ) { m.inReplaceMode = val; }
 
+void View::GoUp()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+  const unsigned NUM_LINES = m.fb.NumLines();
+  if( 0==NUM_LINES ) return;
+
+  const unsigned OCL = CrsLine(); // Old cursor line
+  if( OCL == 0 ) return;
+
+  const unsigned NCL = OCL-1; // New cursor line
+
+  const unsigned OCP = CrsChar(); // Old cursor position
+        unsigned NCP = OCP;
+
+  GoToCrsPos_Write( NCL, NCP );
+}
+
+void View::GoDown()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+  const unsigned NUM_LINES = m.fb.NumLines();
+  if( 0==NUM_LINES ) return;
+
+  const unsigned OCL = CrsLine(); // Old cursor line
+  if( OCL == NUM_LINES-1 ) return;
+
+  const unsigned NCL = OCL+1; // New cursor line
+
+  const unsigned OCP = CrsChar(); // Old cursor position
+        unsigned NCP = OCP;
+
+  GoToCrsPos_Write( NCL, NCP );
+}
+
+void View::GoLeft()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+  if( 0==m.fb.NumLines() ) return;
+
+  const unsigned CL = CrsLine(); // Cursor line
+  const unsigned CP = CrsChar(); // Cursor position
+
+  if( CP == 0 ) return;
+
+  GoToCrsPos_Write( CL, CP-1 );
+}
+
+void View::GoRight()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+  if( 0==m.fb.NumLines() ) return;
+
+  const unsigned CL = CrsLine(); // Cursor line
+  const unsigned LL = m.fb.LineLen( CL );
+  if( 0==LL ) return;
+
+  const unsigned CP = CrsChar(); // Cursor position
+  if( LL-1 <= CP ) return;
+
+  GoToCrsPos_Write( CL, CP+1 );
+}
+
+// This one works better when NOT in visual mode:
+void View::PageDown()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  const unsigned NUM_LINES = m.fb.NumLines();
+  if( !NUM_LINES ) return;
+
+  const unsigned newTopLine = m.topLine + WorkingRows() - 1;
+  // Subtracting 1 above leaves one line in common between the 2 pages.
+
+  if( newTopLine < NUM_LINES )
+  {
+    m.crsCol = 0;
+    m.topLine = newTopLine;
+
+    // Dont let cursor go past the end of the file:
+    if( NUM_LINES <= CrsLine() )
+    {
+      // This line places the cursor at the top of the screen, which I prefer:
+      m.crsRow = 0;
+    }
+    Update();
+  }
+}
+
+void View::PageUp()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+  const unsigned OCL = CrsLine(); // Old cursor line
+  const unsigned OCP = CrsChar(); // Old cursor position
+
+  // Dont scroll if we are at the top of the file:
+  if( m.topLine )
+  {
+    //Leave m.crsRow unchanged.
+    m.crsCol = 0;
+
+    // Dont scroll past the top of the file:
+    if( m.topLine < WorkingRows() - 1 )
+    {
+      m.topLine = 0;
+    }
+    else {
+      m.topLine -= WorkingRows() - 1;
+    }
+    Update();
+  }
+}
+
 void View::GoToBegOfLine()
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -2395,6 +2512,29 @@ void View::GoToBotLineInView()
   GoToCrsPos_Write( bottom_line_in_view, 0 );
 }
 
+void View::GoToLine( const unsigned user_line_num )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  // Internal line number is 1 less than user line number:
+  const unsigned NCL = user_line_num - 1; // New cursor line number
+
+  if( m.fb.NumLines() <= NCL )
+  {
+    PrintCursor();
+  }
+  else {
+    GoToCrsPos_Write( NCL, 0 );
+  }
+}
+
+void View::GoToTopOfFile()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  GoToCrsPos_Write( 0, 0 );
+}
+
 void View::GoToEndOfFile()
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -2402,6 +2542,17 @@ void View::GoToEndOfFile()
   const unsigned NUM_LINES = m.fb.NumLines();
 
   GoToCrsPos_Write( NUM_LINES-1, 0 );
+}
+
+void View::GoToNextWord()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+  CrsPos ncp = { 0, 0 };
+
+  if( GoToNextWord_GetPosition( m, ncp ) )
+  {
+    GoToCrsPos_Write( ncp.crsLine, ncp.crsChar );
+  }
 }
 
 void View::GoToPrevWord()
@@ -2416,17 +2567,6 @@ void View::GoToPrevWord()
   }
 }
 
-void View::GoToNextWord()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-  CrsPos ncp = { 0, 0 };
-
-  if( GoToNextWord_GetPosition( m, ncp ) )
-  {
-    GoToCrsPos_Write( ncp.crsLine, ncp.crsChar );
-  }
-}
-
 void View::GoToEndOfWord()
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -2436,22 +2576,6 @@ void View::GoToEndOfWord()
   if( GoToEndOfWord_GetPosition( m, ncp ) )
   {
     GoToCrsPos_Write( ncp.crsLine, ncp.crsChar );
-  }
-}
-
-void View::GoToLine( const unsigned user_line_num )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  // Internal line number is 1 less than user line number:
-  const unsigned NCL = user_line_num - 1; // New cursor line number
-
-  if( m.fb.NumLines() <= NCL )
-  {
-    PrintCursor();
-  }
-  else {
-    GoToCrsPos_Write( NCL, 0 );
   }
 }
 
@@ -2480,13 +2604,6 @@ void View::GoToEndOfRow()
   const unsigned NCP = Min( LL-1, m.leftChar + WorkingCols() - 1 );
 
   GoToCrsPos_Write( OCL, NCP );
-}
-
-void View::GoToTopOfFile()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  GoToCrsPos_Write( 0, 0 );
 }
 
 void View::GoToOppositeBracket()
@@ -2691,118 +2808,6 @@ void View::GoToCmdLineClear( const char* S )
   Console::Update();
   Console::Move_2_Row_Col( ROW, Col_Win_2_GL( S_LEN ) );
   Console::Flush();
-}
-
-void View::GoUp()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-  const unsigned NUM_LINES = m.fb.NumLines();
-  if( 0==NUM_LINES ) return;
-
-  const unsigned OCL = CrsLine(); // Old cursor line
-  if( OCL == 0 ) return;
-
-  const unsigned NCL = OCL-1; // New cursor line
-
-  const unsigned OCP = CrsChar(); // Old cursor position
-        unsigned NCP = OCP;
-
-  GoToCrsPos_Write( NCL, NCP );
-}
-
-void View::GoDown()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-  const unsigned NUM_LINES = m.fb.NumLines();
-  if( 0==NUM_LINES ) return;
-
-  const unsigned OCL = CrsLine(); // Old cursor line
-  if( OCL == NUM_LINES-1 ) return;
-
-  const unsigned NCL = OCL+1; // New cursor line
-
-  const unsigned OCP = CrsChar(); // Old cursor position
-        unsigned NCP = OCP;
-
-  GoToCrsPos_Write( NCL, NCP );
-}
-
-void View::GoLeft()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-  if( 0==m.fb.NumLines() ) return;
-
-  const unsigned CL = CrsLine(); // Cursor line
-  const unsigned CP = CrsChar(); // Cursor position
-
-  if( CP == 0 ) return;
-
-  GoToCrsPos_Write( CL, CP-1 );
-}
-
-void View::GoRight()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-  if( 0==m.fb.NumLines() ) return;
-
-  const unsigned CL = CrsLine(); // Cursor line
-  const unsigned LL = m.fb.LineLen( CL );
-  if( 0==LL ) return;
-
-  const unsigned CP = CrsChar(); // Cursor position
-  if( LL-1 <= CP ) return;
-
-  GoToCrsPos_Write( CL, CP+1 );
-}
-
-// This one works better when NOT in visual mode:
-void View::PageDown()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  const unsigned NUM_LINES = m.fb.NumLines();
-  if( !NUM_LINES ) return;
-
-  const unsigned newTopLine = m.topLine + WorkingRows() - 1;
-  // Subtracting 1 above leaves one line in common between the 2 pages.
-
-  if( newTopLine < NUM_LINES )
-  {
-    m.crsCol = 0;
-    m.topLine = newTopLine;
-
-    // Dont let cursor go past the end of the file:
-    if( NUM_LINES <= CrsLine() )
-    {
-      // This line places the cursor at the top of the screen, which I prefer:
-      m.crsRow = 0;
-    }
-    Update();
-  }
-}
-
-void View::PageUp()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-  const unsigned OCL = CrsLine(); // Old cursor line
-  const unsigned OCP = CrsChar(); // Old cursor position
-
-  // Dont scroll if we are at the top of the file:
-  if( m.topLine )
-  {
-    //Leave m.crsRow unchanged.
-    m.crsCol = 0;
-
-    // Dont scroll past the top of the file:
-    if( m.topLine < WorkingRows() - 1 )
-    {
-      m.topLine = 0;
-    }
-    else {
-      m.topLine -= WorkingRows() - 1;
-    }
-    Update();
-  }
 }
 
 // If past end of line, move back to end of line.
@@ -3108,8 +3113,8 @@ int View::Do_dw()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  unsigned st_line = CrsLine();
-  unsigned st_char = CrsChar();
+  const unsigned st_line = CrsLine();
+  const unsigned st_char = CrsChar();
 
   const unsigned LL = m.fb.LineLen( st_line );
 
@@ -3119,10 +3124,13 @@ int View::Do_dw()
     // Determine fn_line, fn_char:
     unsigned fn_line = 0;
     unsigned fn_char = 0;
+
     if( Do_dw_get_fn( m, st_line, st_char, fn_line, fn_char ) )
     {
       Do_x_range( m, st_line, st_char, fn_line, fn_char );
+
       bool deleted_last_char = fn_char == LL-1;
+
       return deleted_last_char ? 2 : 1;
     }
   }
@@ -3233,7 +3241,6 @@ void View::Do_dd()
   // If there is nothing to 'dd', just return:
   if( 1 < ONL )
   {
-  //if( &m.fb == m.vis.views[0][ BE_FILE ]->GetFB() )
     if( &m.fb == m.vis.GetFileBuf( BE_FILE ) )
     {
       Do_dd_BufferEditor( m, ONL );
@@ -3266,14 +3273,14 @@ void View::Do_yw()
   // If there is nothing to 'yw', just return:
   if( !m.fb.NumLines() ) return;
 
-  unsigned st_line = CrsLine();
-  unsigned st_char = CrsChar();
+  const unsigned st_line = CrsLine();
+  const unsigned st_char = CrsChar();
 
   // Determine fn_line, fn_char:
   unsigned fn_line = 0;
   unsigned fn_char = 0;
 
-  if( Do_dw_get_fn( m,st_line, st_char, fn_line, fn_char ) )
+  if( Do_dw_get_fn( m, st_line, st_char, fn_line, fn_char ) )
   {
     m.reg.clear();
     m.reg.push( m.vis.BorrowLine( __FILE__,__LINE__ ) );

@@ -157,8 +157,10 @@ void ChangeHist::Save_RemoveLine( const unsigned l_num
 
   // Copy line into lc-Line:
   lc->line.clear();
-  for( unsigned k=0; k<line.len(); k++ ) lc->line.push( __FILE__, __LINE__, line.get(k) );
-
+  for( unsigned k=0; k<line.len(); k++ )
+  {
+    lc->line.push( __FILE__, __LINE__, line.get(k) );
+  }
   changes.push( lc );
 }
 
@@ -204,7 +206,7 @@ void ChangeHist::Undo_Set( LineChange* plc, View& rV )
 
     m_fb.Set( plc->lnum, plc->cpos+k, C );
   }
-  rV.GoToCrsPos_Write( plc->lnum, plc->cpos );
+  rV.GoToCrsPos_NoWrite( plc->lnum, plc->cpos );
 
   m_fb.Update();
 }
@@ -214,14 +216,14 @@ void ChangeHist::Undo_InsertLine( LineChange* plc, View& rV )
   Trace trace( __PRETTY_FUNCTION__ );
 
   // Undo an inserted line by removing the inserted line
-  m_fb.RemoveLine( plc->lnum, plc->line );
+  m_fb.RemoveLine( plc->lnum );
 
   // If last line of file was just removed, plc->lnum is out of range,
   // so go to NUM_LINES-1 instead:
   const unsigned NUM_LINES = m_fb.NumLines();
   const unsigned LINE_NUM  = plc->lnum < NUM_LINES ? plc->lnum : NUM_LINES-1;
 
-  rV.GoToCrsPos_Write( LINE_NUM, plc->cpos );
+  rV.GoToCrsPos_NoWrite( LINE_NUM, plc->cpos );
 
   m_fb.Update();
 }
@@ -233,7 +235,7 @@ void ChangeHist::Undo_RemoveLine( LineChange* plc, View& rV )
   // Undo a removed line by inserting the removed line
   m_fb.InsertLine( plc->lnum, plc->line );
 
-  rV.GoToCrsPos_Write( plc->lnum, plc->cpos );
+  rV.GoToCrsPos_NoWrite( plc->lnum, plc->cpos );
 
   m_fb.Update();
 }
@@ -249,7 +251,7 @@ void ChangeHist::Undo_InsertChar( LineChange* plc, View& rV )
   {
     m_fb.RemoveChar( plc->lnum, plc->cpos );
   }
-  rV.GoToCrsPos_Write( plc->lnum, plc->cpos );
+  rV.GoToCrsPos_NoWrite( plc->lnum, plc->cpos );
 
   m_fb.Update();
 }
@@ -267,7 +269,7 @@ void ChangeHist::Undo_RemoveChar( LineChange* plc, View& rV )
 
     m_fb.InsertChar( plc->lnum, plc->cpos+k, C );
   }
-  rV.GoToCrsPos_Write( plc->lnum, plc->cpos );
+  rV.GoToCrsPos_NoWrite( plc->lnum, plc->cpos );
 
   m_fb.Update();
 }

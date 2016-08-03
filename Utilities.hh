@@ -36,6 +36,7 @@ void DBG( const int line, const char* msg=0, ... );
 void ASSERT( const int line, bool condition, const char* msg, ... );
 unsigned Min( const unsigned a, const unsigned b );
 unsigned Max( const unsigned a, const unsigned b );
+unsigned LLM1( const unsigned LL );
 void Swap( unsigned& A, unsigned& B );
 void RemoveSpaces( char* cp );
 int  my_stat( const char* fname, struct stat& sbuf );
