@@ -3481,12 +3481,16 @@ void Vis::Init( const int ARGC, const char* const ARGV[] )
   InitSearchEditor(m);
   InitMsgBuffer(m);
   InitCmdBuffer(m);
-  bool run_diff = InitUserFiles( m, ARGC, ARGV );
+  const bool run_diff =
+  InitUserFiles( m, ARGC, ARGV ) && (CMD_FILE+1+2) == m.files.len();
   InitFileHistory(m);
   InitCmdFuncs(m);
 
-  if( run_diff && ( (CMD_FILE+1+2) == m.files.len()) )
+  if( ! run_diff )
   {
+    UpdateAll();
+  }
+  else {
     // User supplied: "-d file1 file2", so run diff:
     m.diff_mode = true;
     m.num_wins = 2;
@@ -3522,8 +3526,6 @@ Vis::~Vis()
 void Vis::Run()
 {
   Trace trace( __PRETTY_FUNCTION__ );
-
-  UpdateAll();
 
   while( m.running )
   {

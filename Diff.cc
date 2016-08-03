@@ -45,13 +45,29 @@ enum Diff_Type
   DT_DELETED
 };
 
-struct CompArea // Comparison area
+// Diff or Comparison area
+struct DiffArea
 {
-  unsigned stl_s; // Start  line in short file
-  unsigned fnl_s; // Finish line in short file
+  unsigned ln_s;     // Beginning line number in short file
+  unsigned ln_l;     // Beginning line number in long  file
+  unsigned nlines_s; // Number of consecutive lines different in short file
+  unsigned nlines_l; // Number of consecutive lines different in long  file
 
-  unsigned stl_l; // Start  line in long file
-  unsigned fnl_l; // Finish line in long file
+  DiffArea()
+    : ln_s    ( 0 )
+    , ln_l    ( 0 )
+    , nlines_s( 0 )
+    , nlines_l( 0 )
+  {}
+  DiffArea( const unsigned ln_s, const unsigned nlines_s
+          , const unsigned ln_l, const unsigned nlines_l )
+    : ln_s    ( ln_s     )
+    , ln_l    ( ln_l     )
+    , nlines_s( nlines_s )
+    , nlines_l( nlines_l )
+  {}
+  unsigned fnl_s() const { return ln_s + nlines_s; }
+  unsigned fnl_l() const { return ln_l + nlines_l; }
 };
 
 struct SameArea
@@ -67,15 +83,15 @@ struct SameArea
   void Set( const SameArea& a );
 };
 
-struct SameLineSec
-{
-  unsigned ch_s;   // Beginning char number in short line
-  unsigned ch_l;   // Beginning char number in long  line
-  unsigned nbytes; // Number of consecutive bytes the same
-
-  void Init( unsigned _ch_s, unsigned _ch_l );
-  void Set( const SameLineSec& a );
-};
+//struct SameLineSec
+//{
+//  unsigned ch_s;   // Beginning char number in short line
+//  unsigned ch_l;   // Beginning char number in long  line
+//  unsigned nbytes; // Number of consecutive bytes the same
+//
+//  void Init( unsigned _ch_s, unsigned _ch_l );
+//  void Set( const SameLineSec& a );
+//};
 
 typedef Array_t<Diff_Type> LineInfo;
 
@@ -86,14 +102,6 @@ struct SimLines // Similar lines
   unsigned nbytes; // Number of bytes in common between lines
   LineInfo* li_s; // Line comparison info in short comp area
   LineInfo* li_l; // Line comparison info in long  comp area
-};
-
-struct DiffArea
-{
-  unsigned ln_s;     // Beginning line number in short file
-  unsigned ln_l;     // Beginning line number in long  file
-  unsigned nlines_s; // Number of consecutive lines different in short file
-  unsigned nlines_l; // Number of consecutive lines different in long  file
 };
 
 struct Diff_Info
@@ -211,16 +219,16 @@ Diff::Data::~Data()
 }
 
 SameArea Find_Max_Same( Diff::Data& m
-                      , const CompArea ca, const unsigned count )
+                      , const DiffArea ca, const unsigned count )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   SameArea max_same = { 0, 0, 0, 0 };
 
-  for( unsigned _ln_s = ca.stl_s; _ln_s<ca.fnl_s-max_same.nlines; _ln_s++ )
+  for( unsigned _ln_s = ca.ln_s; _ln_s<ca.fnl_s()-max_same.nlines; _ln_s++ )
   {
     unsigned ln_s = _ln_s;
     SameArea cur_same = { 0, 0, 0, 0 };
-    for( unsigned ln_l = ca.stl_l; ln_s<ca.fnl_s && ln_l<ca.fnl_l; ln_l++ )
+    for( unsigned ln_l = ca.ln_l; ln_s<ca.fnl_s() && ln_l<ca.fnl_l(); ln_l++ )
     {
       Line* ls = m.pfS->GetLineP( ln_s );
       Line* ll = m.pfL->GetLineP( ln_l );
@@ -245,14 +253,14 @@ SameArea Find_Max_Same( Diff::Data& m
   return max_same;
 }
 
-void Popu_SameList( Diff::Data& m, const CompArea CA )
+void Popu_SameList( Diff::Data& m, const DiffArea CA )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   m.sameList.clear();
-  Array_t<CompArea> compList(__FILE__, __LINE__);
+  Array_t<DiffArea> compList(__FILE__, __LINE__);
                     compList.push(__FILE__,__LINE__, CA );
   unsigned count = 0;
-  CompArea ca;
+  DiffArea ca;
 
   while( compList.pop( ca ) )
   {
@@ -265,32 +273,32 @@ void Popu_SameList( Diff::Data& m, const CompArea CA )
       const unsigned SAME_FNL_S = same.ln_s+same.nlines; // Same finish line short
       const unsigned SAME_FNL_L = same.ln_l+same.nlines; // Same finish line long
 
-      if( ( same.ln_s == ca.stl_s || same.ln_l == ca.stl_l )
-       && SAME_FNL_S < ca.fnl_s
-       && SAME_FNL_L < ca.fnl_l )
+      if( ( same.ln_s == ca.ln_s || same.ln_l == ca.ln_l )
+       && SAME_FNL_S < ca.fnl_s()
+       && SAME_FNL_L < ca.fnl_l() )
       {
-        // Only one new CompArea after same:
-        CompArea ca1 = { SAME_FNL_S, ca.fnl_s
-                       , SAME_FNL_L, ca.fnl_l };
+        // Only one new DiffArea after same:
+        DiffArea ca1( SAME_FNL_S , ca.fnl_s()-SAME_FNL_S
+                    , SAME_FNL_L , ca.fnl_l()-SAME_FNL_L );
         compList.push(__FILE__,__LINE__, ca1 );
       }
-      else if( ( SAME_FNL_S == ca.fnl_s || SAME_FNL_L == ca.fnl_l )
-            && ca.stl_s < same.ln_s
-            && ca.stl_l < same.ln_l )
+      else if( ( SAME_FNL_S == ca.fnl_s() || SAME_FNL_L == ca.fnl_l() )
+            && ca.ln_s < same.ln_s
+            && ca.ln_l < same.ln_l )
       {
-        // Only one new CompArea before same:
-        CompArea ca1 = { ca.stl_s, same.ln_s
-                       , ca.stl_l, same.ln_l };
+        // Only one new DiffArea before same:
+        DiffArea ca1( ca.ln_s, same.ln_s-ca.ln_s
+                    , ca.ln_l, same.ln_l-ca.ln_l );
         compList.push(__FILE__,__LINE__, ca1 );
       }
-      else if( ca.stl_s < same.ln_s && SAME_FNL_S < ca.fnl_s
-            && ca.stl_l < same.ln_l && SAME_FNL_L < ca.fnl_l )
+      else if( ca.ln_s < same.ln_s && SAME_FNL_S < ca.fnl_s()
+            && ca.ln_l < same.ln_l && SAME_FNL_L < ca.fnl_l() )
       {
-        // Two new CompArea's, one before same, and one after same:
-        CompArea ca1 = { ca.stl_s, same.ln_s
-                       , ca.stl_l, same.ln_l };
-        CompArea ca2 = { SAME_FNL_S, ca.fnl_s
-                       , SAME_FNL_L, ca.fnl_l };
+        // Two new DiffArea's, one before same, and one after same:
+        DiffArea ca1( ca.ln_s, same.ln_s-ca.ln_s
+                    , ca.ln_l, same.ln_l-ca.ln_l );
+        DiffArea ca2( SAME_FNL_S, ca.fnl_s()-SAME_FNL_S
+                    , SAME_FNL_L, ca.fnl_l()-SAME_FNL_L );
         compList.push(__FILE__,__LINE__, ca1 );
         compList.push(__FILE__,__LINE__, ca2 );
       }
@@ -319,7 +327,7 @@ void Sort_SameList( Diff::Data& m )
   }
 }
 
-void Popu_DiffList_Begin( Diff::Data& m, const CompArea CA )
+void Popu_DiffList_Begin( Diff::Data& m, const DiffArea CA )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -327,25 +335,23 @@ void Popu_DiffList_Begin( Diff::Data& m, const CompArea CA )
   {
     SameArea sa = m.sameList[ 0 ];
 
-    const unsigned nlines_s_da = sa.ln_s - CA.stl_s; // Num lines in short diff area
-    const unsigned nlines_l_da = sa.ln_l - CA.stl_l; // Num lines in long  diff area
+    const unsigned nlines_s_da = sa.ln_s - CA.ln_s; // Num lines in short diff area
+    const unsigned nlines_l_da = sa.ln_l - CA.ln_l; // Num lines in long  diff area
 
     if( nlines_s_da || nlines_l_da )
     {
-      // DiffArea at beginning of CompArea:
-      DiffArea da = { CA.stl_s, CA.stl_l, nlines_s_da, nlines_l_da };
+      // DiffArea at beginning of DiffArea:
+      DiffArea da( CA.ln_s, nlines_s_da, CA.ln_l, nlines_l_da );
       m.diffList.push(__FILE__,__LINE__, da );
     }
   }
 }
 
-void Popu_DiffList_End( Diff::Data& m, const CompArea CA )
+void Popu_DiffList_End( Diff::Data& m, const DiffArea CA )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
   const unsigned SLL = m.sameList.len();
-  const unsigned nLines_S_CA = CA.fnl_s - CA.stl_s;
-  const unsigned nLines_L_CA = CA.fnl_l - CA.stl_l;
 
   if( SLL ) // Add DiffArea after last SameArea if needed:
   {
@@ -353,26 +359,24 @@ void Popu_DiffList_End( Diff::Data& m, const CompArea CA )
     const unsigned sa_s_end = sa.ln_s + sa.nlines;
     const unsigned sa_l_end = sa.ln_l + sa.nlines;
 
-    if( sa_s_end < CA.fnl_s
-     || sa_l_end < CA.fnl_l ) // DiffArea at end of file:
+    if( sa_s_end < CA.fnl_s()
+     || sa_l_end < CA.fnl_l() ) // DiffArea at end of file:
     {
       // Number of lines of short and long equal to
       // start of SameArea short and long
-      DiffArea da = { sa_s_end
-                    , sa_l_end
-                    , CA.fnl_s - sa_s_end
-                    , CA.fnl_l - sa_l_end };
+      DiffArea da( sa_s_end, CA.fnl_s() - sa_s_end
+                 , sa_l_end, CA.fnl_l() - sa_l_end );
       m.diffList.push(__FILE__,__LINE__, da );
     }
   }
-  else // No SameArea, so whole CompArea is a DiffArea:
+  else // No SameArea, so whole DiffArea is a DiffArea:
   {
-    DiffArea da = { CA.stl_s, CA.stl_l, nLines_S_CA, nLines_L_CA };
+    DiffArea da( CA.ln_s, CA.nlines_s, CA.ln_l, CA.nlines_l );
     m.diffList.push(__FILE__,__LINE__, da );
   }
 }
 
-void Popu_DiffList( Diff::Data& m, const CompArea CA )
+void Popu_DiffList( Diff::Data& m, const DiffArea CA )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   m.diffList.clear();
@@ -389,10 +393,9 @@ void Popu_DiffList( Diff::Data& m, const CompArea CA )
     unsigned da_ln_s = sa0.ln_s+sa0.nlines;
     unsigned da_ln_l = sa0.ln_l+sa0.nlines;
 
-    DiffArea da = { da_ln_s               // da.ln_s
-                  , da_ln_l               // da.ln_l
-                  , sa1.ln_s - da_ln_s    // da.nline_s
-                  , sa1.ln_l - da_ln_l }; // da.nline_l
+    DiffArea da( da_ln_s, sa1.ln_s - da_ln_s
+               , da_ln_l, sa1.ln_l - da_ln_l );
+
     m.diffList.push(__FILE__,__LINE__, da );
   }
   Popu_DiffList_End( m, CA );
@@ -426,6 +429,8 @@ void Return_LineInfo( Diff::Data& m, LineInfo* lip )
 
 void Clear_SimiList( Diff::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   // Return all the previously allocated LineInfo's:
   for( unsigned k=0; k<m.simiList.len(); k++ )
   {
@@ -440,6 +445,8 @@ void Clear_SimiList( Diff::Data& m )
 LineInfo* Borrow_LineInfo( Diff::Data& m
                          , const char* _FILE_, const unsigned _LINE_ )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   LineInfo* lip = 0;
 
   if( m.line_info_cache.len() )
@@ -455,61 +462,113 @@ LineInfo* Borrow_LineInfo( Diff::Data& m
   return lip;
 }
 
-void Fill_In_LineInfo( const unsigned SLL
-                     , const unsigned LLL
-                     , LineInfo* const pli_s
-                     , LineInfo* const pli_l
-                     , SameLineSec& max_same
-                     , Line* pls
-                     , Line* pll )
-{
-  pli_l->set_len(__FILE__,__LINE__, LLL );
-  pli_s->set_len(__FILE__,__LINE__, LLL );
+//void Fill_In_LineInfo( const unsigned SLL
+//                     , const unsigned LLL
+//                     , LineInfo* const pli_s
+//                     , LineInfo* const pli_l
+//                     , SameLineSec& max_same
+//                     , Line* pls
+//                     , Line* pll )
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//
+//  pli_l->set_len(__FILE__,__LINE__, LLL );
+//  pli_s->set_len(__FILE__,__LINE__, LLL );
+//
+//  for( unsigned k=0; k<SLL; k++ )
+//  {
+//    (*pli_s)[k] = DT_CHANGED;
+//    (*pli_l)[k] = DT_CHANGED;
+//  }
+//  for( unsigned k=SLL; k<LLL; k++ )
+//  {
+//    (*pli_s)[k] = DT_DELETED;
+//    (*pli_l)[k] = DT_INSERTED;
+//  }
+//  for( unsigned k=0; k<max_same.nbytes; k++ )
+//  {
+//    (*pli_s)[k+max_same.ch_s] = DT_SAME;
+//    (*pli_l)[k+max_same.ch_l] = DT_SAME;
+//  }
+//  const unsigned SAME_ST = Min( max_same.ch_s, max_same.ch_l );
+//  const unsigned SAME_FN = Max( max_same.ch_s+max_same.nbytes
+//                              , max_same.ch_l+max_same.nbytes );
+//  for( unsigned k=0; k<SAME_ST; k++ )
+//  {
+//    if( pls->get(k) == pll->get(k) )
+//    {
+//      pli_s->set( k, DT_SAME );
+//      pli_l->set( k, DT_SAME );
+//    }
+//  }
+//  for( unsigned k=SAME_FN; k<SLL; k++ )
+//  {
+//    if( pls->get(k) == pll->get(k) )
+//    {
+//      pli_s->set( k, DT_SAME );
+//      pli_l->set( k, DT_SAME );
+//    }
+//  }
+//}
 
-  for( unsigned k=0; k<SLL; k++ )
-  {
-    (*pli_s)[k] = DT_CHANGED;
-    (*pli_l)[k] = DT_CHANGED;
-  }
-  for( unsigned k=SLL; k<LLL; k++ )
-  {
-    (*pli_s)[k] = DT_DELETED;
-    (*pli_l)[k] = DT_INSERTED;
-  }
-  for( unsigned k=0; k<max_same.nbytes; k++ )
-  {
-    (*pli_s)[k+max_same.ch_s] = DT_SAME;
-    (*pli_l)[k+max_same.ch_l] = DT_SAME;
-  }
-  const unsigned SAME_ST = Min( max_same.ch_s, max_same.ch_l );
-  const unsigned SAME_FN = Max( max_same.ch_s+max_same.nbytes
-                              , max_same.ch_l+max_same.nbytes );
+// Returns number of bytes that are the same between the two lines
+// and fills in li_s and li_l
+//unsigned Compare_Lines( Line* ls, LineInfo* li_s
+//                      , Line* ll, LineInfo* li_l )
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//  if( 0==ls->len() && 0==ll->len() ) { return 1; }
+//  li_s->clear(); li_l->clear();
+//  SameLineSec max_same = { 0, 0, 0 };
+//  Line* pls = ls; LineInfo* pli_s = li_s;
+//  Line* pll = ll; LineInfo* pli_l = li_l;
+//  if( ll->len() < ls->len() ) { pls = ll; pli_s = li_l;
+//                                pll = ls; pli_l = li_s; }
+//  const unsigned SLL = pls->len();
+//  const unsigned LLL = pll->len();
+//  const unsigned DIFF_LEN = LLL - SLL;
+//
+//  for( unsigned k=0; k<DIFF_LEN; k++ )
+//  {
+//    SameLineSec cur_same = { 0, 0, 0 };
+//
+//    for( unsigned i_s = 0; i_s<SLL; i_s++ )
+//    {
+//      const unsigned i_l = i_s + k;
+//      const uint8_t cs = pls->get( i_s );
+//      const uint8_t cl = pll->get( i_l );
+//
+//      if( cs != cl ) cur_same.nbytes = 0;
+//      else {
+//        if( 0 == max_same.nbytes ) // First char match
+//        {
+//          max_same.Init( i_s, i_l );
+//          cur_same.Init( i_s, i_l );
+//        }
+//        else if( 0 == cur_same.nbytes ) // First char match this outer loop
+//        {
+//          cur_same.Init( i_s, i_l );
+//        }
+//        else { // Continuation of cur_same
+//          cur_same.nbytes++;
+//          if( max_same.nbytes < cur_same.nbytes ) max_same.Set( cur_same );
+//        }
+//      }
+//    }
+//  }
+//  Fill_In_LineInfo( SLL, LLL, pli_s, pli_l, max_same, pls, pll );
+//
+//  return max_same.nbytes;
+//}
 
-  for( unsigned k=0; k<SAME_ST; k++ )
-  {
-    if( pls->get(k) == pll->get(k) )
-    {
-      pli_s->set( k, DT_SAME );
-      pli_l->set( k, DT_SAME );
-    }
-  }
-  for( unsigned k=SAME_FN; k<SLL; k++ )
-  {
-    if( pls->get(k) == pll->get(k) )
-    {
-      pli_s->set( k, DT_SAME );
-      pli_l->set( k, DT_SAME );
-    }
-  }
-}
-
+// Returns number of bytes that are the same between the two lines
+// and fills in li_s and li_l
 unsigned Compare_Lines( Line* ls, LineInfo* li_s
                       , Line* ll, LineInfo* li_l )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   if( 0==ls->len() && 0==ll->len() ) { return 1; }
   li_s->clear(); li_l->clear();
-  SameLineSec max_same = { 0, 0, 0 };
   Line* pls = ls; LineInfo* pli_s = li_s;
   Line* pll = ll; LineInfo* pli_l = li_l;
   if( ll->len() < ls->len() ) { pls = ll; pli_s = li_l;
@@ -517,61 +576,64 @@ unsigned Compare_Lines( Line* ls, LineInfo* li_s
   const unsigned SLL = pls->len();
   const unsigned LLL = pll->len();
 
-  for( unsigned _ch_s = 0; _ch_s<SLL; _ch_s++ )
+  pli_l->set_len(__FILE__,__LINE__, LLL );
+  pli_s->set_len(__FILE__,__LINE__, LLL );
+
+  unsigned num_same = 0;
+  unsigned i_s = 0;
+  unsigned i_l = 0;
+
+  while( i_s < SLL && i_l < LLL )
   {
-    unsigned ch_s = _ch_s;
-    SameLineSec cur_same = { 0, 0, 0 };
+    const uint8_t cs = pls->get( i_s );
+    const uint8_t cl = pll->get( i_l );
 
-    for( unsigned ch_l = 0; ch_s<SLL && ch_l<LLL; ch_l++ )
+    if( cs == cl )
     {
-      const uint8_t cs = pls->get( ch_s );
-      const uint8_t cl = pll->get( ch_l );
+      num_same++;
+      (*pli_s)[ i_s++ ] = DT_SAME;
+      (*pli_l)[ i_l++ ] = DT_SAME;
+    }
+    else {
+      const unsigned remaining_s = SLL - i_s;
+      const unsigned remaining_l = LLL - i_l;
 
-      if( cs != cl ) { cur_same.nbytes = 0; ch_s = _ch_s; }
-      else {
-        if( 0 == max_same.nbytes ) // First char match
-        {
-          max_same.Init( ch_s, ch_l );
-          cur_same.Init( ch_s, ch_l );
-        }
-        else if( 0 == cur_same.nbytes ) // First char match this outer loop
-        {
-          cur_same.Init( ch_s, ch_l );
-        }
-        else { // Continuation of cur_same
-          cur_same.nbytes++;
-          if( max_same.nbytes < cur_same.nbytes ) max_same.Set( cur_same );
-        }
-        ch_s++;
+      if( 0<remaining_s
+       && 0<remaining_l && remaining_s == remaining_l )
+      {
+        (*pli_s)[ i_s++ ] = DT_CHANGED;
+        (*pli_l)[ i_l++ ] = DT_CHANGED;
       }
+      else if( remaining_s < remaining_l ) (*pli_l)[ i_l++ ] = DT_INSERTED;
+      else if( remaining_l < remaining_s ) (*pli_s)[ i_s++ ] = DT_INSERTED;
     }
   }
-  Fill_In_LineInfo( SLL, LLL, pli_s, pli_l, max_same, pls, pll );
+  for( unsigned k=SLL; k<LLL; k++ ) (*pli_s)[k] = DT_DELETED;
+  for( unsigned k=i_l; k<LLL; k++ ) (*pli_l)[k] = DT_INSERTED;
 
-  return max_same.nbytes;
+  return num_same;
 }
 
 SimLines Find_Lines_Most_Same( Diff::Data& m
-                             , CompArea ca, FileBuf* pfs, FileBuf* pfl )
+                             , DiffArea ca, FileBuf* pfs, FileBuf* pfl )
 {
   Trace trace( __PRETTY_FUNCTION__ );
-
   // LD = Length Difference between long area and short area
-  const unsigned LD = (ca.fnl_l-ca.stl_l)-(ca.fnl_s-ca.stl_s);
+  const unsigned LD = ca.nlines_l - ca.nlines_s;
 
   SimLines most_same = { 0, 0, 0, 0, 0 };
-  for( unsigned ln_s = ca.stl_s; ln_s<ca.fnl_s; ln_s++ )
+  for( unsigned ln_s = ca.ln_s; ln_s<ca.fnl_s(); ln_s++ )
   {
-    const unsigned ST_L = ca.stl_l+(ln_s-ca.stl_s);
+    const unsigned ST_L = ca.ln_l+(ln_s-ca.ln_s);
 
-    for( unsigned ln_l = ST_L; ln_l<ca.fnl_l && ln_l<ST_L+LD+1; ln_l++ )
+    for( unsigned ln_l = ST_L; ln_l<ca.fnl_l() && ln_l<ST_L+LD+1; ln_l++ )
     {
       Line* ls = pfs->GetLineP( ln_s ); // Line from short area
       Line* ll = pfl->GetLineP( ln_l ); // Line from long  area
 
       LineInfo* li_s = Borrow_LineInfo( m, __FILE__,__LINE__);
       LineInfo* li_l = Borrow_LineInfo( m, __FILE__,__LINE__);
-      unsigned bytes_same = Compare_Lines( ls, li_s, ll, li_l );
+      const unsigned bytes_same = Compare_Lines( ls, li_s, ll, li_l );
 
       if( most_same.nbytes < bytes_same )
       {
@@ -591,12 +653,12 @@ SimLines Find_Lines_Most_Same( Diff::Data& m
   }
   if( 0==most_same.nbytes )
   {
-    // This if() block ensures that each line in the short CompArea is
-    // matched to a line in the long CompArea.  Each line in the short
-    // CompArea must be matched to a line in the long CompArea or else
+    // This if() block ensures that each line in the short DiffArea is
+    // matched to a line in the long DiffArea.  Each line in the short
+    // DiffArea must be matched to a line in the long DiffArea or else
     // SimiList_2_DI_Lists wont work right.
-    most_same.ln_s   = ca.stl_s;
-    most_same.ln_l   = ca.stl_l;
+    most_same.ln_s   = ca.ln_s;
+    most_same.ln_l   = ca.ln_l;
     most_same.nbytes = 1;
   }
   return most_same;
@@ -615,10 +677,9 @@ void Popu_SimiList( Diff::Data& m
 
   if( da_nlines_s && da_nlines_l )
   {
-    CompArea ca = { da_ln_s, da_ln_s+da_nlines_s
-                  , da_ln_l, da_ln_l+da_nlines_l };
+    DiffArea ca( da_ln_s, da_nlines_s, da_ln_l, da_nlines_l );
 
-    Array_t<CompArea> compList(__FILE__,__LINE__);
+    Array_t<DiffArea> compList(__FILE__,__LINE__);
                       compList.push(__FILE__,__LINE__, ca );
 
     while( compList.pop( ca ) )
@@ -633,32 +694,32 @@ void Popu_SimiList( Diff::Data& m
         return;
       }
       m.simiList.push(__FILE__,__LINE__, siml );
-      if( ( siml.ln_s == ca.stl_s || siml.ln_l == ca.stl_l )
-       && siml.ln_s+1 < ca.fnl_s
-       && siml.ln_l+1 < ca.fnl_l )
+      if( ( siml.ln_s == ca.ln_s || siml.ln_l == ca.ln_l )
+       && siml.ln_s+1 < ca.fnl_s()
+       && siml.ln_l+1 < ca.fnl_l() )
       {
-        // Only one new CompArea after siml:
-        CompArea ca1 = { siml.ln_s+1, ca.fnl_s
-                       , siml.ln_l+1, ca.fnl_l };
+        // Only one new DiffArea after siml:
+        DiffArea ca1( siml.ln_s+1, ca.fnl_s()-siml.ln_s-1
+                    , siml.ln_l+1, ca.fnl_l()-siml.ln_l-1 );
         compList.push(__FILE__,__LINE__, ca1 );
       }
-      else if( ( siml.ln_s+1 == ca.fnl_s || siml.ln_l+1 == ca.fnl_l )
-            && ca.stl_s < siml.ln_s
-            && ca.stl_l < siml.ln_l )
+      else if( ( siml.ln_s+1 == ca.fnl_s() || siml.ln_l+1 == ca.fnl_l() )
+            && ca.ln_s < siml.ln_s
+            && ca.ln_l < siml.ln_l )
       {
-        // Only one new CompArea before siml:
-        CompArea ca1 = { ca.stl_s, siml.ln_s
-                       , ca.stl_l, siml.ln_l };
+        // Only one new DiffArea before siml:
+        DiffArea ca1( ca.ln_s, siml.ln_s-ca.ln_s
+                    , ca.ln_l, siml.ln_l-ca.ln_l );
         compList.push(__FILE__,__LINE__, ca1 );
       }
-      else if( ca.stl_s < siml.ln_s && siml.ln_s+1 < ca.fnl_s
-            && ca.stl_l < siml.ln_l && siml.ln_l+1 < ca.fnl_l )
+      else if( ca.ln_s < siml.ln_s && siml.ln_s+1 < ca.fnl_s()
+            && ca.ln_l < siml.ln_l && siml.ln_l+1 < ca.fnl_l() )
       {
-        // Two new CompArea's, one before siml, and one after siml:
-        CompArea ca1 = { ca.stl_s, siml.ln_s
-                       , ca.stl_l, siml.ln_l };
-        CompArea ca2 = { siml.ln_s+1, ca.fnl_s
-                       , siml.ln_l+1, ca.fnl_l };
+        // Two new DiffArea's, one before siml, and one after siml:
+        DiffArea ca1( ca.ln_s, siml.ln_s-ca.ln_s
+                    , ca.ln_l, siml.ln_l-ca.ln_l );
+        DiffArea ca2( siml.ln_s+1, ca.fnl_s()-siml.ln_s-1
+                    , siml.ln_l+1, ca.fnl_l()-siml.ln_l-1 );
         compList.push(__FILE__,__LINE__, ca1 );
         compList.push(__FILE__,__LINE__, ca2 );
       }
@@ -680,6 +741,8 @@ void SimiList_2_DI_Lists( Diff::Data& m
                         , Array_t<Diff_Info>& DI_List_s
                         , Array_t<Diff_Info>& DI_List_l )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   // Diff info short line number:
   unsigned dis_ln = da_ln_s ? da_ln_s-1 : 0;
 
@@ -721,6 +784,8 @@ void Popu_DI_List_AddDiff_Common( Diff::Data& m
                                 , FileBuf* pfs
                                 , FileBuf* pfl )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   Popu_SimiList( m, da_ln_s
                   , da_ln_l
                   , da_nlines_s
@@ -784,7 +849,7 @@ void Popu_DI_List_NoSameArea( Diff::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  // Should only be one DiffArea, which is the whole CompArea:
+  // Should only be one DiffArea, which is the whole DiffArea:
   const unsigned DLL = m.diffList.len();
   ASSERT( __LINE__, DLL==1, "DLL==1" );
 
@@ -796,11 +861,13 @@ void Clear_DI_List_CA( Diff::Data& m
                      , const unsigned fn_line
                      , Array_t<Diff_Info>& DI_List )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   bool     found_first = false;
   unsigned first_to_remove = 0;
   unsigned num___to_remove = 0;
 
-  // Since, Clear_DI_List_CA will only be call when  DI_List is
+  // Since, Clear_DI_List_CA will only be called when DI_List is
   // fully populated, the Diff_Info.line_num's will be at indexes
   // greater than or equal to st_line
   for( unsigned k=st_line; k<DI_List.len(); k++ )
@@ -848,14 +915,14 @@ void Popu_DI_List_NoDiffArea( Diff::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  // Should only be one SameArea, which is the whole CompArea:
+  // Should only be one SameArea, which is the whole DiffArea:
   const unsigned SLL = m.sameList.len();
   ASSERT( __LINE__, SLL==1, "SLL==1" );
 
   Popu_DI_List_AddSame( m, m.sameList[0] );
 }
 
-void Popu_DI_List_DiffAndSame( Diff::Data& m, const CompArea CA )
+void Popu_DI_List_DiffAndSame( Diff::Data& m, const DiffArea CA )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   const unsigned SLL = m.sameList.len();
@@ -863,7 +930,7 @@ void Popu_DI_List_DiffAndSame( Diff::Data& m, const CompArea CA )
 
   DiffArea da = m.diffList[ 0 ];
 
-  if( CA.stl_s==da.ln_s && CA.stl_l==da.ln_l )
+  if( CA.ln_s==da.ln_s && CA.ln_l==da.ln_l )
   {
     // Start with DiffArea, and then alternate between SameArea and DiffArea.
     // There should be at least as many DiffArea's as SameArea's.
@@ -898,24 +965,24 @@ void Popu_DI_List_DiffAndSame( Diff::Data& m, const CompArea CA )
   }
 }
 
-void Popu_DI_List( Diff::Data& m, const CompArea CA )
+void Popu_DI_List( Diff::Data& m, const DiffArea CA )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  Clear_DI_List_CA( m, CA.stl_s, CA.fnl_s, m.DI_List_S );
-  Clear_DI_List_CA( m, CA.stl_l, CA.fnl_l, m.DI_List_L );
+  Clear_DI_List_CA( m, CA.ln_s, CA.fnl_s(), m.DI_List_S );
+  Clear_DI_List_CA( m, CA.ln_l, CA.fnl_l(), m.DI_List_L );
 
   const unsigned SLL = m.sameList.len();
   const unsigned DLL = m.diffList.len();
 
-  if     ( SLL == 0 ) Popu_DI_List_NoSameArea(m);
-  else if( DLL == 0 ) Popu_DI_List_NoDiffArea(m);
+  if     ( SLL == 0 ) Popu_DI_List_NoSameArea( m );
+  else if( DLL == 0 ) Popu_DI_List_NoDiffArea( m );
   else                Popu_DI_List_DiffAndSame( m, CA );
 }
 
 unsigned DiffLine( Diff::Data& m, const View* pV, const unsigned view_line );
 
-void RunDiff( Diff::Data& m, const CompArea CA )
+void RunDiff( Diff::Data& m, const DiffArea CA )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -939,6 +1006,8 @@ void RunDiff( Diff::Data& m, const CompArea CA )
 
 void Clear_DI_List( Diff::Data& m, Array_t<Diff_Info>& DI_List )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   for( unsigned k=0; k<DI_List.len(); k++ )
   {
     Diff_Info& di = DI_List[k];
@@ -954,6 +1023,8 @@ void Clear_DI_List( Diff::Data& m, Array_t<Diff_Info>& DI_List )
 
 void CleanDiff( Diff::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   m.sameList.clear();
   m.diffList.clear();
 
@@ -977,6 +1048,8 @@ void CleanDiff( Diff::Data& m )
 
 bool DiffSameAsPrev( Diff::Data& m, View* const pv0, View* const pv1 )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
         bool DATES_SAME_AS_BEFORE = false;
 
   const bool FILES_SAME_AS_BEFORE = m.pfS && m.pfL &&
@@ -1003,7 +1076,7 @@ unsigned CrsChar    ( Diff::Data& m) { return m.leftChar + m.crsCol; }
 
 unsigned BotLine( Diff::Data& m, View* pV )
 {
-   return m.topLine  + WorkingRows( pV )-1;
+  return m.topLine  + WorkingRows( pV )-1;
 }
 
 unsigned RightChar( Diff::Data& m, View* pV )
@@ -1041,6 +1114,8 @@ unsigned NumLines( Diff::Data& m )
 
 unsigned LineLen( Diff::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   View* pV = m.vis.CV();
 
   const unsigned diff_line = CrsLine(m);
@@ -1060,6 +1135,8 @@ unsigned LineLen( Diff::Data& m )
 // Return the diff line of the view line on the short side
 unsigned DiffLine_S( Diff::Data& m, const unsigned view_line )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   const unsigned LEN = m.DI_List_S.len();
 
   // Diff line is greater or equal to view line,
@@ -1083,6 +1160,8 @@ unsigned DiffLine_S( Diff::Data& m, const unsigned view_line )
 // Return the diff line of the view line on the long side
 unsigned DiffLine_L( Diff::Data& m, const unsigned view_line )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   const unsigned LEN = m.DI_List_L.len();
 
   // Diff line is greater or equal to view line,
@@ -1105,24 +1184,32 @@ unsigned DiffLine_L( Diff::Data& m, const unsigned view_line )
 
 unsigned DiffLine( Diff::Data& m, const View* pV, const unsigned view_line )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   return ( pV == m.pvS ) ? DiffLine_S( m, view_line )
                          : DiffLine_L( m, view_line );
 }
 
 unsigned ViewLine( Diff::Data& m, const View* pV, const unsigned diff_line )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   return ( pV == m.pvS ) ? m.DI_List_S[ diff_line ].line_num
                          : m.DI_List_L[ diff_line ].line_num;
 }
 
 Diff_Type DiffType( Diff::Data& m, const View* pV, const unsigned diff_line )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   return ( pV == m.pvS ) ? m.DI_List_S[ diff_line ].diff_type
                          : m.DI_List_L[ diff_line ].diff_type;
 }
 
 bool InVisualBlock( Diff::Data& m, const unsigned DL, const unsigned pos )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   return ( m.v_st_line <= DL  && DL  <= m.v_fn_line
         && m.v_st_char <= pos && pos <= m.v_fn_char ) // bot rite
       || ( m.v_st_line <= DL  && DL  <= m.v_fn_line
@@ -1479,6 +1566,8 @@ void Remove_Banner( Diff::Data& m )
 
 void PrintSameList( Diff::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   for( unsigned k=0; k<m.sameList.len(); k++ )
   {
     SameArea same = m.sameList[k];
@@ -1492,6 +1581,8 @@ void PrintSameList( Diff::Data& m )
 
 void PrintDiffList( Diff::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   for( unsigned k=0; k<m.diffList.len(); k++ )
   {
     DiffArea da = m.diffList[k];
@@ -1501,11 +1592,13 @@ void PrintDiffList( Diff::Data& m )
   }
 }
 
-void PrintDI_List( Diff::Data& m, const CompArea CA )
+void PrintDI_List( Diff::Data& m, const DiffArea CA )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   const unsigned DILL = m.DI_List_S.len();
 
-  for( unsigned k=CA.stl_s; k<DILL; k++ )
+  for( unsigned k=CA.ln_s; k<DILL; k++ )
   {
     Diff_Info dis = m.DI_List_S[k];
     Diff_Info dil = m.DI_List_L[k];
@@ -1514,12 +1607,14 @@ void PrintDI_List( Diff::Data& m, const CompArea CA )
            , dis.line_num+1, Diff_Type_2_Str( dis.diff_type )
            , dil.line_num+1, Diff_Type_2_Str( dil.diff_type ) );
 
-    if( CA.fnl_s <= dis.line_num ) break;
+    if( CA.fnl_s() <= dis.line_num ) break;
   }
 }
 
 void PrintSimiList( Diff::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   const unsigned SLL = m.simiList.len();
 
   for( unsigned k=0; k<SLL; k++ )
@@ -2397,6 +2492,8 @@ bool Do_N_Search_for_Same( Diff::Data& m
                          , int& dl
                          , const Array_t<Diff_Info>& DI_List )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   // Search backwards for DT_SAME
   bool found = false;
 
@@ -2415,6 +2512,8 @@ bool Do_N_Search_for_Diff( Diff::Data& m
                          , int& dl
                          , const Array_t<Diff_Info>& DI_List )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   // Search backwards for non-DT_SAME
   bool found = false;
 
@@ -2468,6 +2567,8 @@ void Patch_Diff_Info_Inserted_Inc( Diff::Data& m
                                  , const bool ON_DELETED_VIEW_LINE_ZERO
                                  , Array_t<Diff_Info>& cDI_List )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   // If started inserting into empty first line in file, dont increment
   // Diff_Info line_num, because DELETED first line starts at zero:
   unsigned inc_st = DPL;
@@ -2832,6 +2933,8 @@ void Swap_Visual_St_Fn_If_Needed( Diff::Data& m )
 
 void Do_y_v_block( Diff::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   View*    pV  = m.vis.CV();
   FileBuf* pfb = pV->GetFB();
 
@@ -3075,6 +3178,8 @@ void Do_x_range_block( Diff::Data& m
                      , unsigned st_line, unsigned st_char
                      , unsigned fn_line, unsigned fn_char )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   View*    pV  = m.vis.CV();
   FileBuf* pfb = pV->GetFB();
 
@@ -3134,6 +3239,8 @@ void Do_x_range_multiple( Diff::Data& m
                         , const unsigned fn_line
                         , const unsigned fn_char )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   View*    pV  = m.vis.CV();
   FileBuf* pfb = pV->GetFB();
 
@@ -3205,6 +3312,8 @@ void Do_x_range( Diff::Data& m
                , unsigned st_line, unsigned st_char
                , unsigned fn_line, unsigned fn_char )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   Do_x_range_pre( m, st_line, st_char, fn_line, fn_char );
 
   if( m.v_st_line == m.v_fn_line )
@@ -3324,6 +3433,8 @@ void Do_Tilda_v( Diff::Data& m )
 
 bool On_Deleted_View_Line_Zero( Diff::Data& m, const unsigned DL )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   bool ODVL0 = false; // On Deleted View Line Zero
 
   View* pV = m.vis.CV();
@@ -3655,6 +3766,8 @@ void Do_p_block( Diff::Data& m )
 
 void Do_P_line( Diff::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   const int DL = CrsLine(m); // Diff line
 
   // Move to line above, and then do 'p':
@@ -3718,6 +3831,8 @@ void Replace_Crs_Char( Diff::Data& m, Style style )
 
 void Do_v_Handle_gp( Diff::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   if( m.v_st_line == m.v_fn_line )
   {
     View*    pV  = m.vis.CV();
@@ -3978,58 +4093,12 @@ void RepositionViews( Diff::Data& m )
   }
 }
 
-// st_line and fn_line are in terms of view line
-//bool Do_dw_get_fn( Diff::Data& m
-//                 , const unsigned  st_line, const unsigned  st_char
-//                 ,       unsigned& fn_line,       unsigned& fn_char )
-//{
-//  View*    pV  = m.vis.CV();
-//  FileBuf* pfb = pV->GetFB();
-//  const unsigned LL = pfb->LineLen( st_line );
-//  const uint8_t  C  = pfb->Get( st_line, st_char );
-//
-//  if( IsSpace( C )      // On white space
-//    || ( st_char < LLM1(LL) // On non-white space before white space
-//       && IsSpace( pfb->Get( st_line, st_char+1 ) ) ) )
-//  {
-//    // w:
-//    CrsPos ncp_w = { 0, 0 };
-//    bool ok = GoToNextWord_GetPosition( m, ncp_w );
-//    // GoToNextWord_GetPosition returns diff line.  Convert to view line.
-//    ncp_w.crsLine = ViewLine( m, pV, ncp_w.crsLine );
-//
-//    if( ok && 0 < ncp_w.crsChar ) ncp_w.crsChar--;
-//    if( ok && st_line == ncp_w.crsLine
-//           && st_char <= ncp_w.crsChar )
-//    {
-//      fn_line = ncp_w.crsLine;
-//      fn_char = ncp_w.crsChar;
-//      return true;
-//    }
-//  }
-//  // if not on white space, and
-//  // not on non-white space before white space,
-//  // or fell through, try e:
-//  CrsPos ncp_e = { 0, 0 };
-//  bool ok = GoToEndOfWord_GetPosition( m, ncp_e );
-//  // GoToEndOfWord_GetPosition returns diff line.  Convert to view line.
-//  ncp_e.crsLine = ViewLine( m, pV, ncp_e.crsLine );
-//
-//  if( ok && st_line == ncp_e.crsLine
-//         && st_char <= ncp_e.crsChar )
-//  {
-//    fn_line = ncp_e.crsLine;
-//    fn_char = ncp_e.crsChar;
-//    return true;
-//  }
-//  return false;
-//}
-
 // st_line and fn_line are in terms of diff line
 bool Do_dw_get_fn( Diff::Data& m
                  , const unsigned  st_line_d, const unsigned  st_char
                  ,       unsigned& fn_line_d,       unsigned& fn_char )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
   View*    pV  = m.vis.CV();
   FileBuf* pfb = pV->GetFB();
 
@@ -4185,19 +4254,19 @@ void SameArea::Set( const SameArea& a )
   nbytes = a.nbytes;
 }
 
-void SameLineSec::Init( unsigned _ch_s, unsigned _ch_l )
-{
-  ch_s   = _ch_s;
-  ch_l   = _ch_l;
-  nbytes = 1;
-}
+//void SameLineSec::Init( unsigned _ch_s, unsigned _ch_l )
+//{
+//  ch_s   = _ch_s;
+//  ch_l   = _ch_l;
+//  nbytes = 1;
+//}
 
-void SameLineSec::Set( const SameLineSec& a )
-{
-  ch_s   = a.ch_s;
-  ch_l   = a.ch_l;
-  nbytes = a.nbytes;
-}
+//void SameLineSec::Set( const SameLineSec& a )
+//{
+//  ch_s   = a.ch_s;
+//  ch_l   = a.ch_l;
+//  nbytes = a.nbytes;
+//}
 
 Diff::Diff( Vis& vis
           , Key& key
@@ -4252,7 +4321,7 @@ bool Diff::Run( View* const pv0, View* const pv1 )
         m.mod_time_l = m.pfL->GetModTime();
 
         // All lines in both files:
-        CompArea CA = { 0, m.pfS->NumLines(), 0, m.pfL->NumLines() };
+        DiffArea CA( 0, m.pfS->NumLines(), 0, m.pfL->NumLines() );
 
         RunDiff( m, CA );
       }
@@ -4584,6 +4653,8 @@ void Diff::GoToStartOfRow()
 
 void Diff::GoToEndOfRow()
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   if( 0<NumLines(m) )
   {
     View*    pV  = m.vis.CV();
@@ -5221,6 +5292,8 @@ int Diff::Do_dw()
 
 void Diff::Do_cw()
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   const unsigned result = Do_dw();
 
   if     ( result==1 ) Do_i();
@@ -5488,6 +5561,8 @@ void Diff::PrintCursor( View* pV )
 
 bool Diff::Update_Status_Lines()
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   bool updated_a_sts_line = false;
 
   if( m.sts_line_needs_update )
