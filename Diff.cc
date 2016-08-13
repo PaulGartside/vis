@@ -3339,20 +3339,169 @@ void Do_x_v( Diff::Data& m )
   }
 }
 
+// Returns true if character was removed
+void InsertBackspace_vb( Diff::Data& m )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  View*    pV  = m.vis.CV();
+  FileBuf* pfb = pV->GetFB();
+
+  const unsigned DL = CrsLine( m );          // Diff line number
+  const unsigned VL = ViewLine( m, pV, DL ); // View line number
+  const unsigned CP = CrsChar( m );          // Cursor position
+
+  if( 0<CP )
+  {
+    const unsigned N_REG_LINES = m.reg.len();
+
+    for( unsigned k=0; k<N_REG_LINES; k++ )
+    {
+      pfb->RemoveChar( VL+k, CP-1 );
+
+      Patch_Diff_Info_Changed( m, pV, DL+k );
+    }
+    GoToCrsPos_NoWrite( m, DL, CP-1 );
+  }
+}
+
+void InsertAddChar_vb( Diff::Data& m, const char c )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  View*    pV  = m.vis.CV();
+  FileBuf* pfb = pV->GetFB();
+
+  const unsigned DL = CrsLine( m );          // Diff line number
+  const unsigned VL = ViewLine( m, pV, DL ); // View line number
+  const unsigned CP = CrsChar( m );          // Cursor position
+
+  const unsigned N_REG_LINES = m.reg.len();
+
+  for( unsigned k=0; k<N_REG_LINES; k++ )
+  {
+    const unsigned LL = pfb->LineLen( VL+k );
+
+    if( LL < CP )
+    {
+      // Fill in line with white space up to CP:
+      for( unsigned i=0; i<(CP-LL); i++ )
+      {
+        // Insert at end of line so undo will be atomic:
+        const unsigned NLL = pfb->LineLen( VL+k ); // New line length
+        pfb->InsertChar( VL+k, NLL, ' ' );
+      }
+    }
+    pfb->InsertChar( VL+k, CP, c );
+
+    Patch_Diff_Info_Changed( m, pV, DL+k );
+  }
+  GoToCrsPos_NoWrite( m, DL, CP+1 );
+}
+
+void Do_i_vb( Diff::Data& m )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  View*    pV  = m.vis.CV();
+  FileBuf* pfb = pV->GetFB();
+
+  pV->SetInsertMode( true );
+  DisplayBanner( m );
+
+  unsigned count = 0;
+  for( char c=m.key.In(); c != ESC; c=m.key.In() )
+  {
+    if( IsEndOfLineDelim( c ) )
+    {
+      ; // Ignore end of line delimiters
+    }
+    else if( BS  == c || DEL == c )
+    {
+      if( 0<count )
+      {
+        InsertBackspace_vb( m );
+        count--;
+        m.diff.Update();
+      }
+    }
+    else {
+      InsertAddChar_vb( m, c );
+      count++;
+      m.diff.Update();
+    }
+  }
+  Remove_Banner(m);
+  pV->SetInsertMode( false );
+}
+
+void Do_a_vb( Diff::Data& m )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  View*    pV  = m.vis.CV();
+  FileBuf* pfb = pV->GetFB();
+
+  const unsigned DL = CrsLine( m );          // Diff line number
+  const unsigned VL = ViewLine( m, pV, DL ); // View line number
+  const unsigned LL = pfb->LineLen( VL );
+
+  if( 0==LL ) { Do_i_vb(m); return; }
+
+  const bool CURSOR_AT_EOL = ( CrsChar( m ) == LL-1 );
+  if( CURSOR_AT_EOL )
+  {
+    GoToCrsPos_NoWrite( m, DL, LL );
+  }
+  const bool CURSOR_AT_RIGHT_COL = ( m.crsCol == WorkingCols( pV )-1 );
+
+  if( CURSOR_AT_RIGHT_COL )
+  {
+    // Only need to scroll window right, and then enter insert i:
+    m.leftChar++; //< This increments CrsChar( m )
+  }
+  else if( !CURSOR_AT_EOL ) // If cursor was at EOL, already moved cursor forward
+  {
+    // Only need to move cursor right, and then enter insert i:
+    m.crsCol += 1; //< This increments CrsChar( m )
+  }
+  m.diff.Update();
+
+  Do_i_vb(m);
+}
+
+bool Do_s_v_cursor_at_end_of_line( Diff::Data& m )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  View*    pV  = m.vis.CV();
+  FileBuf* pfb = pV->GetFB();
+
+  const unsigned DL = CrsLine( m );  // Diff line
+  const unsigned VL = ViewLine( m, pV, DL );
+  const unsigned LL = pfb->LineLen( VL );
+
+  if( m.inVisualBlock )
+  {
+    return 0<LL ? LL-1 <= CrsChar(m)
+                : 0    <  CrsChar(m);
+  }
+  return 0<LL ? CrsChar(m) == LL-1 : false;
+}
+
 void Do_s_v( Diff::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
   // Need to know if cursor is at end of line before Do_x_v() is called:
-  const int LL = LineLen(m);
-  const bool CURSOR_AT_END_OF_LINE = 0<LL ? CrsChar(m) == LL-1 : false;
+  const bool CURSOR_AT_END_OF_LINE = Do_s_v_cursor_at_end_of_line(m);
 
   Do_x_v(m);
 
   if( m.inVisualBlock )
   {
-  //if( CURSOR_AT_END_OF_LINE ) Do_a_vb();
-  //else                        Do_i_vb();
+    if( CURSOR_AT_END_OF_LINE ) Do_a_vb( m );
+    else                        Do_i_vb( m );
   }
   else {
     if( CURSOR_AT_END_OF_LINE ) m.diff.Do_a();

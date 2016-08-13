@@ -996,7 +996,7 @@ void InsertBackspace_vb( View::Data& m )
   const unsigned OCL = m.view.CrsLine();  // Old cursor line
   const unsigned OCP = m.view.CrsChar();  // Old cursor position
 
-  if( OCP )
+  if( 0<OCP )
   {
     const unsigned N_REG_LINES = m.reg.len();
 
@@ -1098,13 +1098,47 @@ void Do_a_vb( View::Data& m )
   Do_i_vb(m);
 }
 
+//void Do_s_v( View::Data& m )
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//
+//  // Need to know if cursor is at end of line before Do_x_v() is called:
+//  const unsigned LL = m.fb.LineLen( m.view.CrsLine() );
+//  const bool CURSOR_AT_END_OF_LINE = LL ? m.view.CrsChar() == LL-1 : false;
+//
+//  Do_x_v(m);
+//
+//  if( m.inVisualBlock )
+//  {
+//    if( CURSOR_AT_END_OF_LINE ) Do_a_vb(m);
+//    else                        Do_i_vb(m);
+//  }
+//  else {
+//    if( CURSOR_AT_END_OF_LINE ) m.view.Do_a();
+//    else                        m.view.Do_i();
+//  }
+//}
+
+bool Do_s_v_cursor_at_end_of_line( View::Data& m )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  const unsigned LL = m.fb.LineLen( m.view.CrsLine() );
+
+  if( m.inVisualBlock )
+  {
+    return 0<LL ? LL-1 <= m.view.CrsChar()
+                : 0    <  m.view.CrsChar();
+  }
+  return 0<LL ? m.view.CrsChar() == LL-1 : false;
+}
+
 void Do_s_v( View::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
   // Need to know if cursor is at end of line before Do_x_v() is called:
-  const unsigned LL = m.fb.LineLen( m.view.CrsLine() );
-  const bool CURSOR_AT_END_OF_LINE = LL ? m.view.CrsChar() == LL-1 : false;
+  const bool CURSOR_AT_END_OF_LINE = Do_s_v_cursor_at_end_of_line(m);
 
   Do_x_v(m);
 
@@ -1121,6 +1155,8 @@ void Do_s_v( View::Data& m )
 
 void Do_Tilda_v_st_fn( View::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   for( unsigned L = m.v_st_line; L<=m.v_fn_line; L++ )
   {
     const unsigned LL = m.fb.LineLen( L );
@@ -1140,6 +1176,8 @@ void Do_Tilda_v_st_fn( View::Data& m )
 
 void Do_Tilda_v_block( View::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   for( unsigned L = m.v_st_line; L<=m.v_fn_line; L++ )
   {
     const unsigned LL = m.fb.LineLen( L );
