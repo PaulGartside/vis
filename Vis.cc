@@ -3566,6 +3566,8 @@ void Vis::SetPasteMode( Paste_Mode pm )
 
 void Vis::NoDiff()
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   if( true == m.diff_mode )
   {
     m.diff_mode = false;
@@ -3580,7 +3582,7 @@ void Vis::NoDiff()
       pvS->SetCrsRow  ( m.diff.GetCrsRow  () );
       pvS->SetCrsCol  ( m.diff.GetCrsCol  () );
     }
-    if( 0 != pvS )
+    if( 0 != pvL )
     {
       pvL->SetTopLine ( m.diff.GetTopLine ( pvL ) );
       pvL->SetLeftChar( m.diff.GetLeftChar() );
@@ -3684,6 +3686,8 @@ void Vis::CheckFileModTime()
 
 void Vis::Add_FileBuf_2_Lists_Create_Views( FileBuf* pfb, const char* fname )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   // Add this file buffer to global list of files
   m.files.push(__FILE__,__LINE__, pfb );
   // Create a new view for each window for FileBuf
@@ -3749,6 +3753,8 @@ void Vis::UpdateAll()
 
 bool Vis::Update_Status_Lines()
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   bool updated_a_sts_line = false;
 
   if( m.diff_mode )
@@ -3780,6 +3786,8 @@ bool Vis::Update_Status_Lines()
 // '   ' for no unsaved changes
 bool Vis::Update_Change_Statuses()
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   // Update buffer changed status around windows:
   bool updated_change_sts = false;
 
@@ -3800,12 +3808,16 @@ bool Vis::Update_Change_Statuses()
 
 void Vis::PrintCursor()
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   if( m.diff_mode ) m.diff.PrintCursor( CV() );
   else               CV()->PrintCursor();
 }
 
 bool Vis::HaveFile( const char* file_name, unsigned* file_index )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   bool already_have_file = false;
 
   const unsigned NUM_FILES = m.files.len();
@@ -3824,6 +3836,8 @@ bool Vis::HaveFile( const char* file_name, unsigned* file_index )
 
 bool Vis::File_Is_Displayed( const String& full_fname )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   unsigned file_num = 0;
 
   if( FName_2_FNum( m, full_fname, file_num ) )
@@ -3835,6 +3849,8 @@ bool Vis::File_Is_Displayed( const String& full_fname )
 
 void Vis::ReleaseFileName( const String& full_fname )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   unsigned file_num = 0;
   if( FName_2_FNum( m, full_fname, file_num ) )
   {
@@ -3845,6 +3861,8 @@ void Vis::ReleaseFileName( const String& full_fname )
 // Return true if went to buffer indicated by fname, else false
 bool Vis::GoToBuffer_Fname( String& fname )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   // 1. Search for fname in buffer list, and if found, go to that buffer:
   unsigned file_index = 0;
   if( HaveFile( fname.c_str(), &file_index ) )

@@ -175,6 +175,7 @@ enum File_Type
   FT_IDL,
   FT_JAVA,
   FT_JS,
+  FT_MAKE,
   FT_ODB,
   FT_SQL,
   FT_STL,

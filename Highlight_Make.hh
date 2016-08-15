@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 // VI-Simplified (vis) C++ Implementation                                     //
-// Copyright (c) 07 Sep 2015 Paul J. Gartside                                 //
+// Copyright (c) 13 Aug 2016 Paul J. Gartside                                 //
 ////////////////////////////////////////////////////////////////////////////////
 // Permission is hereby granted, free of charge, to any person obtaining a    //
 // copy of this software and associated documentation files (the "Software"), //
@@ -21,15 +21,15 @@
 // DEALINGS IN THE SOFTWARE.                                                  //
 ////////////////////////////////////////////////////////////////////////////////
 
-#ifndef __HIGHLIGHT_BASH_HH__
-#define __HIGHLIGHT_BASH_HH__
+#ifndef __HIGHLIGHT_MAKE_HH__
+#define __HIGHLIGHT_MAKE_HH__
 
 #include "Highlight_Base.hh"
 
-class Highlight_Bash : public Highlight_Base
+class Highlight_Make : public Highlight_Base
 {
 public:
-  Highlight_Bash( FileBuf& rfb );
+  Highlight_Make( FileBuf& rfb );
 
 private:
   void Run_Range( const CrsPos st, const unsigned fn );
@@ -38,13 +38,14 @@ private:
   void Hi_In_Comment    ( unsigned& l, unsigned& p );
   void Hi_SingleQuote   ( unsigned& l, unsigned& p );
   void Hi_DoubleQuote   ( unsigned& l, unsigned& p );
+  void Hi_96_Quote      ( unsigned& l, unsigned& p );
   void Hi_NumberBeg     ( unsigned& l, unsigned& p );
   void Hi_NumberIn      ( unsigned& l, unsigned& p );
   void Hi_NumberHex     ( unsigned& l, unsigned& p );
   void Hi_NumberFraction( unsigned& l, unsigned& p );
   void Hi_NumberExponent( unsigned& l, unsigned& p );
 
-  typedef Highlight_Bash ME;
+  typedef Highlight_Make ME;
   typedef void (ME::*HiStateFunc) ( unsigned&, unsigned& );
 
   virtual void Find_Styles_Keys_In_Range( const CrsPos st, const unsigned fn );

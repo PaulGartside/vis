@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 // VI-Simplified (vis) C++ Implementation                                     //
-// Copyright (c) 07 Sep 2015 Paul J. Gartside                                 //
+// Copyright (c) 13 Aug 2016 Paul J. Gartside                                 //
 ////////////////////////////////////////////////////////////////////////////////
 // Permission is hereby granted, free of charge, to any person obtaining a    //
 // copy of this software and associated documentation files (the "Software"), //
@@ -28,17 +28,17 @@
 #include "Utilities.hh"
 #include "FileBuf.hh"
 #include "MemLog.hh"
-#include "Highlight_Bash.hh"
+#include "Highlight_Make.hh"
 
 extern MemLog<MEM_LOG_BUF_SIZE> Log;
 
-Highlight_Bash::Highlight_Bash( FileBuf& rfb )
+Highlight_Make::Highlight_Make( FileBuf& rfb )
   : Highlight_Base( rfb )
   , m_state( &ME::Hi_In_None )
 {
 }
 
-void Highlight_Bash::Run_Range( const CrsPos st, const unsigned fn )
+void Highlight_Make::Run_Range( const CrsPos st, const unsigned fn )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -54,7 +54,7 @@ void Highlight_Bash::Run_Range( const CrsPos st, const unsigned fn )
   Find_Styles_Keys_In_Range( st, fn );
 }
 
-void Highlight_Bash::Hi_In_None( unsigned& l, unsigned& p )
+void Highlight_Make::Hi_In_None( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   for( ; l<m_fb.NumLines(); l++ )
@@ -71,6 +71,7 @@ void Highlight_Bash::Hi_In_None( unsigned& l, unsigned& p )
       if     ( 0==strncmp( s, "#" , 1 ) ) { m_state = &ME::Hi_In_Comment; }
       else if( 0==strncmp( s, "\'", 1 ) ) { m_state = &ME::Hi_SingleQuote; }
       else if( 0==strncmp( s, "\"", 1 ) ) { m_state = &ME::Hi_DoubleQuote; }
+      else if( 0==strncmp( s, "`",  1 ) ) { m_state = &ME::Hi_96_Quote; }
       else if( 0<p && !IsIdent((s-1)[0])
                    &&  isdigit( s   [0]) ){ m_state = &ME::Hi_NumberBeg; }
 
@@ -103,9 +104,11 @@ void Highlight_Bash::Hi_In_None( unsigned& l, unsigned& p )
             || s[0]=='(' || s[0]==')'
             || s[0]=='{' || s[0]=='}'
             || s[0]==',' || s[0]==';'
-            || s[0]=='/' || s[0]=='|' ) { m_fb.SetSyntaxStyle( l, p, HI_CONTROL ); }
+            || s[0]=='/' || s[0]=='|'
+            || s[0]=='@' || s[0]=='^' ) { m_fb.SetSyntaxStyle( l, p, HI_CONTROL ); }
 
       else if( s[0] < 32 || 126 < s[0] ) { m_fb.SetSyntaxStyle( l, p, HI_NONASCII ); }
+      else if( LL-1 == p && s[0]=='\\')  { m_fb.SetSyntaxStyle( l, p, HI_DEFINE ); }
 
       if( &ME::Hi_In_None != m_state ) return;
     }
@@ -114,7 +117,7 @@ void Highlight_Bash::Hi_In_None( unsigned& l, unsigned& p )
   m_state = 0;
 }
 
-void Highlight_Bash::Hi_In_Comment( unsigned& l, unsigned& p )
+void Highlight_Make::Hi_In_Comment( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   const unsigned LL = m_fb.LineLen( l );
@@ -127,7 +130,7 @@ void Highlight_Bash::Hi_In_Comment( unsigned& l, unsigned& p )
   m_state = &ME::Hi_In_None;
 }
 
-void Highlight_Bash::Hi_SingleQuote( unsigned& l, unsigned& p )
+void Highlight_Make::Hi_SingleQuote( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -164,7 +167,7 @@ void Highlight_Bash::Hi_SingleQuote( unsigned& l, unsigned& p )
   m_state = 0;
 }
 
-void Highlight_Bash::Hi_DoubleQuote( unsigned& l, unsigned& p )
+void Highlight_Make::Hi_DoubleQuote( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -201,7 +204,47 @@ void Highlight_Bash::Hi_DoubleQuote( unsigned& l, unsigned& p )
   m_state = 0;
 }
 
-void Highlight_Bash::Hi_NumberBeg( unsigned& l, unsigned& p )
+void Highlight_Make::Hi_96_Quote( unsigned& l, unsigned& p )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  m_fb.SetSyntaxStyle( l, p, HI_CONST ); p++;
+
+  for( ; l<m_fb.NumLines(); l++ )
+  {
+    const unsigned LL = m_fb.LineLen( l );
+
+    bool slash_escaped = false;
+    for( ; p<LL; p++ )
+    {
+      // c0 is ahead of c1: c1,c0
+      const char c1 = p ? m_fb.Get( l, p-1 ) : m_fb.Get( l, p );
+      const char c0 = p ? m_fb.Get( l, p   ) : 0;
+
+      if( (c1=='`'  && c0==0  )
+       || (c1!='\\' && c0=='`')
+       || (c1=='\\' && c0=='`' && slash_escaped)
+       || (c1=='\'' && c0==0   )
+       || (c1!='\\' && c0=='\'')
+       || (c1=='\\' && c0=='\'' && slash_escaped) )
+      {
+        m_fb.SetSyntaxStyle( l, p, HI_CONST ); p++;
+        m_state = &ME::Hi_In_None;
+      }
+      else {
+        if( c1=='\\' && c0=='\\' ) slash_escaped = true;
+        else                       slash_escaped = false;
+
+        m_fb.SetSyntaxStyle( l, p, HI_CONST );
+      }
+      if( &ME::Hi_96_Quote != m_state ) return;
+    }
+    p = 0;
+  }
+  m_state = 0;
+}
+
+void Highlight_Make::Hi_NumberBeg( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   m_fb.SetSyntaxStyle( l, p, HI_CONST );
@@ -222,7 +265,7 @@ void Highlight_Bash::Hi_NumberBeg( unsigned& l, unsigned& p )
   }
 }
 
-void Highlight_Bash::Hi_NumberIn( unsigned& l, unsigned& p )
+void Highlight_Make::Hi_NumberIn( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   const unsigned LL = m_fb.LineLen( l );
@@ -261,7 +304,7 @@ void Highlight_Bash::Hi_NumberIn( unsigned& l, unsigned& p )
   }
 }
 
-void Highlight_Bash::Hi_NumberHex( unsigned& l, unsigned& p )
+void Highlight_Make::Hi_NumberHex( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   const unsigned LL = m_fb.LineLen( l );
@@ -279,7 +322,7 @@ void Highlight_Bash::Hi_NumberHex( unsigned& l, unsigned& p )
   }
 }
 
-void Highlight_Bash::Hi_NumberFraction( unsigned& l, unsigned& p )
+void Highlight_Make::Hi_NumberFraction( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   const unsigned LL = m_fb.LineLen( l );
@@ -311,7 +354,7 @@ void Highlight_Bash::Hi_NumberFraction( unsigned& l, unsigned& p )
   }
 }
 
-void Highlight_Bash::Hi_NumberExponent( unsigned& l, unsigned& p )
+void Highlight_Make::Hi_NumberExponent( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   const unsigned LL = m_fb.LineLen( l );
@@ -386,6 +429,12 @@ static HiKeyVal HiPairs[] =
   { "unalias"            , HI_CONTROL },
   { "unset"              , HI_CONTROL },
   { "wait"               , HI_CONTROL },
+  { "PHONY"              , HI_CONTROL },
+  { "INTERMEDIATE"       , HI_CONTROL },
+  { "SECONDARY"          , HI_CONTROL },
+  { "PRECIOUS"           , HI_CONTROL },
+  { "DELETE_ON_ERROR"    , HI_CONTROL },
+  { "EXPORT_ALL_VARIABLES",HI_CONTROL },
 
   { "declare"            , HI_VARTYPE },
   { "dirs"               , HI_VARTYPE },
@@ -403,10 +452,11 @@ static HiKeyVal HiPairs[] =
   { "true"               , HI_CONST   },
 
   { "alias"              , HI_DEFINE  },
+  { "include"            , HI_DEFINE  },
   { 0 }
 };
 
-void Highlight_Bash::
+void Highlight_Make::
      Find_Styles_Keys_In_Range( const CrsPos   st
                               , const unsigned fn )
 {

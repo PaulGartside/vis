@@ -45,6 +45,7 @@
 #include "Highlight_IDL.hh"
 #include "Highlight_Java.hh"
 #include "Highlight_JS.hh"
+#include "Highlight_Make.hh"
 #include "Highlight_ODB.hh"
 #include "Highlight_SQL.hh"
 #include "Highlight_STL.hh"
@@ -283,6 +284,30 @@ bool Find_File_Type_JS( FileBuf::Data& m )
   return false;
 }
 
+bool Find_File_Type_Make( FileBuf::Data& m )
+{
+  const unsigned LEN = m.file_name.len();
+
+  if( (  5 <  LEN && m.file_name.has_at(".Make"       , LEN-5  ) )
+   || (  5 <  LEN && m.file_name.has_at(".make"       , LEN-5  ) )
+   || (  9 <  LEN && m.file_name.has_at(".Make.new"   , LEN-9  ) )
+   || (  9 <  LEN && m.file_name.has_at(".make.new"   , LEN-9  ) )
+   || (  9 <  LEN && m.file_name.has_at(".Make.old"   , LEN-9  ) )
+   || (  9 <  LEN && m.file_name.has_at(".make.old"   , LEN-9  ) )
+   || (  8 <= LEN && m.file_name.has_at("Makefile"    , LEN-8  ) )
+   || (  8 <= LEN && m.file_name.has_at("makefile"    , LEN-8  ) )
+   || ( 12 <= LEN && m.file_name.has_at("Makefile.new", LEN-12 ) )
+   || ( 12 <= LEN && m.file_name.has_at("makefile.new", LEN-12 ) )
+   || ( 12 <= LEN && m.file_name.has_at("Makefile.old", LEN-12 ) )
+   || ( 12 <= LEN && m.file_name.has_at("makefile.old", LEN-12 ) ) )
+  {
+    m.file_type = FT_MAKE;
+    m.pHi = new(__FILE__,__LINE__) Highlight_Make( m.self );
+    return true;
+  }
+  return false;
+}
+
 bool Find_File_Type_SQL( FileBuf::Data& m )
 {
   const unsigned LEN = m.file_name.len();
@@ -375,6 +400,7 @@ void Find_File_Type_Suffix( FileBuf::Data& m )
         || Find_File_Type_HTML ( m )
         || Find_File_Type_XML  ( m )
         || Find_File_Type_JS   ( m )
+        || Find_File_Type_Make ( m )
         || Find_File_Type_ODB  ( m )
         || Find_File_Type_SQL  ( m )
         || Find_File_Type_STL  ( m )
@@ -936,6 +962,11 @@ void FileBuf::Set_File_Type( const char* syn )
     {
       m.file_type = FT_JS;
       p_new_Hi = new(__FILE__,__LINE__) Highlight_JS( *this );
+    }
+    else if( 0==strcmp( syn, "make") )
+    {
+      m.file_type = FT_MAKE;
+      p_new_Hi = new(__FILE__,__LINE__) Highlight_Make( *this );
     }
     else if( 0==strcmp( syn, "odb") )
     {
