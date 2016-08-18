@@ -49,7 +49,7 @@ public:
 
   void SetTopLine ( const unsigned val );
   void SetLeftChar( const unsigned val );
-  void SetCrsRow  ( const unsigned val );
+  void SetCrsRow  (       unsigned val );
   void SetCrsCol  ( const unsigned val );
 
   unsigned WorkingRows() const;
@@ -151,7 +151,7 @@ public:
   bool InStar       ( const unsigned line, const unsigned pos );
   bool InNonAscii   ( const unsigned line, const unsigned pos );
 
-  void Update();
+  void Update( const bool PRINT_CURSOR = true );
   void RepositionView();
   void Print_Borders();
   void PrintStsLine();

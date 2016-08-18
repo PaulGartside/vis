@@ -3746,8 +3746,9 @@ void Vis::UpdateAll()
   else {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
-      m.views[k][ m.file_hist[k][0] ]->Update();
+      m.views[k][ m.file_hist[k][0] ]->Update( false );
     }
+    PrintCursor();
   }
 }
 

@@ -439,15 +439,17 @@ void InsertBackspace_RmNL( View::Data& m, const unsigned OCL )
 void InsertBackspace( View::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
+
   // If no lines in buffer, no backspacing to be done
-  if( 0==m.fb.NumLines() ) return;
+  if( 0 < m.fb.NumLines() )
+  {
+    const unsigned OCL = m.view.CrsLine();    // Old cursor line
+    const unsigned OCP = m.view.CrsChar();    // Old cursor position
+    const unsigned OLL = m.fb.LineLen( OCL ); // Old line length
 
-  const unsigned OCL = m.view.CrsLine();    // Old cursor line
-  const unsigned OCP = m.view.CrsChar();    // Old cursor position
-  const unsigned OLL = m.fb.LineLen( OCL ); // Old line length
-
-  if( OCP ) InsertBackspace_RmC ( m, OCL, OCP );
-  else      InsertBackspace_RmNL( m, OCL );
+    if( OCP ) InsertBackspace_RmC ( m, OCL, OCP );
+    else      InsertBackspace_RmNL( m, OCL );
+  }
 }
 
 void DisplayBanner( View::Data& m )
@@ -2275,17 +2277,73 @@ unsigned View::GetLeftChar() const { return m.leftChar; }
 unsigned View::GetCrsRow  () const { return m.crsRow  ; }
 unsigned View::GetCrsCol  () const { return m.crsCol  ; }
 
-void View::SetTopLine ( const unsigned val ) { m.topLine  = val; }
-void View::SetLeftChar( const unsigned val ) { m.leftChar = val; }
-void View::SetCrsRow  ( const unsigned val ) { m.crsRow   = val; }
-void View::SetCrsCol  ( const unsigned val ) { m.crsCol   = val; }
+void View::SetTopLine ( const unsigned val )
+{
+  m.topLine  = val;
+}
 
-unsigned View::WorkingRows() const { return m.nRows-3-top___border-bottomborder; }
-unsigned View::WorkingCols() const { return m.nCols-  left__border-right_border; }
-unsigned View::CrsLine  () const { return m.topLine  + m.crsRow; }
-unsigned View::BotLine  () const { return m.topLine  + WorkingRows()-1; }
-unsigned View::CrsChar  () const { return m.leftChar + m.crsCol; }
-unsigned View::RightChar() const { return m.leftChar + WorkingCols()-1; }
+void View::SetLeftChar( const unsigned val )
+{
+  m.leftChar = val;
+}
+
+void View::SetCrsRow( unsigned val )
+{
+  const unsigned NUM_LINES = m.fb.NumLines();
+
+  // Do some limit checks to make sure we dont crash on the next Update
+  if( 0 < NUM_LINES )
+  {
+    if( WorkingRows() < val )
+    {
+      val = WorkingRows()-1;
+    }
+    if( NUM_LINES < val )
+    {
+      val = NUM_LINES-1;
+    }
+    if( NUM_LINES <= m.topLine + val )
+    {
+      m.topLine = NUM_LINES - val - 1;
+    }
+    m.crsRow = val;
+  }
+}
+
+void View::SetCrsCol  ( const unsigned val )
+{
+  m.crsCol   = val;
+}
+
+unsigned View::WorkingRows() const
+{
+  return m.nRows-3-top___border-bottomborder;
+}
+
+unsigned View::WorkingCols() const
+{
+  return m.nCols-  left__border-right_border;
+}
+
+unsigned View::CrsLine  () const
+{
+  return m.topLine  + m.crsRow;
+}
+
+unsigned View::BotLine  () const
+{
+  return m.topLine  + WorkingRows()-1;
+}
+
+unsigned View::CrsChar  () const
+{
+  return m.leftChar + m.crsCol;
+}
+
+unsigned View::RightChar() const
+{
+  return m.leftChar + WorkingCols()-1;
+}
 
 // Translates zero based working view row to zero based global row
 unsigned View::Row_Win_2_GL( const unsigned win_row ) const
@@ -3570,7 +3628,7 @@ bool View::InNonAscii( const unsigned line, const unsigned pos )
 // 7. Draw command line
 // 8. Put cursor back in window
 //
-void View::Update()
+void View::Update( const bool PRINT_CURSOR )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -3587,7 +3645,7 @@ void View::Update()
 
   Console::Update();
 
-  if( m.vis.CV() == &m.view ) PrintCursor();
+  if( PRINT_CURSOR && m.vis.CV() == &m.view ) PrintCursor();
 
   Console::Flush();
 }
@@ -3770,7 +3828,6 @@ void View::PrintWorkingView()
     }
   }
 }
-
 
 void View::PrintWorkingView_Set( const unsigned LL
                                , const unsigned G_ROW
