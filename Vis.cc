@@ -3935,7 +3935,7 @@ void Vis::Handle_SemiColon()
 }
 
 void Vis::Handle_Slash_GotPattern( const String& pattern
-                            , const bool MOVE_TO_FIRST_PATTERN )
+                                 , const bool MOVE_TO_FIRST_PATTERN )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   if( m.slash && pattern == m.star )
@@ -3961,19 +3961,17 @@ void Vis::Handle_Slash_GotPattern( const String& pattern
     Do_Star_FindPatterns(m);
 
     // Highlight new star patterns for windows displayed:
-    if( !m.diff_mode ) Do_Star_PrintPatterns( m, true );
-
+    if( !m.diff_mode )
+    {
+      Do_Star_PrintPatterns( m, true );
+      Console::Update();
+    }
     if( MOVE_TO_FIRST_PATTERN )
     {
       if( m.diff_mode ) m.diff.Do_n(); // Move to first pattern
       else               CV()->Do_n(); // Move to first pattern
     }
     if( m.diff_mode ) m.diff.Update();
-    else {
-      // Print out all the changes:
-      Console::Update();
-      Console::Flush();
-    }
   }
 }
 

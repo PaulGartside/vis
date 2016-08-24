@@ -3300,15 +3300,16 @@ void View::Do_n()
 
   const unsigned NUM_LINES = m.fb.NumLines();
 
-  if( NUM_LINES == 0 ) return;
-
-  CrsPos ncp = { 0, 0 }; // Next cursor position
-
-  if( Do_n_FindNextPattern( m, ncp ) )
+  if( 0< NUM_LINES )
   {
-    GoToCrsPos_Write( ncp.crsLine, ncp.crsChar );
+    CrsPos ncp = { 0, 0 }; // Next cursor position
+
+    if( Do_n_FindNextPattern( m, ncp ) )
+    {
+      GoToCrsPos_Write( ncp.crsLine, ncp.crsChar );
+    }
+    else PrintCursor();
   }
-  else PrintCursor();
 }
 
 // Go to previous pattern
@@ -3318,13 +3319,14 @@ void View::Do_N()
 
   const unsigned NUM_LINES = m.fb.NumLines();
 
-  if( NUM_LINES == 0 ) return;
-
-  CrsPos ncp = { 0, 0 }; // Next cursor position
-
-  if( Do_N_FindPrevPattern( m, ncp ) )
+  if( 0 < NUM_LINES )
   {
-    GoToCrsPos_Write( ncp.crsLine, ncp.crsChar );
+    CrsPos ncp = { 0, 0 }; // Next cursor position
+
+    if( Do_N_FindPrevPattern( m, ncp ) )
+    {
+      GoToCrsPos_Write( ncp.crsLine, ncp.crsChar );
+    }
   }
 }
 

@@ -1251,6 +1251,7 @@ unsigned FileBuf::LineLen( const unsigned line_num ) const
 uint8_t FileBuf::Get( const unsigned l_num, const unsigned c_num ) const
 {
   Trace trace( __PRETTY_FUNCTION__ );
+
   ASSERT( __LINE__, l_num < m.lines.len(), "l_num < m.lines.len()" );
 
   Line* lp = m.lines[ l_num ];

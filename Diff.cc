@@ -1108,7 +1108,7 @@ unsigned Char_2_GL( Diff::Data& m, View* pV, const unsigned line_char )
 
 unsigned NumLines( Diff::Data& m )
 {
-  // DI_List_L and DI_List_L should be the same length
+  // DI_List_L and DI_List_S should be the same length
   return m.DI_List_L.len();
 }
 
@@ -1139,21 +1139,24 @@ unsigned DiffLine_S( Diff::Data& m, const unsigned view_line )
 
   const unsigned LEN = m.DI_List_S.len();
 
-  // Diff line is greater or equal to view line,
-  // so start at view line number and search forward
-  bool ok = true;
-  for( unsigned k=view_line; k<LEN && ok; k++ )
+  if( 0 < m.pvS->GetFB()->NumLines() )
   {
-    Diff_Info di = m.DI_List_S[ k ];
-
-    if( DT_SAME     == di.diff_type
-     || DT_CHANGED  == di.diff_type
-     || DT_INSERTED == di.diff_type )
+    // Diff line is greater or equal to view line,
+    // so start at view line number and search forward
+    bool ok = true;
+    for( unsigned k=view_line; k<LEN && ok; k++ )
     {
-      if( view_line == di.line_num ) return k;
+      Diff_Info di = m.DI_List_S[ k ];
+
+      if( DT_SAME     == di.diff_type
+       || DT_CHANGED  == di.diff_type
+       || DT_INSERTED == di.diff_type )
+      {
+        if( view_line == di.line_num ) return k;
+      }
     }
+    ASSERT( __LINE__, 0, "view_line : %u : not found", view_line );
   }
-  ASSERT( __LINE__, 0, "view_line : %u : not found", view_line );
   return view_line;
 }
 
@@ -1164,21 +1167,24 @@ unsigned DiffLine_L( Diff::Data& m, const unsigned view_line )
 
   const unsigned LEN = m.DI_List_L.len();
 
-  // Diff line is greater or equal to view line,
-  // so start at view line number and search forward
-  bool ok = true;
-  for( unsigned k=view_line; k<LEN && ok; k++ )
+  if( 0 < m.pvL->GetFB()->NumLines() )
   {
-    Diff_Info di = m.DI_List_L[ k ];
-
-    if( DT_SAME     == di.diff_type
-     || DT_CHANGED  == di.diff_type
-     || DT_INSERTED == di.diff_type )
+    // Diff line is greater or equal to view line,
+    // so start at view line number and search forward
+    bool ok = true;
+    for( unsigned k=view_line; k<LEN && ok; k++ )
     {
-      if( view_line == di.line_num ) return k;
+      Diff_Info di = m.DI_List_L[ k ];
+
+      if( DT_SAME     == di.diff_type
+       || DT_CHANGED  == di.diff_type
+       || DT_INSERTED == di.diff_type )
+      {
+        if( view_line == di.line_num ) return k;
+      }
     }
+    ASSERT( __LINE__, 0, "view_line : %u : not found", view_line );
   }
-  ASSERT( __LINE__, 0, "view_line : %u : not found", view_line );
   return view_line;
 }
 
@@ -1446,9 +1452,11 @@ void PrintStsLine( Diff::Data& m, View* pV )
   Array_t<Diff_Info>& DI_List = (pV == m.pvS) ? m.DI_List_S : m.DI_List_L;
   FileBuf* pfb = pV->GetFB();
   const unsigned CLd = CrsLine(m);               // Line position diff
-  const unsigned CLv = DI_List[ CLd ].line_num; // Line position view
+  const unsigned CLv = DI_List[ CLd ].line_num;  // Line position view
   const unsigned CC = CrsChar(m);                // Char position
-  const unsigned LL = NumLines(m) ? pfb->LineLen( CLv )  : 0;
+  const unsigned LL = 0 < NumLines(m)
+                  ? ( 0 < pfb->NumLines() ? pfb->LineLen( CLv ) : 0 )
+                  : 0;
   const unsigned WC = WorkingCols( pV );
 
   // When inserting text at the end of a line, CrsChar(m) == LL
