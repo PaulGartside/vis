@@ -2277,7 +2277,8 @@ void Handle_g( Vis::Data& m )
   }
   else if( CC2 == 'f' )
   {
-    if( !m.diff_mode ) GoToFile(m);
+    if( m.diff_mode ) m.diff.GoToFile();
+    else              CV(m)->GoToFile();
   }
 }
 

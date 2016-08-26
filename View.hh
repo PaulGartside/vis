@@ -135,6 +135,7 @@ public:
                          , const unsigned ncp_crsChar );
   void GoToCrsPos_Write( const unsigned ncp_crsLine
                        , const unsigned ncp_crsChar );
+  void GoToFile();
   bool GoToFile_GetFileName( String& fname );
   void GoToCmdLineClear( const char* S );
 

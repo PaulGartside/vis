@@ -3986,6 +3986,34 @@ void Replace_Crs_Char( Diff::Data& m, Style style )
   }
 }
 
+void Do_v_Handle_gf( Diff::Data& m )
+{
+  if( m.v_st_line == m.v_fn_line )
+  {
+    View*    pV  = m.vis.CV();
+    FileBuf* pfb = pV->GetFB();
+
+    Swap_Visual_St_Fn_If_Needed(m);
+
+    const int VL = ViewLine( m, pV, m.v_st_line );
+
+    String fname;
+
+    for( unsigned P = m.v_st_char; P<=m.v_fn_char; P++ )
+    {
+      fname.push( pfb->Get( VL, P  ) );
+    }
+    bool went_to_file = m.vis.GoToBuffer_Fname( fname );
+
+    if( went_to_file )
+    {
+      // If we made it to buffer indicated by fname, no need to Undo_v() or
+      // Remove_Banner() because the whole view pane will be redrawn
+      m.inVisualMode = false;
+    }
+  }
+}
+
 void Do_v_Handle_gp( Diff::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -4003,7 +4031,7 @@ void Do_v_Handle_gp( Diff::Data& m )
 
     for( int P = m.v_st_char; P<=m.v_fn_char; P++ )
     {
-      pattern.push( pfb->Get( m.v_st_line, P ) );
+      pattern.push( pfb->Get( VL, P ) );
     }
     m.vis.Handle_Slash_GotPattern( pattern, false );
 
@@ -4020,6 +4048,7 @@ void Do_v_Handle_g( Diff::Data& m )
   if     ( CC2 == 'g' ) m.diff.GoToTopOfFile();
   else if( CC2 == '0' ) m.diff.GoToStartOfRow();
   else if( CC2 == '$' ) m.diff.GoToEndOfRow();
+  else if( CC2 == 'f' ) Do_v_Handle_gf(m);
   else if( CC2 == 'p' ) Do_v_Handle_gp(m);
 }
 
@@ -4295,6 +4324,53 @@ bool Do_dw_get_fn( Diff::Data& m
     return true;
   }
   return false;
+}
+
+bool GoToFile_GetFileName( Diff::Data& m, String& fname )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  View*    pV  = m.vis.CV();
+  FileBuf* pfb = pV->GetFB();
+  bool     got_filename = false;
+
+  const unsigned DL = CrsLine(m);            // Diff line number
+  const unsigned VL = ViewLine( m, pV, DL ); // View line number
+  const unsigned LL = pfb->LineLen( VL );
+
+  if( 0 < LL )
+  {
+    MoveInBounds(m);
+    const int CP = CrsChar(m);
+    char c = pfb->Get( VL, CP );
+
+    if( IsFileNameChar( c ) )
+    {
+      // Get the file name:
+      got_filename = true;
+
+      fname.push( c );
+
+      // Search backwards, until white space is found:
+      for( int k=CP-1; -1<k; k-- )
+      {
+        c = pfb->Get( VL, k );
+
+        if( !IsFileNameChar( c ) ) break;
+        else fname.insert( 0, c );
+      }
+      // Search forwards, until white space is found:
+      for( unsigned k=CP+1; k<LL; k++ )
+      {
+        c = pfb->Get( VL, k );
+
+        if( !IsFileNameChar( c ) ) break;
+        else fname.push( c );
+      }
+      EnvKeys2Vals( fname );
+    }
+  }
+  return got_filename;
 }
 
 void Print_L( Diff::Data& m )
@@ -4836,7 +4912,7 @@ void Diff::GoToOppositeBracket()
 
   View* pV = m.vis.CV();
 
-  pV->MoveInBounds();
+  MoveInBounds(m);
 
   const unsigned NUM_LINES = pV->GetFB()->NumLines();
   const unsigned CL        = ViewLine( m, pV, CrsLine(m) ); //< View line
@@ -4875,7 +4951,7 @@ void Diff::GoToLeftSquigglyBracket()
 
   View* pV = m.vis.CV();
 
-  pV->MoveInBounds();
+  MoveInBounds(m);
 
   const char  start_char = '}';
   const char finish_char = '{';
@@ -4888,7 +4964,7 @@ void Diff::GoToRightSquigglyBracket()
 
   View* pV = m.vis.CV();
 
-  pV->MoveInBounds();
+  MoveInBounds(m);
 
   const char  start_char = '{';
   const char finish_char = '}';
@@ -4949,31 +5025,36 @@ void Diff::Do_f( const char FAST_CHAR )
   Trace trace( __PRETTY_FUNCTION__ );
 
   const unsigned NUM_LINES = NumLines(m);
-  if( 0==NUM_LINES ) return;
 
-  const unsigned OCL = CrsLine(m); // Old cursor line
-  const unsigned LL  = LineLen(m); // Line length
-  const unsigned OCP = CrsChar(m); // Old cursor position
-
-  if( LL-1 <= OCP ) return;
-
-  View* pV = m.vis.CV();
-
-  unsigned NCP = 0;
-  bool found_char = false;
-  for( unsigned p=OCP+1; !found_char && p<LL; p++ )
+  if( 0< NUM_LINES )
   {
-    const char C = pV->GetFB()->Get( OCL, p );
+    View* pV = m.vis.CV();
+    FileBuf* pfb = pV->GetFB();
 
-    if( C == FAST_CHAR )
+    const unsigned DL  = CrsLine(m);            // Diff line
+    const unsigned VL  = ViewLine( m, pV, DL ); // View line
+    const unsigned LL  = pfb->LineLen( VL );
+    const unsigned OCP = CrsChar(m);            // Old cursor position
+
+    if( OCP < LL-1 )
     {
-      NCP = p;
-      found_char = true;
+      unsigned NCP = 0;
+      bool found_char = false;
+      for( unsigned p=OCP+1; !found_char && p<LL; p++ )
+      {
+        const char C = pfb->Get( VL, p );
+
+        if( C == FAST_CHAR )
+        {
+          NCP = p;
+          found_char = true;
+        }
+      }
+      if( found_char )
+      {
+        GoToCrsPos_Write( m, DL, NCP );
+      }
     }
-  }
-  if( found_char )
-  {
-    GoToCrsPos_Write( m, OCL, NCP );
   }
 }
 
@@ -5705,6 +5786,17 @@ String Diff::Do_Star_GetNewPattern()
     }
   }
   return new_star;
+}
+
+void Diff::GoToFile()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  // 1. Get fname underneath the cursor:
+  String fname;
+  bool ok = GoToFile_GetFileName( m, fname );
+
+  if( ok ) m.vis.GoToBuffer_Fname( fname );
 }
 
 void Diff::PrintCursor( View* pV )

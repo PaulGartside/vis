@@ -2252,6 +2252,50 @@ void Do_P_block( View::Data& m )
   m.fb.Update();
 }
 
+//bool GoToFile_GetFileName( View::Data& m, String& fname )
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//
+//  bool got_filename = false;
+//
+//  const unsigned CL = m.view.CrsLine();
+//  const unsigned LL = m.fb.LineLen( CL );
+//
+//  if( 0 < LL )
+//  {
+//    m.view.MoveInBounds();
+//    const int CP = m.view.CrsChar();
+//    char c = m.fb.Get( CL, CP );
+//
+//    if( IsFileNameChar( c ) )
+//    {
+//      // Get the file name:
+//      got_filename = true;
+//
+//      fname.push( c );
+//
+//      // Search backwards, until white space is found:
+//      for( int k=CP-1; -1<k; k-- )
+//      {
+//        c = m.fb.Get( CL, k );
+//
+//        if( !IsFileNameChar( c ) ) break;
+//        else fname.insert( 0, c );
+//      }
+//      // Search forwards, until white space is found:
+//      for( unsigned k=CP+1; k<LL; k++ )
+//      {
+//        c = m.fb.Get( CL, k );
+//
+//        if( !IsFileNameChar( c ) ) break;
+//        else fname.push( c );
+//      }
+//      EnvKeys2Vals( fname );
+//    }
+//  }
+//  return got_filename;
+//}
+
 View::View( Vis& vis
           , Key& key
           , FileBuf& fb
@@ -2835,6 +2879,17 @@ void View::GoToCrsPos_Write( const unsigned ncp_crsLine
   }
 }
 
+void View::GoToFile()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  // 1. Get fname underneath the cursor:
+  String fname;
+  bool ok = GoToFile_GetFileName( fname );
+
+  if( ok ) m.vis.GoToBuffer_Fname( fname );
+}
+
 bool View::GoToFile_GetFileName( String& fname )
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -2844,11 +2899,11 @@ bool View::GoToFile_GetFileName( String& fname )
   const unsigned CL = CrsLine();
   const unsigned LL = m.fb.LineLen( CL );
 
-  if( LL )
+  if( 0 < LL )
   {
     MoveInBounds();
-    const int CC = CrsChar();
-    char c = m.fb.Get( CL, CC );
+    const int CP = CrsChar();
+    char c = m.fb.Get( CL, CP );
 
     if( IsFileNameChar( c ) )
     {
@@ -2858,7 +2913,7 @@ bool View::GoToFile_GetFileName( String& fname )
       fname.push( c );
 
       // Search backwards, until white space is found:
-      for( int k=CC-1; -1<k; k-- )
+      for( int k=CP-1; -1<k; k-- )
       {
         c = m.fb.Get( CL, k );
 
@@ -2866,7 +2921,7 @@ bool View::GoToFile_GetFileName( String& fname )
         else fname.insert( 0, c );
       }
       // Search forwards, until white space is found:
-      for( unsigned k=CC+1; k<LL; k++ )
+      for( unsigned k=CP+1; k<LL; k++ )
       {
         c = m.fb.Get( CL, k );
 
@@ -3267,29 +3322,32 @@ void View::Do_f( const char FAST_CHAR )
   Trace trace( __PRETTY_FUNCTION__ );
 
   const unsigned NUM_LINES = m.fb.NumLines();
-  if( 0==NUM_LINES ) return;
 
-  const unsigned OCL = CrsLine();           // Old cursor line
-  const unsigned LL  = m.fb.LineLen( OCL ); // Line length
-  const unsigned OCP = CrsChar();           // Old cursor position
-
-  if( LL-1 <= OCP ) return;
-
-  unsigned NCP = 0;
-  bool found_char = false;
-  for( unsigned p=OCP+1; !found_char && p<LL; p++ )
+  if( 0< NUM_LINES )
   {
-    const char C = m.fb.Get( OCL, p );
+    const unsigned OCL = CrsLine();           // Old cursor line
+    const unsigned LL  = m.fb.LineLen( OCL ); // Line length
+    const unsigned OCP = CrsChar();           // Old cursor position
 
-    if( C == FAST_CHAR )
+    if( OCP < LL-1 )
     {
-      NCP = p;
-      found_char = true;
+      unsigned NCP = 0;
+      bool found_char = false;
+      for( unsigned p=OCP+1; !found_char && p<LL; p++ )
+      {
+        const char C = m.fb.Get( OCL, p );
+
+        if( C == FAST_CHAR )
+        {
+          NCP = p;
+          found_char = true;
+        }
+      }
+      if( found_char )
+      {
+        GoToCrsPos_Write( OCL, NCP );
+      }
     }
-  }
-  if( found_char )
-  {
-    GoToCrsPos_Write( OCL, NCP );
   }
 }
 

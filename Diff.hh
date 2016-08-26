@@ -100,6 +100,8 @@ public:
 
   String Do_Star_GetNewPattern();
 
+  void GoToFile();
+
   void PrintCursor( View* pV );
   bool Update_Status_Lines();
 
