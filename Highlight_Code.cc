@@ -332,6 +332,11 @@ void Highlight_Code::Hi_NumberBeg( unsigned& l, unsigned& p )
   }
 }
 
+// Need to add highlighting for:
+//   U = unsigned
+//   L = long
+//   F = float
+// at the end of numbers
 void Highlight_Code::Hi_NumberIn( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );

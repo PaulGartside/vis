@@ -3148,8 +3148,21 @@ void Do_x_range_pre( Diff::Data& m
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  Swap_Visual_St_Fn_If_Needed(m);
-
+  if( m.inVisualBlock )
+  {
+    if( fn_line < st_line ) Swap( st_line, fn_line );
+    if( fn_char < st_char ) Swap( st_char, fn_char );
+  }
+  else {
+    if( fn_line < st_line
+     || (fn_line == st_line && fn_char < st_char) )
+    {
+      // Visual mode went backwards over multiple lines, or
+      // Visual mode went backwards over one line
+      Swap( st_line, fn_line );
+      Swap( st_char, fn_char );
+    }
+  }
   m.reg.clear();
 }
 
@@ -3160,7 +3173,7 @@ void Do_x_range_post( Diff::Data& m, unsigned st_line, unsigned st_char )
   if( m.inVisualBlock ) m.vis.SetPasteMode( PM_BLOCK );
   else                  m.vis.SetPasteMode( PM_ST_FN );
 
-  View* pV = m.vis.CV();
+  View*    pV  = m.vis.CV();
   FileBuf* pfb = pV->GetFB();
 
   Array_t<Diff_Info>& cDI_List = (pV == m.pvS) ? m.DI_List_S : m.DI_List_L; // Current diff info list
@@ -3211,7 +3224,7 @@ void Do_x_range_block( Diff::Data& m
 }
 
 void Do_x_range_single( Diff::Data& m
-                      , const unsigned L
+                      , const unsigned DL
                       , const unsigned st_char
                       , const unsigned fn_char )
 {
@@ -3220,7 +3233,6 @@ void Do_x_range_single( Diff::Data& m
   View*    pV  = m.vis.CV();
   FileBuf* pfb = pV->GetFB();
 
-  const unsigned DL = L;
   const unsigned VL = ViewLine( m, pV, DL ); // View line
 
   Line* nlp = m.vis.BorrowLine( __FILE__,__LINE__ );
@@ -3324,7 +3336,7 @@ void Do_x_range( Diff::Data& m
 
   Do_x_range_pre( m, st_line, st_char, fn_line, fn_char );
 
-  if( m.v_st_line == m.v_fn_line )
+  if( st_line == fn_line )
   {
     Do_x_range_single( m, st_line, st_char, fn_char );
   }
@@ -4279,7 +4291,7 @@ void RepositionViews( Diff::Data& m )
   }
 }
 
-// st_line and fn_line are in terms of diff line
+// st_line_d and fn_line_d are in terms of diff line
 bool Do_dw_get_fn( Diff::Data& m
                  , const unsigned  st_line_d, const unsigned  st_char
                  ,       unsigned& fn_line_d,       unsigned& fn_char )
@@ -4289,9 +4301,8 @@ bool Do_dw_get_fn( Diff::Data& m
   FileBuf* pfb = pV->GetFB();
 
   const unsigned st_line_v = ViewLine( m, pV, st_line_d );
-
-  const unsigned LL = pfb->LineLen( st_line_v );
-  const uint8_t  C  = pfb->Get( st_line_v, st_char );
+  const unsigned LL        = pfb->LineLen( st_line_v );
+  const uint8_t  C         = pfb->Get( st_line_v, st_char );
 
   if( IsSpace( C )      // On white space
     || ( st_char < LLM1(LL) // On non-white space before white space
@@ -5494,34 +5505,35 @@ int Diff::Do_dw()
   FileBuf* pfb = pV->GetFB();
 
   // If there is nothing to 'yw', just return:
-  if( !pfb->NumLines() ) return 0;
-
-  const unsigned  DL = CrsLine(m); // Diff line
-  const Diff_Type DT = DiffType( m, pV, DL );
-
-  if( DT == DT_SAME
-   || DT == DT_CHANGED
-   || DT == DT_INSERTED )
+  if( 0 < pfb->NumLines() )
   {
-    const unsigned st_line_v = ViewLine( m, pV, DL ); // View line
-    const unsigned st_char   = CrsChar( m );
+    const unsigned  DL = CrsLine(m); // Diff line
+    const Diff_Type DT = DiffType( m, pV, DL );
 
-    const unsigned LL = pfb->LineLen( st_line_v );
-
-    // If past end of line, nothing to do
-    if( st_char < LL )
+    if( DT == DT_SAME
+     || DT == DT_CHANGED
+     || DT == DT_INSERTED )
     {
-      // Determine fn_line_d, fn_char:
-      unsigned fn_line_d = 0;
-      unsigned fn_char = 0;
+      const unsigned st_line_v = ViewLine( m, pV, DL ); // View line
+      const unsigned st_char   = CrsChar( m );
 
-      if( Do_dw_get_fn( m, DL, st_char, fn_line_d, fn_char ) )
+      const unsigned LL = pfb->LineLen( st_line_v );
+
+      // If past end of line, nothing to do
+      if( st_char < LL )
       {
-        Do_x_range( m, DL, st_char, fn_line_d, fn_char );
+        // Determine fn_line_d, fn_char:
+        unsigned fn_line_d = 0;
+        unsigned fn_char = 0;
 
-        bool deleted_last_char = fn_char == LL-1;
+        if( Do_dw_get_fn( m, DL, st_char, fn_line_d, fn_char ) )
+        {
+          Do_x_range( m, DL, st_char, fn_line_d, fn_char );
 
-        return deleted_last_char ? 2 : 1;
+          bool deleted_last_char = fn_char == LL-1;
+
+          return deleted_last_char ? 2 : 1;
+        }
       }
     }
   }

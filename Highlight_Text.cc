@@ -62,7 +62,7 @@ void Highlight_Text::Hi_In_None( unsigned& l, unsigned& p )
       {
         m_state = &ME::Hi_In_Define;
       }
-      else if( C < 32 || 126 < C )
+      else if( C != 27 && (C < 32 || 126 < C) )
       {
         m_fb.SetSyntaxStyle( l, p, HI_NONASCII );
       }

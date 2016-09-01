@@ -3264,25 +3264,30 @@ int View::Do_dw()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  const unsigned st_line = CrsLine();
-  const unsigned st_char = CrsChar();
+  const unsigned NUM_LINES = m.fb.NumLines();
 
-  const unsigned LL = m.fb.LineLen( st_line );
-
-  // If past end of line, nothing to do
-  if( st_char < LL )
+  if( 0< NUM_LINES )
   {
-    // Determine fn_line, fn_char:
-    unsigned fn_line = 0;
-    unsigned fn_char = 0;
+    const unsigned st_line = CrsLine();
+    const unsigned st_char = CrsChar();
 
-    if( Do_dw_get_fn( m, st_line, st_char, fn_line, fn_char ) )
+    const unsigned LL = m.fb.LineLen( st_line );
+
+    // If past end of line, nothing to do
+    if( st_char < LL )
     {
-      Do_x_range( m, st_line, st_char, fn_line, fn_char );
+      // Determine fn_line, fn_char:
+      unsigned fn_line = 0;
+      unsigned fn_char = 0;
 
-      bool deleted_last_char = fn_char == LL-1;
+      if( Do_dw_get_fn( m, st_line, st_char, fn_line, fn_char ) )
+      {
+        Do_x_range( m, st_line, st_char, fn_line, fn_char );
 
-      return deleted_last_char ? 2 : 1;
+        bool deleted_last_char = fn_char == LL-1;
+
+        return deleted_last_char ? 2 : 1;
+      }
     }
   }
   return 0;
