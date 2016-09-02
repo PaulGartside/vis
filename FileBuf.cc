@@ -1090,7 +1090,8 @@ void FileBuf::ReReadFile()
   {
     View* const pV = m.views[w];
 
-    pV->Clear_Context();
+  //pV->Clear_Context();
+    pV->Check_Context();
   }
   m.save_history = true;
   m.need_2_find_stars = true;

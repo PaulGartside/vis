@@ -174,6 +174,7 @@ public:
   void SetUnSavedChangeSts( const bool val );
 
   void Clear_Context();
+  void Check_Context();
   bool Has_Context();
   void Set_Context( View& vr );
 

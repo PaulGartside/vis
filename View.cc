@@ -4050,6 +4050,37 @@ void View::Clear_Context()
   m.crsCol   = 0;
 }
 
+void View::Check_Context()
+{
+  const unsigned NUM_LINES = m.fb.NumLines();
+
+  if( 0 == NUM_LINES )
+  {
+    Clear_Context();
+  }
+  else {
+    bool changed = false;
+    unsigned CL = CrsLine();
+
+    if( NUM_LINES <= CrsLine() )
+    {
+      CL = NUM_LINES-1;
+      changed = true;
+    }
+    const unsigned LL = m.fb.LineLen( CL );
+    unsigned CP = CrsChar();
+    if( LL <= CP )
+    {
+      CP = LL-1;
+      changed = true;
+    }
+    if( changed )
+    {
+      GoToCrsPos_NoWrite( CL, CP );
+    }
+  }
+}
+
 bool View::Has_Context()
 {
   return 0 != m.topLine
