@@ -136,6 +136,28 @@ enum ChangeType
 const char* ChangeType_Str( const ChangeType ct );
 //const char* UpdateType_Str( const UpdateType ut );
 
+enum File_Type
+{
+  FT_UNKNOWN,
+  FT_BASH,
+  FT_BUFFER_EDITOR,
+  FT_CPP,
+  FT_DIR,
+  FT_HTML,
+  FT_IDL,
+  FT_JAVA,
+  FT_JS,
+  FT_MAKE,
+  FT_CMAKE,
+  FT_ODB,
+  FT_SQL,
+  FT_STL,
+  FT_SWIFT,
+  FT_TCL,
+  FT_TEXT,
+  FT_XML
+};
+
 enum Tile_Pos
 {
   TP_NONE,
@@ -162,27 +184,6 @@ enum Tile_Pos
   TP_BOT__RITE_8TH,
   TP_BOT__LEFT_CTR_8TH,
   TP_BOT__RITE_CTR_8TH,
-};
-
-enum File_Type
-{
-  FT_UNKNOWN,
-  FT_BASH,
-  FT_BUFFER_EDITOR,
-  FT_CPP,
-  FT_DIR,
-  FT_HTML,
-  FT_IDL,
-  FT_JAVA,
-  FT_JS,
-  FT_MAKE,
-  FT_ODB,
-  FT_SQL,
-  FT_STL,
-  FT_SWIFT,
-  FT_TCL,
-  FT_TEXT,
-  FT_XML
 };
 
 #endif

@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 // VI-Simplified (vis) C++ Implementation                                     //
-// Copyright (c) 13 Aug 2016 Paul J. Gartside                                 //
+// Copyright (c) 05 Sep 2016 Paul J. Gartside                                 //
 ////////////////////////////////////////////////////////////////////////////////
 // Permission is hereby granted, free of charge, to any person obtaining a    //
 // copy of this software and associated documentation files (the "Software"), //
@@ -28,17 +28,17 @@
 #include "Utilities.hh"
 #include "FileBuf.hh"
 #include "MemLog.hh"
-#include "Highlight_Make.hh"
+#include "Highlight_CMake.hh"
 
 extern MemLog<MEM_LOG_BUF_SIZE> Log;
 
-Highlight_Make::Highlight_Make( FileBuf& rfb )
+Highlight_CMake::Highlight_CMake( FileBuf& rfb )
   : Highlight_Base( rfb )
   , m_state( &ME::Hi_In_None )
 {
 }
 
-void Highlight_Make::Run_Range( const CrsPos st, const unsigned fn )
+void Highlight_CMake::Run_Range( const CrsPos st, const unsigned fn )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -54,7 +54,7 @@ void Highlight_Make::Run_Range( const CrsPos st, const unsigned fn )
   Find_Styles_Keys_In_Range( st, fn );
 }
 
-void Highlight_Make::Hi_In_None( unsigned& l, unsigned& p )
+void Highlight_CMake::Hi_In_None( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   for( ; l<m_fb.NumLines(); l++ )
@@ -117,7 +117,7 @@ void Highlight_Make::Hi_In_None( unsigned& l, unsigned& p )
   m_state = 0;
 }
 
-void Highlight_Make::Hi_In_Comment( unsigned& l, unsigned& p )
+void Highlight_CMake::Hi_In_Comment( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   const unsigned LL = m_fb.LineLen( l );
@@ -130,7 +130,7 @@ void Highlight_Make::Hi_In_Comment( unsigned& l, unsigned& p )
   m_state = &ME::Hi_In_None;
 }
 
-void Highlight_Make::Hi_SingleQuote( unsigned& l, unsigned& p )
+void Highlight_CMake::Hi_SingleQuote( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -167,7 +167,7 @@ void Highlight_Make::Hi_SingleQuote( unsigned& l, unsigned& p )
   m_state = 0;
 }
 
-void Highlight_Make::Hi_DoubleQuote( unsigned& l, unsigned& p )
+void Highlight_CMake::Hi_DoubleQuote( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -204,7 +204,7 @@ void Highlight_Make::Hi_DoubleQuote( unsigned& l, unsigned& p )
   m_state = 0;
 }
 
-void Highlight_Make::Hi_96_Quote( unsigned& l, unsigned& p )
+void Highlight_CMake::Hi_96_Quote( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -244,7 +244,7 @@ void Highlight_Make::Hi_96_Quote( unsigned& l, unsigned& p )
   m_state = 0;
 }
 
-void Highlight_Make::Hi_NumberBeg( unsigned& l, unsigned& p )
+void Highlight_CMake::Hi_NumberBeg( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   m_fb.SetSyntaxStyle( l, p, HI_CONST );
@@ -265,7 +265,7 @@ void Highlight_Make::Hi_NumberBeg( unsigned& l, unsigned& p )
   }
 }
 
-void Highlight_Make::Hi_NumberIn( unsigned& l, unsigned& p )
+void Highlight_CMake::Hi_NumberIn( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   const unsigned LL = m_fb.LineLen( l );
@@ -304,7 +304,7 @@ void Highlight_Make::Hi_NumberIn( unsigned& l, unsigned& p )
   }
 }
 
-void Highlight_Make::Hi_NumberHex( unsigned& l, unsigned& p )
+void Highlight_CMake::Hi_NumberHex( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   const unsigned LL = m_fb.LineLen( l );
@@ -322,7 +322,7 @@ void Highlight_Make::Hi_NumberHex( unsigned& l, unsigned& p )
   }
 }
 
-void Highlight_Make::Hi_NumberFraction( unsigned& l, unsigned& p )
+void Highlight_CMake::Hi_NumberFraction( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   const unsigned LL = m_fb.LineLen( l );
@@ -354,7 +354,7 @@ void Highlight_Make::Hi_NumberFraction( unsigned& l, unsigned& p )
   }
 }
 
-void Highlight_Make::Hi_NumberExponent( unsigned& l, unsigned& p )
+void Highlight_CMake::Hi_NumberExponent( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   const unsigned LL = m_fb.LineLen( l );
@@ -374,89 +374,98 @@ void Highlight_Make::Hi_NumberExponent( unsigned& l, unsigned& p )
 
 static HiKeyVal HiPairs[] =
 {
-  { "if"                 , HI_CONTROL },
-  { "fi"                 , HI_CONTROL },
-  { "else"               , HI_CONTROL },
-  { "elsif"              , HI_CONTROL },
-  { "for"                , HI_CONTROL },
-  { "done"               , HI_CONTROL },
-  { "while"              , HI_CONTROL },
-  { "do"                 , HI_CONTROL },
-  { "return"             , HI_CONTROL },
-  { "switch"             , HI_CONTROL },
-  { "case"               , HI_CONTROL },
-  { "break"              , HI_CONTROL },
-  { "then"               , HI_CONTROL },
-  { "bg"                 , HI_CONTROL },
-  { "bind"               , HI_CONTROL },
-  { "builtin"            , HI_CONTROL },
-  { "caller"             , HI_CONTROL },
-  { "cd"                 , HI_CONTROL },
-  { "command"            , HI_CONTROL },
-  { "compgen"            , HI_CONTROL },
-  { "complete"           , HI_CONTROL },
-  { "compopt"            , HI_CONTROL },
-  { "continue"           , HI_CONTROL },
-  { "echo"               , HI_CONTROL },
-  { "enable"             , HI_CONTROL },
-  { "eval"               , HI_CONTROL },
-  { "exec"               , HI_CONTROL },
-  { "exit"               , HI_CONTROL },
-  { "export"             , HI_CONTROL },
-  { "fc"                 , HI_CONTROL },
-  { "fg"                 , HI_CONTROL },
-  { "hash"               , HI_CONTROL },
-  { "help"               , HI_CONTROL },
-  { "history"            , HI_CONTROL },
-  { "jobs"               , HI_CONTROL },
-  { "kill"               , HI_CONTROL },
-  { "logout"             , HI_CONTROL },
-  { "popd"               , HI_CONTROL },
-  { "printf"             , HI_CONTROL },
-  { "pushd"              , HI_CONTROL },
-  { "pwd"                , HI_CONTROL },
-  { "return"             , HI_CONTROL },
-  { "set"                , HI_CONTROL },
-  { "shift"              , HI_CONTROL },
-  { "shopt"              , HI_CONTROL },
-  { "source"             , HI_CONTROL },
-  { "suspend"            , HI_CONTROL },
-  { "test"               , HI_CONTROL },
-  { "times"              , HI_CONTROL },
-  { "trap"               , HI_CONTROL },
-  { "ulimit"             , HI_CONTROL },
-  { "umask"              , HI_CONTROL },
-  { "unalias"            , HI_CONTROL },
-  { "unset"              , HI_CONTROL },
-  { "wait"               , HI_CONTROL },
-  { "PHONY"              , HI_CONTROL },
-  { "INTERMEDIATE"       , HI_CONTROL },
-  { "SECONDARY"          , HI_CONTROL },
-  { "PRECIOUS"           , HI_CONTROL },
-  { "DELETE_ON_ERROR"    , HI_CONTROL },
-  { "EXPORT_ALL_VARIABLES",HI_CONTROL },
-
-  { "declare"            , HI_VARTYPE },
-  { "dirs"               , HI_VARTYPE },
-  { "disown"             , HI_VARTYPE },
-  { "getopts"            , HI_VARTYPE },
-  { "let"                , HI_VARTYPE },
-  { "local"              , HI_VARTYPE },
-  { "mapfile"            , HI_VARTYPE },
-  { "read"               , HI_VARTYPE },
-  { "readonly"           , HI_VARTYPE },
-  { "type"               , HI_VARTYPE },
-  { "typeset"            , HI_VARTYPE },
-
-  { "false"              , HI_CONST   },
-  { "true"               , HI_CONST   },
-
-  { "alias"              , HI_DEFINE  },
-  { "include"            , HI_DEFINE  },
+  { "add_compile_options"          , HI_CONTROL },
+  { "add_custom_command"           , HI_CONTROL },
+  { "add_custom_target"            , HI_CONTROL },
+  { "add_definitions"              , HI_CONTROL },
+  { "add_dependencies"             , HI_CONTROL },
+  { "add_executable"               , HI_CONTROL },
+  { "add_library"                  , HI_CONTROL },
+  { "add_subdirectory"             , HI_CONTROL },
+  { "add_test"                     , HI_CONTROL },
+  { "aux_source_directory"         , HI_CONTROL },
+  { "break"                        , HI_CONTROL },
+  { "build_command"                , HI_CONTROL },
+  { "cmake_host_system_information", HI_CONTROL },
+  { "cmake_minimum_required"       , HI_CONTROL },
+  { "cmake_parse_arguments"        , HI_CONTROL },
+  { "cmake_policy"                 , HI_CONTROL },
+  { "configure_file"               , HI_CONTROL },
+  { "continue"                     , HI_CONTROL },
+  { "create_test_sourcelist"       , HI_CONTROL },
+  { "define_property"              , HI_CONTROL },
+  { "elseif"                       , HI_CONTROL },
+  { "else"                         , HI_CONTROL },
+  { "enable_language"              , HI_CONTROL },
+  { "enable_testing"               , HI_CONTROL },
+  { "endforeach"                   , HI_CONTROL },
+  { "endfunction"                  , HI_CONTROL },
+  { "endif"                        , HI_CONTROL },
+  { "endmacro"                     , HI_CONTROL },
+  { "endwhile"                     , HI_CONTROL },
+  { "execute_process"              , HI_CONTROL },
+  { "export"                       , HI_CONTROL },
+  { "file"                         , HI_CONTROL },
+  { "find_file"                    , HI_CONTROL },
+  { "find_library"                 , HI_CONTROL },
+  { "find_package"                 , HI_CONTROL },
+  { "find_path"                    , HI_CONTROL },
+  { "find_program"                 , HI_CONTROL },
+  { "fltk_wrap_ui"                 , HI_CONTROL },
+  { "foreach"                      , HI_CONTROL },
+  { "function"                     , HI_CONTROL },
+  { "get_cmake_property"           , HI_CONTROL },
+  { "get_directory_property"       , HI_CONTROL },
+  { "get_filename_component"       , HI_CONTROL },
+  { "get_property"                 , HI_CONTROL },
+  { "get_source_file_property"     , HI_CONTROL },
+  { "get_target_property"          , HI_CONTROL },
+  { "get_test_property"            , HI_CONTROL },
+  { "if"                           , HI_CONTROL },
+  { "include_directories"          , HI_CONTROL },
+  { "include_external_msproject"   , HI_CONTROL },
+  { "include_regular_expression"   , HI_CONTROL },
+  { "include"                      , HI_CONTROL },
+  { "install"                      , HI_CONTROL },
+  { "link_directories"             , HI_CONTROL },
+  { "link_libraries"               , HI_CONTROL },
+  { "list"                         , HI_CONTROL },
+  { "load_cache"                   , HI_CONTROL },
+  { "macro"                        , HI_CONTROL },
+  { "mark_as_advanced"             , HI_CONTROL },
+  { "math"                         , HI_CONTROL },
+  { "message"                      , HI_CONTROL },
+  { "option"                       , HI_CONTROL },
+  { "project"                      , HI_CONTROL },
+  { "qt_wrap_cpp"                  , HI_CONTROL },
+  { "qt_wrap_ui"                   , HI_CONTROL },
+  { "remove_definitions"           , HI_CONTROL },
+  { "return"                       , HI_CONTROL },
+  { "separate_arguments"           , HI_CONTROL },
+  { "set_directory_properties"     , HI_CONTROL },
+  { "set_property"                 , HI_CONTROL },
+  { "set"                          , HI_CONTROL },
+  { "set_source_files_properties"  , HI_CONTROL },
+  { "set_target_properties"        , HI_CONTROL },
+  { "set_tests_properties"         , HI_CONTROL },
+  { "site_name"                    , HI_CONTROL },
+  { "source_group"                 , HI_CONTROL },
+  { "string"                       , HI_CONTROL },
+  { "target_compile_definitions"   , HI_CONTROL },
+  { "target_compile_features"      , HI_CONTROL },
+  { "target_compile_options"       , HI_CONTROL },
+  { "target_include_directories"   , HI_CONTROL },
+  { "target_link_libraries"        , HI_CONTROL },
+  { "target_sources"               , HI_CONTROL },
+  { "try_compile"                  , HI_CONTROL },
+  { "try_run"                      , HI_CONTROL },
+  { "unset"                        , HI_CONTROL },
+  { "variable_watch"               , HI_CONTROL },
+  { "while"                        , HI_CONTROL },
   { 0 }
 };
 
-void Highlight_Make::
+void Highlight_CMake::
      Find_Styles_Keys_In_Range( const CrsPos   st
                               , const unsigned fn )
 {

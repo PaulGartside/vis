@@ -46,6 +46,7 @@
 #include "Highlight_Java.hh"
 #include "Highlight_JS.hh"
 #include "Highlight_Make.hh"
+#include "Highlight_CMake.hh"
 #include "Highlight_ODB.hh"
 #include "Highlight_SQL.hh"
 #include "Highlight_STL.hh"
@@ -308,6 +309,24 @@ bool Find_File_Type_Make( FileBuf::Data& m )
   return false;
 }
 
+bool Find_File_Type_CMake( FileBuf::Data& m )
+{
+  const unsigned LEN = m.file_name.len();
+
+  if( (  6 <  LEN && m.file_name.has_at(".cmake"    , LEN-6  ) )
+   || ( 10 <  LEN && m.file_name.has_at(".cmake.new", LEN-10 ) )
+   || ( 10 <  LEN && m.file_name.has_at(".cmake.old", LEN-10 ) )
+   || ( 14 <= LEN && m.file_name.has_at("CMakeLists.txt"    , LEN-14 ) )
+   || ( 18 <= LEN && m.file_name.has_at("CMakeLists.new.txt", LEN-18 ) )
+   || ( 18 <= LEN && m.file_name.has_at("CMakeLists.old.txt", LEN-18 ) ) )
+  {
+    m.file_type = FT_CMAKE;
+    m.pHi = new(__FILE__,__LINE__) Highlight_CMake( m.self );
+    return true;
+  }
+  return false;
+}
+
 bool Find_File_Type_SQL( FileBuf::Data& m )
 {
   const unsigned LEN = m.file_name.len();
@@ -401,6 +420,7 @@ void Find_File_Type_Suffix( FileBuf::Data& m )
         || Find_File_Type_XML  ( m )
         || Find_File_Type_JS   ( m )
         || Find_File_Type_Make ( m )
+        || Find_File_Type_CMake( m )
         || Find_File_Type_ODB  ( m )
         || Find_File_Type_SQL  ( m )
         || Find_File_Type_STL  ( m )
@@ -550,6 +570,40 @@ void Append_DirDelim( FileBuf::Data& m, const unsigned l_num )
 
 // Add symbolic link info, i.e., -> symbolic_link_path, to file name
 //
+//void ReadExistingDir_AddLink( FileBuf::Data& m
+//                            , const String& dir_path_fname
+//                            , const unsigned LINE_NUM )
+//{
+//#ifndef WIN32
+//  const unsigned mbuf_sz = 1024;
+//  char mbuf[ 1024 ];
+//  int rval = readlink( dir_path_fname.c_str(), mbuf, mbuf_sz );
+//  if( 0 < rval )
+//  {
+//    m.self.PushChar( LINE_NUM, ' ');
+//    m.self.PushChar( LINE_NUM, '-');
+//    m.self.PushChar( LINE_NUM, '>');
+//    m.self.PushChar( LINE_NUM, ' ');
+//
+//    for( unsigned k=0; k<rval; k++ )
+//    {
+//      m.self.PushChar( LINE_NUM, mbuf[k] );
+//    }
+//    if( rval < 1024 )
+//    {
+//      mbuf[ rval ] = 0;
+//      // See if file linked to is directory:
+//      struct stat stat_buf ;
+//      int err = my_stat( mbuf, stat_buf );
+//      bool IS_DIR = 0==err && S_ISDIR( stat_buf.st_mode );
+//      if( IS_DIR ) Append_DirDelim( m, LINE_NUM );
+//    }
+//  }
+//#endif
+//}
+
+// Add symbolic link info, i.e., -> symbolic_link_path, to file name
+//
 void ReadExistingDir_AddLink( FileBuf::Data& m
                             , const String& dir_path_fname
                             , const unsigned LINE_NUM )
@@ -572,11 +626,8 @@ void ReadExistingDir_AddLink( FileBuf::Data& m
     if( rval < 1024 )
     {
       mbuf[ rval ] = 0;
-      // See if file linked to is directory:
-      struct stat stat_buf ;
-      int err = my_stat( mbuf, stat_buf );
-      bool IS_DIR = 0==err && S_ISDIR( stat_buf.st_mode );
-      if( IS_DIR ) Append_DirDelim( m, LINE_NUM );
+
+      if( IsDir( mbuf ) ) Append_DirDelim( m, LINE_NUM );
     }
   }
 #endif
@@ -931,11 +982,11 @@ void FileBuf::Set_File_Type( const char* syn )
       m.file_type = FT_BASH;
       p_new_Hi = new(__FILE__,__LINE__) Highlight_Bash( *this );
     }
-  //else if( 0==strcmp( syn, "cmake") )
-  //{
-  //  m.file_type = FT_CMAKE;
-  //  p_new_Hi = new(__FILE__,__LINE__) Highlight_CMAKE( this );
-  //}
+    else if( 0==strcmp( syn, "cmake") )
+    {
+      m.file_type = FT_CMAKE;
+      p_new_Hi = new(__FILE__,__LINE__) Highlight_CMake( *this );
+    }
     else if( 0==strcmp( syn, "c")
           || 0==strcmp( syn, "cpp") )
     {

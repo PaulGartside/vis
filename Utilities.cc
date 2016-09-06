@@ -148,6 +148,18 @@ bool FileExists( const char* fname )
   return 0 == err;
 }
 
+bool IsDir( const char* fname )
+{
+  // If lstat fails, is_dir is false
+  struct stat sbuf ;
+
+  int err = my_stat( fname, sbuf );
+
+  const bool is_dir = 0==err && S_ISDIR( sbuf.st_mode );
+
+  return is_dir;
+}
+
 double ModificationTime( const char* fname )
 {
   double mod_time = 0;
@@ -172,8 +184,67 @@ double ModificationTime( const char* fname )
 // Finds full name of file or directory of in_out_fname passed in
 // relative to current directory, and places result in in_out_fname.
 // If successful, as a side effect, currect directory is changed to
-// that of in_out_fname.
-// Returns true if successful, else false.
+// that of new in_out_fname.
+// Returns true on success, false on failure.
+//
+//bool FindFullFileName( String& in_out_fname )
+//{
+//  EnvKeys2Vals( in_out_fname );
+//  const char* in_fname = in_out_fname.c_str();
+//  const unsigned FILE_NAME_LEN = 1024;
+//  char cwd[ FILE_NAME_LEN ];
+//
+//  // 1. lstat( in_fname ), set is_dir.
+//  // If lstat fails, is_dir is false, and assume in_fname will be a new file.
+//  struct stat sbuf ;
+//  int err = my_stat( in_fname, sbuf );
+//  const bool is_dir = ( 0==err && S_ISDIR( sbuf.st_mode ) ) ? true : false;
+//
+//  if( is_dir ) // in_fname is name of dir:
+//  {
+//    // 1. chdir  - Change dir to in_fname
+//    int err = chdir( in_fname );
+//    if( err ) return false;
+//    // 2. getcwd - Get the current working directory and put into cwd
+//    if( ! getcwd( cwd, FILE_NAME_LEN ) ) return false;
+//    // 3. make sure cwd ends with a '/'
+//    const int F_NAME_LEN = strlen( cwd );
+//    if( DIR_DELIM != cwd[ F_NAME_LEN-1 ] )
+//    {
+//      cwd[ F_NAME_LEN ] = DIR_DELIM;
+//      cwd[ F_NAME_LEN+1 ] = 0;
+//    }
+//    // 4. copy cwd int in_out_fname
+//    in_out_fname = cwd;
+//  }
+//  else {
+//    // 1. seperate in_fname into f_name_tail and f_name_head
+//    String f_name_head;
+//    String f_name_tail;
+//
+//    GetFnameHeadAndTail( in_out_fname, f_name_head, f_name_tail );
+//
+//    // 2. chdir  - Change dir to f_name_tail
+//    if( f_name_tail.len() )
+//    {
+//      int err = chdir( f_name_tail.c_str() );
+//      if( err ) return false;
+//    }
+//    // 3. getcwd - Get the current working directory and put into f_name_tail
+//    if( ! getcwd( cwd, FILE_NAME_LEN ) ) return false;
+//    f_name_tail = cwd;
+//    // 4. concatenate f_name_tail and f_name_head into in_out_fname
+//    sprintf( cwd, "%s%c%s", f_name_tail.c_str(), DIR_DELIM, f_name_head.c_str() );
+//    in_out_fname = cwd;
+//  }
+//  return true;
+//}
+
+// Finds full name of file or directory of in_out_fname passed in
+// relative to current directory, and places result in in_out_fname.
+// If successful, as a side effect, currect directory is changed to
+// that of new in_out_fname.
+// Returns true on success, false on failure.
 //
 bool FindFullFileName( String& in_out_fname )
 {
@@ -182,14 +253,7 @@ bool FindFullFileName( String& in_out_fname )
   const unsigned FILE_NAME_LEN = 1024;
   char cwd[ FILE_NAME_LEN ];
 
-  // 1. lstat( in_fname ), set is_dir.
-  // If lstat fails, is_dir is false, and assume in_fname will be a new file.
-  struct stat sbuf ;
-  int err = my_stat( in_fname, sbuf );
-
-  const bool is_dir = ( 0==err && S_ISDIR( sbuf.st_mode ) ) ? true : false;
-
-  if( is_dir ) // in_fname is name of dir:
+  if( IsDir( in_fname ) ) // in_fname is name of dir:
   {
     // 1. chdir  - Change dir to in_fname
     int err = chdir( in_fname );
@@ -206,7 +270,7 @@ bool FindFullFileName( String& in_out_fname )
     // 4. copy cwd int in_out_fname
     in_out_fname = cwd;
   }
-  else {
+  else { // IsDir is false, assume in_fname will be a new file.
     // 1. seperate in_fname into f_name_tail and f_name_head
     String f_name_head;
     String f_name_tail;
@@ -214,7 +278,7 @@ bool FindFullFileName( String& in_out_fname )
     GetFnameHeadAndTail( in_out_fname, f_name_head, f_name_tail );
 
     // 2. chdir  - Change dir to f_name_tail
-    if( f_name_tail.len() )
+    if( 0<f_name_tail.len() )
     {
       int err = chdir( f_name_tail.c_str() );
       if( err ) return false;
@@ -228,6 +292,39 @@ bool FindFullFileName( String& in_out_fname )
   }
   return true;
 }
+
+// Finds full name of file or directory of in_out_fname passed in
+// relative to current directory, and places result in in_out_fname.
+// Returns true on success, false on failure.
+//
+//bool FindFullFileName( String& in_out_fname )
+//{
+//  EnvKeys2Vals( in_out_fname );
+//
+//  const char* in_fname = in_out_fname.c_str();
+//
+//  const unsigned FILE_NAME_LEN = 1024;
+//  char buf[ FILE_NAME_LEN ];
+//  if( getcwd( buf, FILE_NAME_LEN ) )
+//  {
+//    const int CWD_LEN = strlen( buf );
+//    if( CWD_LEN < FILE_NAME_LEN )
+//    {
+//      const int REMAINDER = FILE_NAME_LEN - CWD_LEN;
+//      int rval = snprintf( buf+CWD_LEN, REMAINDER, "%c%s", DIR_DELIM, in_fname );
+//
+//      if( 0 < rval && rval < REMAINDER )
+//      {
+//        if( FileExists( buf ) )
+//        {
+//          in_out_fname = buf;
+//          return true;
+//        }
+//      }
+//    }
+//  }
+//  return false;
+//}
 
 void GetFnameHeadAndTail( const String& in_fname, String& head, String& tail )
 {

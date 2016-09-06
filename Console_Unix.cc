@@ -264,27 +264,7 @@ uint8_t Byte2out( uint8_t C )
   return C_out;
 }
 #else
-//uint8_t Byte2out( uint8_t C )
-//{
-//  char C_out = '?';
-//
-//  if(  0 == C
-//   ||  9 == C   //  9 == '\t'
-//   || 13 == C ) // 13 == '\r'
-//  {
-//    C_out = ' ';
-//  }
-//  else if( (  1 <= C && C <= 8  )
-//        || ( 11 <= C && C <= 31 )
-//        || (127 <= C && C <= 255) )
-//  {
-//    C_out = '?';
-//  }
-//  else {
-//    C_out = C;
-//  }
-//  return C_out;
-//}
+// Show escape sequences:
 uint8_t Byte2out( uint8_t C )
 {
   char C_out = '?';
@@ -296,8 +276,7 @@ uint8_t Byte2out( uint8_t C )
     C_out = ' ';
   }
   else if( (  1 <= C && C <= 8  )
-        || ( 11 <= C && C <= 26 )
-        || ( 28 <= C && C <= 31 )
+        || ( 11 <= C && C <= 31 )
         || (127 <= C && C <= 255) )
   {
     C_out = '?';
@@ -307,6 +286,29 @@ uint8_t Byte2out( uint8_t C )
   }
   return C_out;
 }
+// Escape sequences not shown, but color the console:
+//uint8_t Byte2out( uint8_t C )
+//{
+//  char C_out = '?';
+//
+//  if(  0 == C
+//   ||  9 == C   //  9 == '\t'
+//   || 13 == C ) // 13 == '\r'
+//  {
+//    C_out = ' ';
+//  }
+//  else if( (  1 <= C && C <= 8  )
+//        || ( 11 <= C && C <= 26 )
+//        || ( 28 <= C && C <= 31 )
+//        || (127 <= C && C <= 255) )
+//  {
+//    C_out = '?';
+//  }
+//  else {
+//    C_out = C;
+//  }
+//  return C_out;
+//}
 #endif
 
 void Screen_Save()

@@ -263,7 +263,7 @@ bool FindFileBuf( Colon::Data& m )
   if( f_name_tail == "~" ) f_name_tail = "$HOME";
 #endif
   String f_full_path = f_name_tail;
-  if( ! f_full_path.len() ) f_full_path.push('.');
+  if( 0==f_full_path.len() ) f_full_path.push('.');
 
   const unsigned FILE_NAME_LEN = 1024;
   char orig_dir[ FILE_NAME_LEN ];

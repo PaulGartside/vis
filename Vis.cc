@@ -194,7 +194,7 @@ void Ch_Dir( Vis::Data& m )
       path = fname;
     }
     else {
-      // Put everything in fname except last slash into m.sbuf:
+      // Put everything in fname up to last slash into m.sbuf:
       m.sbuf.clear(); // m.sbuf is a general purpose string buffer
       for( const char* cp = fname; cp < last_slash; cp++ ) m.sbuf.push( *cp );
       path = m.sbuf.c_str();
@@ -2399,14 +2399,39 @@ void SetWinToBuffer( Vis::Data& m
 
 // If file is found, puts View of file in win_idx window,
 // and returns the View, else returns null
+//View* DoDiff_CheckPossibleFile( Vis::Data& m
+//                              , const int win_idx
+//                              , const char* pos_fname )
+//{
+//  struct stat sbuf;
+//  int err = my_stat( pos_fname, sbuf );
+//
+//  if( 0 == err )
+//  {
+//    // File exists, find or create FileBuf, and set second view to display that file:
+//    if( !m.vis.HaveFile( pos_fname ) )
+//    {
+//      FileBuf* pfb = new(__FILE__,__LINE__) FileBuf( m.vis, pos_fname, true, FT_UNKNOWN );
+//      pfb->ReadFile();
+//    }
+//  }
+//  unsigned file_index = 0;
+//  if( m.vis.HaveFile( pos_fname, &file_index ) )
+//  {
+//    SetWinToBuffer( m, win_idx, file_index, false );
+//
+//    return m.views[win_idx][ m.file_hist[win_idx][0] ];
+//  }
+//  return 0;
+//}
+
+// If file is found, puts View of file in win_idx window,
+// and returns the View, else returns null
 View* DoDiff_CheckPossibleFile( Vis::Data& m
                               , const int win_idx
                               , const char* pos_fname )
 {
-  struct stat sbuf;
-  int err = my_stat( pos_fname, sbuf );
-
-  if( 0 == err )
+  if( FileExists( pos_fname ) )
   {
     // File exists, find or create FileBuf, and set second view to display that file:
     if( !m.vis.HaveFile( pos_fname ) )
@@ -2878,7 +2903,7 @@ void HandleColon_w( Vis::Data& m )
   }
   else // :w file_name
   {
-    // Edit file of supplied file name:
+    // Write file of supplied file name:
     String fname( m.cbuf + 1 );
     if( pV->GoToDir() && FindFullFileName( fname ) )
     {

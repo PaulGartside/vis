@@ -28,7 +28,7 @@
 #include <signal.h>
 #include "Types.hh"
 
-class Line;
+//class Line;
 class String;
 
 void DIE( const char* msg );
@@ -41,6 +41,7 @@ void Swap( unsigned& A, unsigned& B );
 void RemoveSpaces( char* cp );
 int  my_stat( const char* fname, struct stat& sbuf );
 bool FileExists( const char* fname );
+bool IsDir( const char* fname );
 double ModificationTime( const char* fname );
 bool FindFullFileName( String& in_out_fname );
 void GetFnameHeadAndTail( const String& in_fname, String& head, String& tail );

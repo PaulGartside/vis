@@ -95,20 +95,20 @@ void Highlight_XML::Hi_In_None( unsigned& l, unsigned& p )
         p++; // Move past '-'
         m_state = &ME::Hi_Comment;
       }
-      else if( c0=='\'')
-      {
-        m_fb.SetSyntaxStyle( l, p, HI_CONST );
-        p++; // Move past '\''
-        m_state = &ME::Hi_In_SingleQuote;
-        m_qtXSt = &ME::Hi_In_None;
-      }
-      else if( c0=='\"')
-      {
-        m_fb.SetSyntaxStyle( l, p, HI_CONST );
-        p++; // Move past '\"'
-        m_state = &ME::Hi_In_DoubleQuote;
-        m_qtXSt = &ME::Hi_In_None;
-      }
+    //else if( c0=='\'')
+    //{
+    //  m_fb.SetSyntaxStyle( l, p, HI_CONST );
+    //  p++; // Move past '\''
+    //  m_state = &ME::Hi_In_SingleQuote;
+    //  m_qtXSt = &ME::Hi_In_None;
+    //}
+    //else if( c0=='\"')
+    //{
+    //  m_fb.SetSyntaxStyle( l, p, HI_CONST );
+    //  p++; // Move past '\"'
+    //  m_state = &ME::Hi_In_DoubleQuote;
+    //  m_qtXSt = &ME::Hi_In_None;
+    //}
       else if( !IsIdent( c1 ) && isdigit( c0 ) )
       {
         m_state = &ME::Hi_NumberBeg;

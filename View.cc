@@ -4113,12 +4113,13 @@ bool View::GoToDir()
     if( err ) return false;
   }
   else {
-    char f_name_tail[ 1024 ];
     char* const last_slash = strrchr( fname_str, DIR_DELIM );
-    if( last_slash ) {
+    if( last_slash )
+    {
       const int TAIL_LEN = last_slash - fname_str;
-      if( TAIL_LEN )
+      if( 0<TAIL_LEN )
       {
+        char f_name_tail[ 1024 ];
         strncpy( f_name_tail, fname_str, TAIL_LEN );
         f_name_tail[ TAIL_LEN ] = 0;
 
