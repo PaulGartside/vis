@@ -2303,13 +2303,14 @@ void Do_n_Pattern( Diff::Data& m )
 
   const unsigned NUM_LINES = pV->GetFB()->NumLines();
 
-  if( NUM_LINES == 0 ) return;
-
-  CrsPos ncp = { 0, 0 }; // Next cursor position
-
-  if( Do_n_FindNextPattern( m, ncp ) )
+  if( 0 < NUM_LINES )
   {
-    GoToCrsPos_Write( m, ncp.crsLine, ncp.crsChar );
+    CrsPos ncp = { 0, 0 }; // Next cursor position
+
+    if( Do_n_FindNextPattern( m, ncp ) )
+    {
+      GoToCrsPos_Write( m, ncp.crsLine, ncp.crsChar );
+    }
   }
 }
 
@@ -2366,29 +2367,31 @@ void Do_n_Diff( Diff::Data& m )
   Trace trace( __PRETTY_FUNCTION__ );
 
   const unsigned NUM_LINES = NumLines(m);
-  if( 0==NUM_LINES ) return;
 
-  unsigned dl = CrsLine(m); // Diff line
-
-  View* pV = m.vis.CV();
-
-  Array_t<Diff_Info>& DI_List = (pV == m.pvS) ? m.DI_List_S : m.DI_List_L;
-
-  const Diff_Type DT = DI_List[dl].diff_type; // Current diff type
-
-  bool found = true;
-
-  if( DT == DT_CHANGED || DT == DT_INSERTED || DT == DT_DELETED )
+  if( 0 < NUM_LINES )
   {
-    found = Do_n_Search_for_Same( m, dl, DI_List );
-  }
-  if( found )
-  {
-    found = Do_n_Search_for_Diff( m, dl, DI_List );
+    unsigned dl = CrsLine(m); // Diff line
 
+    View* pV = m.vis.CV();
+
+    Array_t<Diff_Info>& DI_List = (pV == m.pvS) ? m.DI_List_S : m.DI_List_L;
+
+    const Diff_Type DT = DI_List[dl].diff_type; // Current diff type
+
+    bool found = true;
+
+    if( DT == DT_CHANGED || DT == DT_INSERTED || DT == DT_DELETED )
+    {
+      found = Do_n_Search_for_Same( m, dl, DI_List );
+    }
     if( found )
     {
-      GoToCrsPos_Write( m, dl, CrsChar(m) );
+      found = Do_n_Search_for_Diff( m, dl, DI_List );
+
+      if( found )
+      {
+        GoToCrsPos_Write( m, dl, CrsChar(m) );
+      }
     }
   }
 }
@@ -4140,6 +4143,8 @@ bool Do_visualMode( Diff::Data& m )
     else if( C == 'H' ) m.diff.GoToTopLineInView();
     else if( C == 'L' ) m.diff.GoToBotLineInView();
     else if( C == 'M' ) m.diff.GoToMidLineInView();
+    else if( C == 'n' ) m.diff.Do_n();
+    else if( C == 'N' ) m.diff.Do_N();
     else if( C == '0' ) m.diff.GoToBegOfLine();
     else if( C == '$' ) m.diff.GoToEndOfLine();
     else if( C == 'g' )        Do_v_Handle_g(m);

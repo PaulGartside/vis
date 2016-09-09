@@ -1226,36 +1226,38 @@ bool Do_visualMode( View::Data& m )
 
   while( m.inVisualMode )
   {
-    const char c=m.key.In();
+    const char C=m.key.In();
 
-    if     ( c == 'l' ) m.view.GoRight();
-    else if( c == 'h' ) m.view.GoLeft();
-    else if( c == 'j' ) m.view.GoDown();
-    else if( c == 'k' ) m.view.GoUp();
-    else if( c == 'H' ) m.view.GoToTopLineInView();
-    else if( c == 'L' ) m.view.GoToBotLineInView();
-    else if( c == 'M' ) m.view.GoToMidLineInView();
-    else if( c == '0' ) m.view.GoToBegOfLine();
-    else if( c == '$' ) m.view.GoToEndOfLine();
-    else if( c == 'g' ) Do_v_Handle_g(m);
-    else if( c == 'G' ) m.view.GoToEndOfFile();
-    else if( c == 'F' ) PageDown_v(m);
-    else if( c == 'B' ) PageUp_v(m);
-    else if( c == 'b' ) m.view.GoToPrevWord();
-    else if( c == 'w' ) m.view.GoToNextWord();
-    else if( c == 'e' ) m.view.GoToEndOfWord();
-    else if( c == '%' ) m.view.GoToOppositeBracket();
-    else if( c == 'z' ) m.vis.Handle_z();
-    else if( c == 'f' ) m.vis.Handle_f();
-    else if( c == ';' ) m.vis.Handle_SemiColon();
-    else if( c == 'y' ) { Do_y_v(m); goto EXIT_VISUAL; }
-    else if( c == 'Y' ) { Do_Y_v(m); goto EXIT_VISUAL; }
-    else if( c == 'x'
-          || c == 'd' ) { Do_x_v(m); return true; }
-    else if( c == 'D' ) { Do_D_v(m); return true; }
-    else if( c == 's' ) { Do_s_v(m); return true; }
-    else if( c == '~' ) { Do_Tilda_v(m); return true; }
-    else if( c == ESC ) { goto EXIT_VISUAL; }
+    if     ( C == 'l' ) m.view.GoRight();
+    else if( C == 'h' ) m.view.GoLeft();
+    else if( C == 'j' ) m.view.GoDown();
+    else if( C == 'k' ) m.view.GoUp();
+    else if( C == 'H' ) m.view.GoToTopLineInView();
+    else if( C == 'L' ) m.view.GoToBotLineInView();
+    else if( C == 'M' ) m.view.GoToMidLineInView();
+    else if( C == 'n' ) m.view.Do_n();
+    else if( C == 'N' ) m.view.Do_N();
+    else if( C == '0' ) m.view.GoToBegOfLine();
+    else if( C == '$' ) m.view.GoToEndOfLine();
+    else if( C == 'g' ) Do_v_Handle_g(m);
+    else if( C == 'G' ) m.view.GoToEndOfFile();
+    else if( C == 'F' ) PageDown_v(m);
+    else if( C == 'B' ) PageUp_v(m);
+    else if( C == 'b' ) m.view.GoToPrevWord();
+    else if( C == 'w' ) m.view.GoToNextWord();
+    else if( C == 'e' ) m.view.GoToEndOfWord();
+    else if( C == '%' ) m.view.GoToOppositeBracket();
+    else if( C == 'z' ) m.vis.Handle_z();
+    else if( C == 'f' ) m.vis.Handle_f();
+    else if( C == ';' ) m.vis.Handle_SemiColon();
+    else if( C == 'y' ) { Do_y_v(m); goto EXIT_VISUAL; }
+    else if( C == 'Y' ) { Do_Y_v(m); goto EXIT_VISUAL; }
+    else if( C == 'x'
+          || C == 'd' ) { Do_x_v(m); return true; }
+    else if( C == 'D' ) { Do_D_v(m); return true; }
+    else if( C == 's' ) { Do_s_v(m); return true; }
+    else if( C == '~' ) { Do_Tilda_v(m); return true; }
+    else if( C == ESC ) { goto EXIT_VISUAL; }
   }
   return false;
 
@@ -3363,7 +3365,7 @@ void View::Do_n()
 
   const unsigned NUM_LINES = m.fb.NumLines();
 
-  if( 0< NUM_LINES )
+  if( 0 < NUM_LINES )
   {
     CrsPos ncp = { 0, 0 }; // Next cursor position
 
@@ -3371,7 +3373,7 @@ void View::Do_n()
     {
       GoToCrsPos_Write( ncp.crsLine, ncp.crsChar );
     }
-    else PrintCursor();
+  //else PrintCursor();
   }
 }
 

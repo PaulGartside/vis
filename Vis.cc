@@ -3009,7 +3009,7 @@ void Handle_n( Vis::Data& m )
   Trace trace( __PRETTY_FUNCTION__ );
 
   if( m.diff_mode ) m.diff.Do_n();
-  else             CV(m)->Do_n();
+  else              CV(m)->Do_n();
 }
 
 void Handle_N( Vis::Data& m )
