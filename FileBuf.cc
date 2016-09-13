@@ -76,7 +76,9 @@ struct FileBuf::Data
   Vis&            vis;
   Highlight_Base* pHi;
   ChangeHist      history;
-  String          file_name;
+  String          file_name; // Full path and filename head = path_name + head_name
+  String          path_name; // Full path     = file_name - head_name, (for directories this is the same a file_name)
+  String          head_name; // Filename head = file_name - path_name, (for directories this is empty)
   bool            is_dir;
   double          mod_time;
   ViewList        views; // List of views that display this file
@@ -103,7 +105,9 @@ FileBuf::Data::Data( FileBuf& parent
   , pHi( 0 )
   , history( vis, parent )
   , file_name( FILE_NAME )
-  , is_dir( false )
+  , path_name( "" )
+  , head_name( "" )
+  , is_dir( ::IsDir( file_name.c_str() ) )
   , mod_time( 0 )
   , views(__FILE__, __LINE__)
   , need_2_find_stars( true )
@@ -117,6 +121,15 @@ FileBuf::Data::Data( FileBuf& parent
   , file_type( FT )
   , m_mutable( MUTABLE )
 {
+  if( is_dir )
+  {
+    path_name = file_name;
+    if( DIR_DELIM != file_name.get_end() ) file_name.push( DIR_DELIM );
+  }
+  else {
+    path_name = GetFnameTail( file_name.c_str() );
+    head_name = GetFnameHead( file_name.c_str() );
+  }
 }
 
 FileBuf::Data::Data( FileBuf& parent
@@ -126,6 +139,8 @@ FileBuf::Data::Data( FileBuf& parent
   : self( parent )
   , vis( vis )
   , file_name( FILE_NAME )
+  , path_name( "" )
+  , head_name( "" )
   , is_dir( rfb.m.is_dir )
   , mod_time( rfb.m.mod_time )
   , views(__FILE__, __LINE__)
@@ -142,6 +157,15 @@ FileBuf::Data::Data( FileBuf& parent
   , pHi( 0 )
   , m_mutable( true )
 {
+  if( is_dir )
+  {
+    path_name = file_name;
+    if( DIR_DELIM != file_name.get_end() ) file_name.push( DIR_DELIM );
+  }
+  else {
+    path_name = GetFnameTail( file_name.c_str() );
+    head_name = GetFnameHead( file_name.c_str() );
+  }
 }
 
 FileBuf::Data::~Data()
@@ -922,7 +946,8 @@ FileBuf::FileBuf( Vis& vis
   // Absolute byte offset of beginning of first line in file is always zero:
   m.lineOffsets.push(__FILE__,__LINE__, 0 );
 
-  if( m.file_name.get_end() == DIR_DELIM ) m.is_dir = true;
+//if( m.file_name.get_end() == DIR_DELIM ) m.is_dir = true;
+//m.is_dir = ::IsDir( m.file_name.c_str() );
 
   if( FT == FT_BUFFER_EDITOR )
   {
@@ -966,6 +991,8 @@ bool FileBuf::IsDir() const { return m.is_dir; }
 double FileBuf::GetModTime() const { return m.mod_time; }
 void FileBuf::SetModTime( const double mt ) { m.mod_time = mt; }
 const char* FileBuf::GetFileName() const { return m.file_name.c_str(); }
+const char* FileBuf::GetPathName() const { return m.path_name.c_str(); }
+const char* FileBuf::GetHeadName() const { return m.head_name.c_str(); }
 void FileBuf::NeedToFindStars() { m.need_2_find_stars = true; }
 void FileBuf::NeedToClearStars() { m.need_2_clear_stars = true; }
 

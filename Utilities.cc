@@ -111,21 +111,45 @@ void Swap( unsigned& A, unsigned& B )
 
 void RemoveSpaces( char* cp )
 {
-  unsigned len = strlen( cp );
-
-  ASSERT( __LINE__, len < 1024, "len < 1024" );
-
-  for( unsigned k=0; k<len; k++ )
+  if( cp )
   {
-    if( IsSpace( cp[k] ) )
+    unsigned len = strlen( cp );
+
+    ASSERT( __LINE__, len < 1024, "len < 1024" );
+
+    for( unsigned k=0; k<len; k++ )
     {
-      for( unsigned i=k; i<len; i++ )
+      if( IsSpace( cp[k] ) )
       {
-        cp[i] = cp[i+1];
+        for( unsigned i=k; i<len; i++ )
+        {
+          cp[i] = cp[i+1];
+        }
+        len--;
+        k--; // Since we just shifted down over current char,
+      }      // recheck current char
+    }
+  }
+}
+
+void Shift( char* cp, const unsigned SHIFT_LEN )
+{
+  if( cp )
+  {
+    const unsigned cp_len = strlen( cp );
+
+    ASSERT( __LINE__, cp_len < 1024, "len < 1024" );
+
+    if( cp_len < SHIFT_LEN )
+    {
+      cp[0] = 0;
+    }
+    else {
+      for( unsigned k=SHIFT_LEN; k<=cp_len; k++ )
+      {
+        cp[k-SHIFT_LEN] = cp[k];
       }
-      len--;
-      k--; // Since we just shifted down over current char,
-    }      // recheck current char
+    }
   }
 }
 
@@ -145,7 +169,8 @@ bool FileExists( const char* fname )
 
   int err = my_stat( fname, sbuf );
 
-  return 0 == err;
+  const bool exists = 0 == err;
+  return exists;
 }
 
 bool IsDir( const char* fname )
@@ -179,6 +204,171 @@ double ModificationTime( const char* fname )
 #endif
   }
   return mod_time;
+}
+
+//void Normalize_Full_Path( char* path )
+//{
+//  if( 0 != path )
+//  {
+//    int PATH_LEN = strlen( path );
+//    if( 1 < PATH_LEN )
+//    {
+//      if( '/' == path[PATH_LEN-2]
+//       && '.' == path[PATH_LEN-1] )
+//      {
+//        path[PATH_LEN-1] = 0;
+//        PATH_LEN--;
+//      }
+//      char slash_dot_dot[8];
+//      sprintf( slash_dot_dot, "%c..", DIR_DELIM );
+//
+//      // Remove all 'parent/..' occurences
+//      while( char* slash2_ptr = strstr( path, slash_dot_dot ) )
+//      {
+//        if( 3 == PATH_LEN )
+//        {
+//          path[0] = DIR_DELIM;
+//          path[1] = 0;
+//        }
+//        else {
+//          // Search for beginning of parent:
+//          int slash1_idx = slash2_ptr - path - 1;
+//          for( ; -1 < slash1_idx; slash1_idx-- )
+//          {
+//            if( path[slash1_idx] == DIR_DELIM ) break;
+//          }
+//          int end_idx = slash2_ptr + 2 - path;
+//          if( end_idx < PATH_LEN-1 && '/' == path[end_idx+1] ) end_idx++;
+//          const int RM_LEN = end_idx - slash1_idx;
+//          for( int k=slash1_idx+1; k<=(PATH_LEN-RM_LEN); k++ )
+//          {
+//            path[k] = path[k+RM_LEN];
+//          }
+//          PATH_LEN -= RM_LEN;
+//        }
+//      }
+//    }
+//  }
+//}
+
+// Changes 'path/.' to 'path/.
+void Remove_dot_at_end( char* path )
+{
+  if( 0 != path )
+  {
+    int PATH_LEN = strlen( path );
+    if( 2 < PATH_LEN )
+    {
+      if( DIR_DELIM == path[PATH_LEN-2]
+       && '.'       == path[PATH_LEN-1] )
+      {
+        path[PATH_LEN-1] = 0;
+      }
+    }
+  }
+}
+
+// Removes './' from path
+void Remove_dot_slash( char* path )
+{
+  if( 0 != path )
+  {
+    int PATH_LEN = strlen( path );
+    if( 1 < PATH_LEN )
+    {
+      for( int k=1; k<PATH_LEN; k++ )
+      {
+        if( '.' == path[k-1]
+         && '/' == path[k  ] )
+        {
+          //< Shift from '/' to end back to '.'
+        //Shift( path+k-1, 1 );
+          for( unsigned i=k; i<=PATH_LEN; i++ )
+          {
+            path[i-1] = path[i];
+          }
+          PATH_LEN -= 1;
+        }
+      }
+    }
+  }
+}
+
+// Removes '//' from path
+void Remove_slash_slash( char* path )
+{
+  if( 0 != path )
+  {
+    int PATH_LEN = strlen( path );
+    if( 1 < PATH_LEN )
+    {
+      for( int k=1; k<PATH_LEN; k++ )
+      {
+        if( '/' == path[k-1]
+         && '/' == path[k  ] )
+        {
+          //< Shift from second '/' to end back to first '/'
+        //Shift( path+k-1, 1 );
+          for( unsigned i=k; i<=PATH_LEN; i++ )
+          {
+            path[i-1] = path[i];
+          }
+          PATH_LEN -= 1;
+        }
+      }
+    }
+  }
+}
+
+// Remove all 'parent/..' occurences
+void Remove_parent_slash_dot_dot( char* path )
+{
+  if( 0 != path )
+  {
+    int PATH_LEN = strlen( path );
+    if( 2 < PATH_LEN )
+    {
+      char slash_dot_dot[8];
+      sprintf( slash_dot_dot, "%c..", DIR_DELIM );
+
+      // Remove all 'parent/..' occurences
+      while( char* slash2_ptr = strstr( path, slash_dot_dot ) )
+      {
+        if( 3 == PATH_LEN )
+        {
+          path[0] = DIR_DELIM;
+          path[1] = 0;
+        }
+        else {
+          // Search for beginning of parent:
+          int slash1_idx = slash2_ptr - path - 1;
+          for( ; -1 < slash1_idx; slash1_idx-- )
+          {
+            if( path[slash1_idx] == DIR_DELIM ) break;
+          }
+          int end_idx = slash2_ptr + 2 - path;
+          if( end_idx < PATH_LEN-1 && '/' == path[end_idx+1] ) end_idx++;
+          const int RM_LEN = end_idx - slash1_idx;
+          for( int k=slash1_idx+1; k<=(PATH_LEN-RM_LEN); k++ )
+          {
+            path[k] = path[k+RM_LEN];
+          }
+          PATH_LEN -= RM_LEN;
+        }
+      }
+    }
+  }
+}
+
+void Normalize_Full_Path( char* path )
+{
+  if( 0 != path )
+  {
+    Remove_dot_at_end( path );
+    Remove_dot_slash( path );
+    Remove_slash_slash( path );
+    Remove_parent_slash_dot_dot( path );
+  }
 }
 
 // Finds full name of file or directory of in_out_fname passed in
@@ -246,55 +436,56 @@ double ModificationTime( const char* fname )
 // that of new in_out_fname.
 // Returns true on success, false on failure.
 //
-bool FindFullFileName( String& in_out_fname )
-{
-  EnvKeys2Vals( in_out_fname );
-  const char* in_fname = in_out_fname.c_str();
-  const unsigned FILE_NAME_LEN = 1024;
-  char cwd[ FILE_NAME_LEN ];
-
-  if( IsDir( in_fname ) ) // in_fname is name of dir:
-  {
-    // 1. chdir  - Change dir to in_fname
-    int err = chdir( in_fname );
-    if( err ) return false;
-    // 2. getcwd - Get the current working directory and put into cwd
-    if( ! getcwd( cwd, FILE_NAME_LEN ) ) return false;
-    // 3. make sure cwd ends with a '/'
-    const int F_NAME_LEN = strlen( cwd );
-    if( DIR_DELIM != cwd[ F_NAME_LEN-1 ] )
-    {
-      cwd[ F_NAME_LEN ] = DIR_DELIM;
-      cwd[ F_NAME_LEN+1 ] = 0;
-    }
-    // 4. copy cwd int in_out_fname
-    in_out_fname = cwd;
-  }
-  else { // IsDir is false, assume in_fname will be a new file.
-    // 1. seperate in_fname into f_name_tail and f_name_head
-    String f_name_head;
-    String f_name_tail;
-
-    GetFnameHeadAndTail( in_out_fname, f_name_head, f_name_tail );
-
-    // 2. chdir  - Change dir to f_name_tail
-    if( 0<f_name_tail.len() )
-    {
-      int err = chdir( f_name_tail.c_str() );
-      if( err ) return false;
-    }
-    // 3. getcwd - Get the current working directory and put into f_name_tail
-    if( ! getcwd( cwd, FILE_NAME_LEN ) ) return false;
-    f_name_tail = cwd;
-    // 4. concatenate f_name_tail and f_name_head into in_out_fname
-    sprintf( cwd, "%s%c%s", f_name_tail.c_str(), DIR_DELIM, f_name_head.c_str() );
-    in_out_fname = cwd;
-  }
-  return true;
-}
+//bool FindFullFileName( String& in_out_fname )
+//{
+//  EnvKeys2Vals( in_out_fname );
+//  const char* in_fname = in_out_fname.c_str();
+//  const unsigned FILE_NAME_LEN = 1024;
+//  char cwd[ FILE_NAME_LEN ];
+//
+//  if( IsDir( in_fname ) ) // in_fname is name of dir:
+//  {
+//    // 1. chdir  - Change dir to in_fname
+//    int err = chdir( in_fname );
+//    if( err ) return false;
+//    // 2. getcwd - Get the current working directory and put into cwd
+//    if( ! getcwd( cwd, FILE_NAME_LEN ) ) return false;
+//    // 3. make sure cwd ends with a '/'
+//    const int F_NAME_LEN = strlen( cwd );
+//    if( DIR_DELIM != cwd[ F_NAME_LEN-1 ] )
+//    {
+//      cwd[ F_NAME_LEN ] = DIR_DELIM;
+//      cwd[ F_NAME_LEN+1 ] = 0;
+//    }
+//    // 4. copy cwd int in_out_fname
+//    in_out_fname = cwd;
+//  }
+//  else { // IsDir is false, assume in_fname will be a new file.
+//    // 1. seperate in_fname into f_name_tail and f_name_head
+//    String f_name_head;
+//    String f_name_tail;
+//
+//    GetFnameHeadAndTail( in_out_fname, f_name_head, f_name_tail );
+//
+//    // 2. chdir  - Change dir to f_name_tail
+//    if( 0<f_name_tail.len() )
+//    {
+//      int err = chdir( f_name_tail.c_str() );
+//      if( err ) return false;
+//    }
+//    // 3. getcwd - Get the current working directory and put into f_name_tail
+//    if( ! getcwd( cwd, FILE_NAME_LEN ) ) return false;
+//    f_name_tail = cwd;
+//    // 4. concatenate f_name_tail and f_name_head into in_out_fname
+//    sprintf( cwd, "%s%c%s", f_name_tail.c_str(), DIR_DELIM, f_name_head.c_str() );
+//    in_out_fname = cwd;
+//  }
+//  return true;
+//}
 
 // Finds full name of file or directory of in_out_fname passed in
 // relative to current directory, and places result in in_out_fname.
+// The full name found does not need to exist to return success.
 // Returns true on success, false on failure.
 //
 //bool FindFullFileName( String& in_out_fname )
@@ -303,28 +494,106 @@ bool FindFullFileName( String& in_out_fname )
 //
 //  const char* in_fname = in_out_fname.c_str();
 //
-//  const unsigned FILE_NAME_LEN = 1024;
-//  char buf[ FILE_NAME_LEN ];
-//  if( getcwd( buf, FILE_NAME_LEN ) )
+//  const unsigned BUF_LEN = 1024;
+//  char buf[ BUF_LEN ];
+//  if( getcwd( buf, BUF_LEN ) )
 //  {
 //    const int CWD_LEN = strlen( buf );
-//    if( CWD_LEN < FILE_NAME_LEN )
+//    if( CWD_LEN < BUF_LEN )
 //    {
-//      const int REMAINDER = FILE_NAME_LEN - CWD_LEN;
-//      int rval = snprintf( buf+CWD_LEN, REMAINDER, "%c%s", DIR_DELIM, in_fname );
+//      const int BUF_REMAINDER = BUF_LEN - CWD_LEN;
+//      int rval = snprintf( buf+CWD_LEN
+//                         , BUF_REMAINDER
+//                         , "%c%s", DIR_DELIM, in_fname );
 //
-//      if( 0 < rval && rval < REMAINDER )
+//      if( 0 < rval && rval < BUF_REMAINDER )
 //      {
-//        if( FileExists( buf ) )
-//        {
-//          in_out_fname = buf;
-//          return true;
-//        }
+//        Normalize_Full_Path( buf );
+//        in_out_fname = buf;
+//        return true;
 //      }
 //    }
 //  }
 //  return false;
 //}
+
+// Finds full name of file or directory of in_out_fname passed in
+// relative to current directory, and places result in in_out_fname.
+// The full name found does not need to exist to return success.
+// Returns true on success, false on failure.
+//
+bool FindFullFileName( String& in_out_fname )
+{
+  EnvKeys2Vals( in_out_fname );
+
+  const char* in_fname = in_out_fname.c_str();
+
+  if( 0<in_out_fname.len() && DIR_DELIM == in_fname[0] )
+  {
+    // in_out_fname is a already full path, so just return
+    return true;
+  }
+  const unsigned BUF_LEN = 1024;
+  char buf[ BUF_LEN ];
+  if( getcwd( buf, BUF_LEN ) )
+  {
+    const int CWD_LEN = strlen( buf );
+    if( CWD_LEN < BUF_LEN )
+    {
+      const int BUF_REMAINDER = BUF_LEN - CWD_LEN;
+      int rval = snprintf( buf+CWD_LEN
+                         , BUF_REMAINDER
+                         , "%c%s", DIR_DELIM, in_fname );
+
+      if( 0 < rval && rval < BUF_REMAINDER )
+      {
+        Normalize_Full_Path( buf );
+        in_out_fname = buf;
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+// Finds full name of file or directory of in_out_fname passed in
+// relative to rel_2_path, and places result in in_out_fname.
+// The full name found does not need to exist to return success.
+// Returns true on success, false on failure.
+//
+bool FindFullFileNameRel2( const char* rel_2_path, String& in_out_fname )
+{
+  if( rel_2_path )
+  {
+    EnvKeys2Vals( in_out_fname );
+
+    const char* in_fname = in_out_fname.c_str();
+
+    if( 0<in_out_fname.len() && DIR_DELIM == in_fname[0] )
+    {
+      // in_out_fname is a already full path, so just return
+      return true;
+    }
+    const unsigned FILE_NAME_LEN = 1024;
+    char buf[ FILE_NAME_LEN ];
+    strncpy( buf, rel_2_path, FILE_NAME_LEN-1 );
+    buf[ FILE_NAME_LEN-1 ] = 0;
+    const int CWD_LEN = strlen( buf );
+    if( CWD_LEN < FILE_NAME_LEN )
+    {
+      const int REMAINDER = FILE_NAME_LEN - CWD_LEN;
+      int rval = snprintf( buf+CWD_LEN, REMAINDER, "%c%s", DIR_DELIM, in_fname );
+
+      if( 0 < rval && rval < REMAINDER )
+      {
+        Normalize_Full_Path( buf );
+        in_out_fname = buf;
+        return true;
+      }
+    }
+  }
+  return false;
+}
 
 void GetFnameHeadAndTail( const String& in_fname, String& head, String& tail )
 {
@@ -345,12 +614,12 @@ void GetFnameHeadAndTail( const String& in_fname, String& head, String& tail )
   }
 }
 
-String GetFnameHead( const String& in_fname )
+String GetFnameHead( const char* in_full_fname )
 {
   String head;
 
   // This const_cast is okay because we are not changing in_fname_cp:
-  char* in_fname_cp = CCast<char*>(in_fname.c_str());
+  char* in_fname_cp = CCast<char*>(in_full_fname);
   char* const last_slash = strrchr( in_fname_cp, DIR_DELIM );
   if( last_slash )
   {
@@ -361,6 +630,33 @@ String GetFnameHead( const String& in_fname )
     for( char* cp = in_fname_cp; *cp; cp++ ) head.push( *cp );
   }
   return head;
+}
+
+String GetFnameTail( const char* in_full_fname )
+{
+  String tail;
+
+  // This const_cast is okay because we are not changing in_fname_cp:
+  char* in_fname_cp = CCast<char*>(in_full_fname);
+  char* const last_slash = strrchr( in_fname_cp, DIR_DELIM );
+  if( last_slash )
+  {
+    for( char* cp = in_fname_cp; cp<last_slash; cp++ ) tail.push( *cp );
+  }
+  return tail;
+}
+
+const char* DirDelimStr()
+{
+  static char DIR_DELIM_STR[4];
+  static bool initialized = false;
+
+  if( !initialized )
+  {
+    initialized = true;
+    sprintf( DIR_DELIM_STR, "%c", DIR_DELIM );
+  }
+  return DIR_DELIM_STR;
 }
 
 void EnvKeys2Vals( String& in_out_fname )

@@ -46,6 +46,8 @@ public:
   double GetModTime() const;
   void SetModTime( const double mt );
   const char* GetFileName() const;
+  const char* GetPathName() const;
+  const char* GetHeadName() const;
   void NeedToFindStars();
   void NeedToClearStars();
 

@@ -333,8 +333,10 @@ void Highlight_Code::Hi_NumberBeg( unsigned& l, unsigned& p )
 }
 
 // Need to add highlighting for:
-//   U = unsigned
 //   L = long
+//   U = unsigned
+//   UL = unsigned long
+//   ULL = unsigned long long
 //   F = float
 // at the end of numbers
 void Highlight_Code::Hi_NumberIn( unsigned& l, unsigned& p )

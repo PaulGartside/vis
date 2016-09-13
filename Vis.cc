@@ -289,14 +289,43 @@ void InitCmdBuffer( Vis::Data& m )
   pfb->PushLine(); // Add an empty line
 }
 
+//bool InitUserFiles( Vis::Data& m, const int ARGC, const char* const ARGV[] )
+//{
+//  bool run_diff = false;
+//
+//  // Save original working directory from which to open all user supplied files names
+//  const unsigned FILE_NAME_LEN = 1024;
+//  char orig_dir[ FILE_NAME_LEN ];
+//  bool got_orig_dir = !! getcwd( orig_dir, FILE_NAME_LEN );
+//
+//  // User file buffers, 5, 6, ...
+//  for( int k=1; k<ARGC; k++ )
+//  {
+//    if( strcmp( "-d", ARGV[k] ) == 0 )
+//    {
+//      run_diff = true;
+//    }
+//    else {
+//      String file_name = ARGV[k];
+//      if( FindFullFileName( file_name ) )
+//      {
+//        if( !m.vis.HaveFile( file_name.c_str() ) )
+//        {
+//          FileBuf* pfb = new(__FILE__,__LINE__)
+//                         FileBuf( m.vis, file_name.c_str(), true, FT_UNKNOWN );
+//          pfb->ReadFile();
+//        }
+//        // Restore original directory, for next call to FindFullFileName()
+//        if( got_orig_dir ) chdir( orig_dir );
+//      }
+//    }
+//  }
+//  return run_diff;
+//}
+
 bool InitUserFiles( Vis::Data& m, const int ARGC, const char* const ARGV[] )
 {
   bool run_diff = false;
-
-  // Save original working directory from which to open all user supplied files names
-  const unsigned FILE_NAME_LEN = 1024;
-  char orig_dir[ FILE_NAME_LEN ];
-  bool got_orig_dir = !! getcwd( orig_dir, FILE_NAME_LEN );
 
   // User file buffers, 5, 6, ...
   for( int k=1; k<ARGC; k++ )
@@ -315,8 +344,6 @@ bool InitUserFiles( Vis::Data& m, const int ARGC, const char* const ARGV[] )
                          FileBuf( m.vis, file_name.c_str(), true, FT_UNKNOWN );
           pfb->ReadFile();
         }
-        // Restore original directory, for next call to FindFullFileName()
-        if( got_orig_dir ) chdir( orig_dir );
       }
     }
   }
@@ -2862,7 +2889,14 @@ void HandleColon_e( Vis::Data& m )
   {
     // Edit file of supplied file name:
     String fname( m.cbuf + 1 );
-    if( pV->GoToDir() && FindFullFileName( fname ) )
+    // If path name is empty,
+    //      find full file name relative to cwd of vis process
+    // else find full file name relative to path name of current file
+    const bool
+    found_full_file_name = 0 == strcmp( pV->GetPathName(), "" )
+                           ? FindFullFileName( fname )
+                           : FindFullFileNameRel2( pV->GetPathName(), fname );
+    if( found_full_file_name )
     {
       unsigned file_index = 0;
       if( m.vis.HaveFile( fname.c_str(), &file_index ) )
@@ -2905,7 +2939,8 @@ void HandleColon_w( Vis::Data& m )
   {
     // Write file of supplied file name:
     String fname( m.cbuf + 1 );
-    if( pV->GoToDir() && FindFullFileName( fname ) )
+  //if( pV->GoToDir() && FindFullFileName( fname ) )
+    if( FindFullFileNameRel2( pV->GetPathName(), fname ) )
     {
       unsigned file_index = 0;
       if( m.vis.HaveFile( fname.c_str(), &file_index ) )
@@ -3507,8 +3542,8 @@ void Vis::Init( const int ARGC, const char* const ARGV[] )
   InitSearchEditor(m);
   InitMsgBuffer(m);
   InitCmdBuffer(m);
-  const bool run_diff =
-  InitUserFiles( m, ARGC, ARGV ) && (CMD_FILE+1+2) == m.files.len();
+  const bool run_diff = InitUserFiles( m, ARGC, ARGV )
+                     && (CMD_FILE+1+2) == m.files.len();
   InitFileHistory(m);
   InitCmdFuncs(m);
 
@@ -3897,24 +3932,25 @@ bool Vis::GoToBuffer_Fname( String& fname )
     GoToBuffer( m, file_index );
     return true;
   }
-  // 2. Go to directory of current buffer:
-  if( ! CV()->GoToDir() )
+  // 2. Get full file name
+  if( fname.has_at( DirDelimStr(), 0 ) && FileExists( fname.c_str() ) )
+  {
+    ; // fname is already a full file name
+  }
+//else if( !FindFullFileNameRel2( CV()->GetPathName(), fname ) )
+  else if( !( 0 == strcmp( CV()->GetPathName(), "")
+            ? FindFullFileName( fname )
+            : FindFullFileNameRel2( CV()->GetPathName(), fname ) ) )
   {
     m.vis.CmdLineMessage( "Could not find file: %s", fname.c_str() );
     return false;
   }
-  // 3. Get full file name
-  if( !FindFullFileName( fname ) )
-  {
-    m.vis.CmdLineMessage( "Could not find file: %s", fname.c_str() );
-    return false;
-  }
-  // 4. Search for fname in buffer list, and if found, go to that buffer:
+  // 3. Search for fname in buffer list, and if found, go to that buffer:
   if( HaveFile( fname.c_str(), &file_index ) )
   {
     GoToBuffer( m, file_index ); return true;
   }
-  // 5. See if file exists, and if so, add a file buffer, and go to that buffer
+  // 4. See if file exists, and if so, add a file buffer, and go to that buffer
   bool exists = false;
   const bool IS_DIR = fname.get_end() == DIR_DELIM;
   if( IS_DIR )

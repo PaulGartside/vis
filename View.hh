@@ -178,7 +178,8 @@ public:
   bool Has_Context();
   void Set_Context( View& vr );
 
-  bool GoToDir();
+//bool GoToDir();
+  const char* GetPathName();
 
   struct Data;
 

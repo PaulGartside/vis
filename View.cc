@@ -4103,35 +4103,40 @@ void View::Set_Context( View& vr )
 
 // Change directory to that of file of view:
 //
-bool View::GoToDir()
+//bool View::GoToDir()
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//
+//  char* fname_str = const_cast<char*>( m.fb.GetFileName() );
+//
+//  if( m.fb.IsDir() )
+//  {
+//    int err = chdir( fname_str );
+//    if( err ) return false;
+//  }
+//  else {
+//    char* const last_slash = strrchr( fname_str, DIR_DELIM );
+//    if( last_slash )
+//    {
+//      const int TAIL_LEN = last_slash - fname_str;
+//      if( 0<TAIL_LEN )
+//      {
+//        char f_name_tail[ 1024 ];
+//        strncpy( f_name_tail, fname_str, TAIL_LEN );
+//        f_name_tail[ TAIL_LEN ] = 0;
+//
+//        int err = chdir( f_name_tail );
+//        if( err ) return false;
+//      }
+//    }
+//  }
+//  // If the directory of the view cannot be determined, just return true
+//  // so that the current directory will be used
+//  return true;
+//}
+
+const char* View::GetPathName()
 {
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  char* fname_str = const_cast<char*>( m.fb.GetFileName() );
-
-  if( m.fb.IsDir() )
-  {
-    int err = chdir( fname_str );
-    if( err ) return false;
-  }
-  else {
-    char* const last_slash = strrchr( fname_str, DIR_DELIM );
-    if( last_slash )
-    {
-      const int TAIL_LEN = last_slash - fname_str;
-      if( 0<TAIL_LEN )
-      {
-        char f_name_tail[ 1024 ];
-        strncpy( f_name_tail, fname_str, TAIL_LEN );
-        f_name_tail[ TAIL_LEN ] = 0;
-
-        int err = chdir( f_name_tail );
-        if( err ) return false;
-      }
-    }
-  }
-  // If the directory of the view cannot be determined, just return true
-  // so that the current directory will be used
-  return true;
+  return m.fb.GetPathName();
 }
 

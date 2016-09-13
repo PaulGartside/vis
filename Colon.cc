@@ -269,7 +269,8 @@ bool FindFileBuf( Colon::Data& m )
   char orig_dir[ FILE_NAME_LEN ];
   bool got_orig_dir = !! getcwd( orig_dir, FILE_NAME_LEN );
 
-  if( m.cv->GoToDir() && FindFullFileName( f_full_path ) )
+//if( m.cv->GoToDir() && FindFullFileName( f_full_path ) )
+  if( FindFullFileNameRel2( m.cv->GetPathName(), f_full_path ) )
   {
     m.partial_path = f_name_tail;
     m.search__head = f_name_head;
