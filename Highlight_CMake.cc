@@ -95,8 +95,8 @@ void Highlight_CMake::Hi_In_None( unsigned& l, unsigned& p )
             || s[0]=='.' || s[0]=='*'
             || s[0]=='[' || s[0]==']' ) { m_fb.SetSyntaxStyle( l, p, HI_VARTYPE ); }
 
-      else if( s[0]=='~'
-            || s[0]=='=' || s[0]=='^'
+      else if( s[0]=='=' || s[0]=='@'
+            || s[0]=='^' || s[0]=='~'
             || s[0]==':' || s[0]=='%'
             || s[0]=='+' || s[0]=='-'
             || s[0]=='<' || s[0]=='>'
@@ -104,8 +104,7 @@ void Highlight_CMake::Hi_In_None( unsigned& l, unsigned& p )
             || s[0]=='(' || s[0]==')'
             || s[0]=='{' || s[0]=='}'
             || s[0]==',' || s[0]==';'
-            || s[0]=='/' || s[0]=='|'
-            || s[0]=='@' || s[0]=='^' ) { m_fb.SetSyntaxStyle( l, p, HI_CONTROL ); }
+            || s[0]=='/' || s[0]=='|' ) { m_fb.SetSyntaxStyle( l, p, HI_CONTROL ); }
 
       else if( s[0] < 32 || 126 < s[0] ) { m_fb.SetSyntaxStyle( l, p, HI_NONASCII ); }
       else if( LL-1 == p && s[0]=='\\')  { m_fb.SetSyntaxStyle( l, p, HI_DEFINE ); }
@@ -224,9 +223,6 @@ void Highlight_CMake::Hi_96_Quote( unsigned& l, unsigned& p )
       if( (c1=='`'  && c0==0  )
        || (c1!='\\' && c0=='`')
        || (c1=='\\' && c0=='`' && slash_escaped) )
-     //|| (c1=='\'' && c0==0   )
-     //|| (c1!='\\' && c0=='\'')
-     //|| (c1=='\\' && c0=='\'' && slash_escaped) )
       {
         m_fb.SetSyntaxStyle( l, p, HI_CONST ); p++;
         m_state = &ME::Hi_In_None;

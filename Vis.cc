@@ -3937,7 +3937,6 @@ bool Vis::GoToBuffer_Fname( String& fname )
   {
     ; // fname is already a full file name
   }
-//else if( !FindFullFileNameRel2( CV()->GetPathName(), fname ) )
   else if( !( 0 == strcmp( CV()->GetPathName(), "")
             ? FindFullFileName( fname )
             : FindFullFileNameRel2( CV()->GetPathName(), fname ) ) )
@@ -4006,7 +4005,7 @@ void Vis::Handle_Slash_GotPattern( const String& pattern
     return;
   }
   // Un-highlight old star patterns for windows displayed:
-  if( m.star.len()  )
+  if( 0 < m.star.len()  )
   { // Since m.diff_mode does Console::Update(),
     // no need to print patterns here if in m.diff_mode
     if( !m.diff_mode ) Do_Star_PrintPatterns( m, false );

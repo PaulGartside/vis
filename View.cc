@@ -3373,7 +3373,10 @@ void View::Do_n()
     {
       GoToCrsPos_Write( ncp.crsLine, ncp.crsChar );
     }
-  //else PrintCursor();
+    else {
+      // Pattern not found, so put cursor back in view:
+      PrintCursor();
+    }
   }
 }
 
@@ -3391,6 +3394,10 @@ void View::Do_N()
     if( Do_N_FindPrevPattern( m, ncp ) )
     {
       GoToCrsPos_Write( ncp.crsLine, ncp.crsChar );
+    }
+    else {
+      // Pattern not found, so put cursor back in view:
+      PrintCursor();
     }
   }
 }

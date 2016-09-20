@@ -71,7 +71,7 @@ void Highlight_Make::Hi_In_None( unsigned& l, unsigned& p )
       if     ( 0==strncmp( s, "#" , 1 ) ) { m_state = &ME::Hi_In_Comment; }
       else if( 0==strncmp( s, "\'", 1 ) ) { m_state = &ME::Hi_SingleQuote; }
       else if( 0==strncmp( s, "\"", 1 ) ) { m_state = &ME::Hi_DoubleQuote; }
-      else if( 0==strncmp( s, "`",  1 ) ) { m_state = &ME::Hi_96_Quote; }
+      else if( 0==strncmp( s, "`" , 1 ) ) { m_state = &ME::Hi_96_Quote; }
       else if( 0<p && !IsIdent((s-1)[0])
                    &&  isdigit( s   [0]) ){ m_state = &ME::Hi_NumberBeg; }
 
@@ -95,7 +95,7 @@ void Highlight_Make::Hi_In_None( unsigned& l, unsigned& p )
             || s[0]=='.' || s[0]=='*'
             || s[0]=='[' || s[0]==']' ) { m_fb.SetSyntaxStyle( l, p, HI_VARTYPE ); }
 
-      else if( s[0]=='~'
+      else if( s[0]=='~' || s[0]=='@'
             || s[0]=='=' || s[0]=='^'
             || s[0]==':' || s[0]=='%'
             || s[0]=='+' || s[0]=='-'
@@ -104,8 +104,7 @@ void Highlight_Make::Hi_In_None( unsigned& l, unsigned& p )
             || s[0]=='(' || s[0]==')'
             || s[0]=='{' || s[0]=='}'
             || s[0]==',' || s[0]==';'
-            || s[0]=='/' || s[0]=='|'
-            || s[0]=='@' || s[0]=='^' ) { m_fb.SetSyntaxStyle( l, p, HI_CONTROL ); }
+            || s[0]=='/' || s[0]=='|' ) { m_fb.SetSyntaxStyle( l, p, HI_CONTROL ); }
 
       else if( s[0] < 32 || 126 < s[0] ) { m_fb.SetSyntaxStyle( l, p, HI_NONASCII ); }
       else if( LL-1 == p && s[0]=='\\')  { m_fb.SetSyntaxStyle( l, p, HI_DEFINE ); }

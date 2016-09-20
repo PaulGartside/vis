@@ -2321,19 +2321,38 @@ bool Do_n_Search_for_Same( Diff::Data& m
   Trace trace( __PRETTY_FUNCTION__ );
 
   const unsigned NUM_LINES = NumLines(m);
+  const unsigned dl_st = dl;
 
   // Search forward for DT_SAME
   bool found = false;
 
-  while( !found && dl<NUM_LINES )
+  if( 1 < NUM_LINES )
   {
-    const Diff_Type DT = DI_List[dl].diff_type;
-
-    if( DT == DT_SAME )
+    while( !found && dl<NUM_LINES )
     {
-      found = true;
+      const Diff_Type DT = DI_List[dl].diff_type;
+
+      if( DT == DT_SAME )
+      {
+        found = true;
+      }
+      else dl++;
     }
-    else dl++;
+    if( !found )
+    {
+      // Wrap around back to top and search again:
+      dl = 0;
+      while( !found && dl<dl_st )
+      {
+        const Diff_Type DT = DI_List[dl].diff_type;
+
+        if( DT == DT_SAME )
+        {
+          found = true;
+        }
+        else dl++;
+      }
+    }
   }
   return found;
 }
@@ -2345,19 +2364,38 @@ bool Do_n_Search_for_Diff( Diff::Data& m
   Trace trace( __PRETTY_FUNCTION__ );
 
   const unsigned NUM_LINES = NumLines(m);
+  const unsigned dl_st = dl;
 
   // Search forward for non-DT_SAME
   bool found = false;
 
-  while( !found && dl<NUM_LINES )
+  if( 1 < NUM_LINES )
   {
-    const Diff_Type DT = DI_List[dl].diff_type;
-
-    if( DT == DT_CHANGED || DT == DT_INSERTED || DT == DT_DELETED )
+    while( !found && dl<NUM_LINES )
     {
-      found = true;
+      const Diff_Type DT = DI_List[dl].diff_type;
+
+      if( DT == DT_CHANGED || DT == DT_INSERTED || DT == DT_DELETED )
+      {
+        found = true;
+      }
+      else dl++;
     }
-    else dl++;
+    if( !found )
+    {
+      // Wrap around back to top and search again:
+      dl = 0;
+      while( !found && dl<dl_st )
+      {
+        const Diff_Type DT = DI_List[dl].diff_type;
+
+        if( DT == DT_CHANGED || DT == DT_INSERTED || DT == DT_DELETED )
+        {
+          found = true;
+        }
+        else dl++;
+      }
+    }
   }
   return found;
 }
@@ -2370,7 +2408,7 @@ void Do_n_Diff( Diff::Data& m )
 
   if( 0 < NUM_LINES )
   {
-    unsigned dl = CrsLine(m); // Diff line
+    unsigned dl = CrsLine(m); // Diff line, changed by search methods below
 
     View* pV = m.vis.CV();
 
@@ -2382,6 +2420,7 @@ void Do_n_Diff( Diff::Data& m )
 
     if( DT == DT_CHANGED || DT == DT_INSERTED || DT == DT_DELETED )
     {
+      // If currently on a diff, search for same before searching for diff
       found = Do_n_Search_for_Same( m, dl, DI_List );
     }
     if( found )
@@ -2505,16 +2544,39 @@ bool Do_N_Search_for_Same( Diff::Data& m
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
+  const int NUM_LINES = NumLines(m);
+  const int dl_st = dl;
+
   // Search backwards for DT_SAME
   bool found = false;
 
-  while( !found && 0<=dl )
+  if( 1 < NUM_LINES )
   {
-    if( DT_SAME == DI_List[dl].diff_type )
+    while( !found && 0<=dl )
     {
-      found = true;
+      const Diff_Type DT = DI_List[dl].diff_type;
+
+      if( DT == DT_SAME )
+      {
+        found = true;
+      }
+      else dl--;
     }
-    else dl--;
+    if( !found )
+    {
+      // Wrap around back to bottom and search again:
+      dl = NUM_LINES-1;
+      while( !found && dl_st<dl )
+      {
+        const Diff_Type DT = DI_List[dl].diff_type;
+
+        if( DT == DT_SAME )
+        {
+          found = true;
+        }
+        else dl--;
+      }
+    }
   }
   return found;
 }
@@ -2525,18 +2587,39 @@ bool Do_N_Search_for_Diff( Diff::Data& m
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
+  const unsigned NUM_LINES = NumLines(m);
+  const unsigned dl_st = dl;
+
   // Search backwards for non-DT_SAME
   bool found = false;
 
-  while( !found && 0<=dl )
+  if( 1 < NUM_LINES )
   {
-    const Diff_Type DT = DI_List[dl].diff_type;
-
-    if( DT == DT_CHANGED || DT == DT_INSERTED || DT == DT_DELETED )
+    while( !found && 0<=dl )
     {
-      found = true;
+      const Diff_Type DT = DI_List[dl].diff_type;
+
+      if( DT == DT_CHANGED || DT == DT_INSERTED || DT == DT_DELETED )
+      {
+        found = true;
+      }
+      else dl--;
     }
-    else dl--;
+    if( !found )
+    {
+      // Wrap around back to bottom and search again:
+      dl = NUM_LINES-1;
+      while( !found && dl_st<dl )
+      {
+        const Diff_Type DT = DI_List[dl].diff_type;
+
+        if( DT == DT_CHANGED || DT == DT_INSERTED || DT == DT_DELETED )
+        {
+          found = true;
+        }
+        else dl--;
+      }
+    }
   }
   return found;
 }
@@ -2546,29 +2629,32 @@ void Do_N_Diff( Diff::Data& m )
   Trace trace( __PRETTY_FUNCTION__ );
 
   const unsigned NUM_LINES = NumLines(m);
-  if( 0==NUM_LINES ) return;
 
-  int dl = CrsLine(m);
-  if( 0 == dl ) return;
-
-  View* pV = m.vis.CV();
-
-  Array_t<Diff_Info>& DI_List = (pV == m.pvS) ? m.DI_List_S : m.DI_List_L;
-
-  const Diff_Type DT = DI_List[dl].diff_type; // Current diff type
-
-  bool found = true;
-  if( DT == DT_CHANGED || DT == DT_INSERTED || DT == DT_DELETED )
+  if( 0 < NUM_LINES )
   {
-    found = Do_N_Search_for_Same( m, dl, DI_List );
-  }
-  if( found )
-  {
-    found = Do_N_Search_for_Diff( m, dl, DI_List );
+    int dl = CrsLine(m); // Diff line, changed by search methods below
 
+    View* pV = m.vis.CV();
+
+    Array_t<Diff_Info>& DI_List = (pV == m.pvS) ? m.DI_List_S : m.DI_List_L;
+
+    const Diff_Type DT = DI_List[dl].diff_type; // Current diff type
+
+    bool found = true;
+
+    if( DT == DT_CHANGED || DT == DT_INSERTED || DT == DT_DELETED )
+    {
+      // If currently on a diff, search for same before searching for diff
+      found = Do_N_Search_for_Same( m, dl, DI_List );
+    }
     if( found )
     {
-      GoToCrsPos_Write( m, dl, CrsChar(m) );
+      found = Do_N_Search_for_Diff( m, dl, DI_List );
+
+      if( found )
+      {
+        GoToCrsPos_Write( m, dl, CrsChar(m) );
+      }
     }
   }
 }

@@ -956,7 +956,7 @@ FileBuf::FileBuf( Vis& vis
   }
   else if( FT_UNKNOWN == m.file_type ) Find_File_Type_Suffix( m );
 
-  m.vis.Add_FileBuf_2_Lists_Create_Views( this, FILE_NAME );
+  m.vis.Add_FileBuf_2_Lists_Create_Views( this, m.file_name.c_str() );
 }
 
 FileBuf::FileBuf( Vis& vis
@@ -978,7 +978,7 @@ FileBuf::FileBuf( Vis& vis
   }
   m.mod_time = ModificationTime( m.file_name.c_str() );
 
-  m.vis.Add_FileBuf_2_Lists_Create_Views( this, FILE_NAME );
+  m.vis.Add_FileBuf_2_Lists_Create_Views( this, m.file_name.c_str() );
 }
 
 FileBuf::~FileBuf()
