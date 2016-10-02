@@ -76,6 +76,7 @@ static HiKeyVal HiPairs[] =
   { "uint16_t"           , HI_VARTYPE },
   { "uint32_t"           , HI_VARTYPE },
   { "uint64_t"           , HI_VARTYPE },
+  { "size_t"             , HI_VARTYPE },
   { "int8_t"             , HI_VARTYPE },
   { "int16_t"            , HI_VARTYPE },
   { "int32_t"            , HI_VARTYPE },

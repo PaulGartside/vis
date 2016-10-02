@@ -59,13 +59,13 @@ const unsigned BE_FILE    = 0;    // Buffer editor file
 const unsigned HELP_FILE  = 1;    // Help          file
 const unsigned SE_FILE    = 2;    // Search editor file
 const unsigned MSG_FILE   = 3;    // Message       file
-const unsigned CMD_FILE   = 4;    // Command Shell file
+const unsigned SHELL_FILE = 4;    // Command Shell file
 
 const char* EDIT_BUF_NAME = "BUFFER_EDITOR";
 const char* HELP_BUF_NAME = "VIS_HELP";
 const char* SRCH_BUF_NAME = "SEARCH_EDITOR";
 const char* MSG__BUF_NAME = "MESSAGE_BUFFER";
-const char* CMD__BUF_NAME = "SHELL_BUFFER";
+const char* SHEL_BUF_NAME = "SHELL_BUFFER";
 
 void WARN( const char* msg )
 {
@@ -258,7 +258,7 @@ void InitHelpBuffer( Vis::Data& m )
   pfb->ReadString( HELP_STR );
 }
 
-void InitSearchEditor( Vis::Data& m )
+void InitSearchBuffer( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -278,50 +278,29 @@ void InitMsgBuffer( Vis::Data& m )
                  FileBuf( m.vis, MSG__BUF_NAME, false, FT_TEXT );
 }
 
-void InitCmdBuffer( Vis::Data& m )
+void InitShellBuffer( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
   // pfb gets added to m.files in Add_FileBuf_2_Lists_Create_Views()
-  // Command buffer, CMD_FILE(4)
+  // Command buffer, SHELL_FILE(4)
   FileBuf* pfb = new(__FILE__,__LINE__)
-                 FileBuf( m.vis, CMD__BUF_NAME, false, FT_TEXT );
-  pfb->PushLine(); // Add an empty line
-}
+                 FileBuf( m.vis, SHEL_BUF_NAME, false, FT_TEXT );
 
-//bool InitUserFiles( Vis::Data& m, const int ARGC, const char* const ARGV[] )
-//{
-//  bool run_diff = false;
-//
-//  // Save original working directory from which to open all user supplied files names
-//  const unsigned FILE_NAME_LEN = 1024;
-//  char orig_dir[ FILE_NAME_LEN ];
-//  bool got_orig_dir = !! getcwd( orig_dir, FILE_NAME_LEN );
-//
-//  // User file buffers, 5, 6, ...
-//  for( int k=1; k<ARGC; k++ )
-//  {
-//    if( strcmp( "-d", ARGV[k] ) == 0 )
-//    {
-//      run_diff = true;
-//    }
-//    else {
-//      String file_name = ARGV[k];
-//      if( FindFullFileName( file_name ) )
-//      {
-//        if( !m.vis.HaveFile( file_name.c_str() ) )
-//        {
-//          FileBuf* pfb = new(__FILE__,__LINE__)
-//                         FileBuf( m.vis, file_name.c_str(), true, FT_UNKNOWN );
-//          pfb->ReadFile();
-//        }
-//        // Restore original directory, for next call to FindFullFileName()
-//        if( got_orig_dir ) chdir( orig_dir );
-//      }
-//    }
-//  }
-//  return run_diff;
-//}
+  // Add ######################################
+  pfb->PushLine();
+  for( unsigned k=0; k<40; k++ ) pfb->PushChar( '#' );
+
+  // Add an empty line
+  pfb->PushLine();
+
+  // Put cursor on empty line below # line
+  for( unsigned w=0; w<MAX_WINS; w++ )
+  {
+    View* pV_shell = m.views[w][ SHELL_FILE ];
+    pV_shell->SetCrsRow( 1 );
+  }
+}
 
 bool InitUserFiles( Vis::Data& m, const int ARGC, const char* const ARGV[] )
 {
@@ -336,7 +315,7 @@ bool InitUserFiles( Vis::Data& m, const int ARGC, const char* const ARGV[] )
     }
     else {
       String file_name = ARGV[k];
-      if( FindFullFileName( file_name ) )
+      if( FindFullFileNameRel2CWD( file_name ) )
       {
         if( !m.vis.HaveFile( file_name.c_str() ) )
         {
@@ -559,11 +538,11 @@ void GoToMsgBuffer( Vis::Data& m )
   GoToBuffer( m, MSG_FILE );
 }
 
-void GoToCmdBuffer( Vis::Data& m )
+void GoToShellBuffer( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  GoToBuffer( m, CMD_FILE );
+  GoToBuffer( m, SHELL_FILE );
 }
 
 void GoToSearchBuffer( Vis::Data& m )
@@ -2733,52 +2712,100 @@ void HSplitWindow( Vis::Data& m )
 }
 
 #ifndef WIN32
+//bool RunCommand_GetCommand( Vis::Data& m, String& cmd )
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//
+//  if( SHELL_FILE != m.file_hist[m.win][0] ) return false;
+//
+//  FileBuf* pfb = CV(m)->GetFB();
+//  const int LAST_LINE = pfb->NumLines() - 1;
+//  // Nothing in COMMAND_BUFFER so just return
+//  if( LAST_LINE < 0 ) return false;
+//
+//  // Find first line:
+//  bool found_first_line = false;
+//  int first_line = 0;
+//  for( int l=LAST_LINE; !found_first_line && 0<=l; l-- )
+//  {
+//    const unsigned LL = pfb->LineLen( l );
+//
+//    for( unsigned p=0; !found_first_line && p<LL; p++ )
+//    {
+//      const uint8_t C = pfb->Get( l, p );
+//      if( !IsSpace( C ) ) {
+//        if( '#' == C ) {
+//          first_line = l+1;
+//          found_first_line = true;
+//        }
+//      }
+//    }
+//  }
+//  // No command so just return
+//  if( LAST_LINE < first_line ) return false;
+//
+//  // Concatenate all command lines into String cmd:
+//  for( unsigned k=first_line; k<=LAST_LINE; k++ )
+//  {
+//    const unsigned LL = pfb->LineLen( k );
+//    for( unsigned p=0; p<LL; p++ )
+//    {
+//      const uint8_t C = pfb->Get( k, p );
+//      cmd.push( C );
+//    }
+//    if( LL && LAST_LINE != k ) cmd.push(' ');
+//  }
+//  cmd.trim(); //< Remove leading and ending spaces
+//
+//  return cmd.len() ? true : false;
+//}
+
 bool RunCommand_GetCommand( Vis::Data& m, String& cmd )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( CMD_FILE != m.file_hist[m.win][0] ) return false;
-
+  bool got_command = false;
   FileBuf* pfb = CV(m)->GetFB();
-  int LAST_LINE = pfb->NumLines() - 1;
-  // Nothing in COMMAND_BUFFER so just return
-  if( LAST_LINE < 0 ) return false;
 
-  // Find first line:
-  bool found_first_line = false;
-  int first_line = 0;
-  for( int l=LAST_LINE; !found_first_line && 0<=l; l-- )
+  if( SHELL_FILE == m.file_hist[m.win][0]
+   && 0 < pfb->NumLines() )
   {
-    const unsigned LL = pfb->LineLen( l );
+    const unsigned LAST_LINE = pfb->NumLines()-1;
 
-    for( unsigned p=0; !found_first_line && p<LL; p++ )
+    // Find first line, which is line below last line matching '^[ ]*#':
+    bool found_first_line = false;
+    int first_line = 0;
+    for( int l=LAST_LINE; !found_first_line && 0<=l; l-- )
     {
-      const uint8_t C = pfb->Get( l, p );
-      if( !IsSpace( C ) ) {
-        if( '#' == C ) {
-          first_line = l+1;
-          found_first_line = true;
-        }
+      const unsigned LL = pfb->LineLen( l );
+      unsigned first_non_white = 0;
+      while( first_non_white<LL && IsSpace( pfb->Get( l, first_non_white ) ) ) first_non_white++;
+      if( first_non_white<LL && '#' == pfb->Get( l, first_non_white ) )
+      {
+        first_line = l+1;
+        found_first_line = true;
       }
     }
-  }
-  // No command so just return
-  if( LAST_LINE < first_line ) return false;
-
-  // Concatenate all command lines into String cmd:
-  for( unsigned k=first_line; k<=LAST_LINE; k++ )
-  {
-    const unsigned LL = pfb->LineLen( k );
-    for( unsigned p=0; p<LL; p++ )
+    if( first_line <= LAST_LINE )
     {
-      const uint8_t C = pfb->Get( k, p );
-      cmd.push( C );
-    }
-    if( LL && LAST_LINE != k ) cmd.push(' ');
-  }
-  cmd.trim(); //< Remove leading and ending spaces
+      // Concatenate all command lines into String cmd:
+      for( unsigned k=first_line; k<=LAST_LINE; k++ )
+      {
+        const unsigned LL = pfb->LineLen( k );
+        for( unsigned p=0; p<LL; p++ )
+        {
+          const uint8_t C = pfb->Get( k, p );
+          if( C == '#' ) break; //< Ignore # to end of line
+          cmd.push( C );
+        }
+        if( LL && LAST_LINE != k ) cmd.push(' ');
+      }
+      cmd.trim(); //< Remove leading and ending spaces
 
-  return cmd.len() ? true : false;
+      got_command = cmd.len() ? true : false;
+    }
+  }
+  return got_command;
 }
 
 // Returns true of ran command, else false
@@ -2889,14 +2916,8 @@ void HandleColon_e( Vis::Data& m )
   {
     // Edit file of supplied file name:
     String fname( m.cbuf + 1 );
-    // If path name is empty,
-    //      find full file name relative to cwd of vis process
-    // else find full file name relative to path name of current file
-    const bool
-    found_full_file_name = 0 == strcmp( pV->GetPathName(), "" )
-                           ? FindFullFileName( fname )
-                           : FindFullFileNameRel2( pV->GetPathName(), fname );
-    if( found_full_file_name )
+
+    if( FindFullFileNameRel2( pV->GetPathName(), fname ) )
     {
       unsigned file_index = 0;
       if( m.vis.HaveFile( fname.c_str(), &file_index ) )
@@ -2920,7 +2941,7 @@ void HandleColon_w( Vis::Data& m )
 
   if( 0 == m.cbuf[1] ) // :w
   {
-    if( pV == m.views[m.win][ CMD_FILE ] )
+    if( pV == m.views[m.win][ SHELL_FILE ] )
     {
       // Dont allow SHELL_BUFFER to be save with :w.
       // Require :w filename.
@@ -2939,7 +2960,7 @@ void HandleColon_w( Vis::Data& m )
   {
     // Write file of supplied file name:
     String fname( m.cbuf + 1 );
-  //if( pV->GoToDir() && FindFullFileName( fname ) )
+
     if( FindFullFileNameRel2( pV->GetPathName(), fname ) )
     {
       unsigned file_index = 0;
@@ -3001,7 +3022,7 @@ void Handle_Colon( Vis::Data& m )
   else if( strncmp(m.cbuf,"syn",3)==0) { Set_Syntax(m); }
   else if( strcmp( m.cbuf,"pwd" )==0 ) { GetCWD(m); }
   else if( strcmp( m.cbuf,"sh"  )==0
-        || strcmp( m.cbuf,"shell")==0) { GoToCmdBuffer(m); }
+        || strcmp( m.cbuf,"shell")==0) { GoToShellBuffer(m); }
 #ifndef WIN32
   else if( strcmp( m.cbuf,"run" )==0 ) { RunCommand(m); }
 #endif
@@ -3539,11 +3560,11 @@ void Vis::Init( const int ARGC, const char* const ARGV[] )
 
   InitBufferEditor(m);
   InitHelpBuffer(m);
-  InitSearchEditor(m);
+  InitSearchBuffer(m);
   InitMsgBuffer(m);
-  InitCmdBuffer(m);
+  InitShellBuffer(m);
   const bool run_diff = InitUserFiles( m, ARGC, ARGV )
-                     && (CMD_FILE+1+2) == m.files.len();
+                     && (SHELL_FILE+1+2) == m.files.len();
   InitFileHistory(m);
   InitCmdFuncs(m);
 
@@ -3937,9 +3958,7 @@ bool Vis::GoToBuffer_Fname( String& fname )
   {
     ; // fname is already a full file name
   }
-  else if( !( 0 == strcmp( CV()->GetPathName(), "")
-            ? FindFullFileName( fname )
-            : FindFullFileNameRel2( CV()->GetPathName(), fname ) ) )
+  else if( !FindFullFileNameRel2( CV()->GetPathName(), fname ) )
   {
     m.vis.CmdLineMessage( "Could not find file: %s", fname.c_str() );
     return false;

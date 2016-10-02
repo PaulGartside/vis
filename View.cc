@@ -297,53 +297,53 @@ Style Get_Style( View::Data& m
   return s;
 }
 
-void PrintLines( View::Data& m
-               , const unsigned st_line
-               , const unsigned fn_line )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-  const unsigned WC = m.view.WorkingCols();
+//void PrintLines( View::Data& m
+//               , const unsigned st_line
+//               , const unsigned fn_line )
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//  const unsigned WC = m.view.WorkingCols();
+//
+//  for( unsigned k=st_line; k<=fn_line; k++ )
+//  {
+//    // Dont allow line wrap:
+//    const unsigned LL    = m.fb.LineLen( k );
+//    const unsigned G_ROW = m.view.Line_2_GL( k );
+//    unsigned col=0;
+//    for( unsigned i=m.leftChar; col<WC && i<LL; i++, col++ )
+//    {
+//      Style s = Get_Style( m, k, i );
+//
+//      int byte = m.fb.Get( k, i );
+//
+//      m.view.PrintWorkingView_Set( LL, G_ROW, col, i, byte, s );
+//    }
+//    for( ; col<WC; col++ )
+//    {
+//      Console::Set( G_ROW, m.view.Col_Win_2_GL( col ), ' ', S_EMPTY );
+//    }
+//  }
+//  Console::Update();
+//  Console::Flush();
+//}
 
-  for( unsigned k=st_line; k<=fn_line; k++ )
-  {
-    // Dont allow line wrap:
-    const unsigned LL    = m.fb.LineLen( k );
-    const unsigned G_ROW = m.view.Line_2_GL( k );
-    unsigned col=0;
-    for( unsigned i=m.leftChar; col<WC && i<LL; i++, col++ )
-    {
-      Style s = Get_Style( m, k, i );
-
-      int byte = m.fb.Get( k, i );
-
-      m.view.PrintWorkingView_Set( LL, G_ROW, col, i, byte, s );
-    }
-    for( ; col<WC; col++ )
-    {
-      Console::Set( G_ROW, m.view.Col_Win_2_GL( col ), ' ', S_EMPTY );
-    }
-  }
-  Console::Update();
-  Console::Flush();
-}
-
-void UpdateLines( View::Data& m
-                , const unsigned st_line
-                , const unsigned fn_line )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  // Figure out which lines are currently on screen:
-  unsigned m_st_line = st_line;
-  unsigned m_fn_line = fn_line;
-
-  if( m_st_line < m.topLine ) m_st_line = m.topLine;
-  if( m.view.BotLine() < m_fn_line ) m_fn_line = m.view.BotLine();
-  if( m_fn_line < m_st_line ) return; // Nothing to update
-
-  // Re-draw lines:
-  PrintLines( m, m_st_line, m_fn_line );
-}
+//void UpdateLines( View::Data& m
+//                , const unsigned st_line
+//                , const unsigned fn_line )
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//
+//  // Figure out which lines are currently on screen:
+//  unsigned m_st_line = st_line;
+//  unsigned m_fn_line = fn_line;
+//
+//  if( m_st_line < m.topLine ) m_st_line = m.topLine;
+//  if( m.view.BotLine() < m_fn_line ) m_fn_line = m.view.BotLine();
+//  if( m_fn_line < m_st_line ) return; // Nothing to update
+//
+//  // Re-draw lines:
+//  PrintLines( m, m_st_line, m_fn_line );
+//}
 
 void InsertAddChar( View::Data& m
                   , const char c )
@@ -497,12 +497,14 @@ void Undo_v( View::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  const unsigned st_line = Min( m.v_st_line, m.v_fn_line );
-  const unsigned fn_line = Max( m.v_st_line, m.v_fn_line );
+  m.fb.Update();
 
-  UpdateLines( m, st_line, fn_line );
-
-  m.sts_line_needs_update = true;
+//const unsigned st_line = Min( m.v_st_line, m.v_fn_line );
+//const unsigned fn_line = Max( m.v_st_line, m.v_fn_line );
+//
+//UpdateLines( m, st_line, fn_line );
+//
+//m.sts_line_needs_update = true;
 }
 
 void Remove_Banner( View::Data& m )
@@ -1263,8 +1265,8 @@ bool Do_visualMode( View::Data& m )
 
 EXIT_VISUAL:
   m.inVisualMode = false;
-  Undo_v(m);
   Remove_Banner(m);
+  Undo_v(m);
   return false;
 }
 

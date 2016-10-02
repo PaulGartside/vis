@@ -518,11 +518,11 @@ void Normalize_Full_Path( char* path )
 //}
 
 // Finds full name of file or directory of in_out_fname passed in
-// relative to current directory, and places result in in_out_fname.
+// relative to the current directory, and places result in in_out_fname.
 // The full name found does not need to exist to return success.
 // Returns true on success, false on failure.
 //
-bool FindFullFileName( String& in_out_fname )
+bool FindFullFileNameRel2CWD( String& in_out_fname )
 {
   EnvKeys2Vals( in_out_fname );
 
@@ -540,12 +540,12 @@ bool FindFullFileName( String& in_out_fname )
     const int CWD_LEN = strlen( buf );
     if( CWD_LEN < BUF_LEN )
     {
-      const int BUF_REMAINDER = BUF_LEN - CWD_LEN;
+      const int REMAINDER = BUF_LEN - CWD_LEN;
       int rval = snprintf( buf+CWD_LEN
-                         , BUF_REMAINDER
+                         , REMAINDER
                          , "%c%s", DIR_DELIM, in_fname );
 
-      if( 0 < rval && rval < BUF_REMAINDER )
+      if( 0 < rval && rval < REMAINDER )
       {
         Normalize_Full_Path( buf );
         in_out_fname = buf;
@@ -563,8 +563,11 @@ bool FindFullFileName( String& in_out_fname )
 //
 bool FindFullFileNameRel2( const char* rel_2_path, String& in_out_fname )
 {
-  if( rel_2_path )
+  if( 0==rel_2_path || 0==strcmp(rel_2_path,"") )
   {
+    return FindFullFileNameRel2CWD( in_out_fname );
+  }
+  else {
     EnvKeys2Vals( in_out_fname );
 
     const char* in_fname = in_out_fname.c_str();
@@ -574,15 +577,17 @@ bool FindFullFileNameRel2( const char* rel_2_path, String& in_out_fname )
       // in_out_fname is a already full path, so just return
       return true;
     }
-    const unsigned FILE_NAME_LEN = 1024;
-    char buf[ FILE_NAME_LEN ];
-    strncpy( buf, rel_2_path, FILE_NAME_LEN-1 );
-    buf[ FILE_NAME_LEN-1 ] = 0;
-    const int CWD_LEN = strlen( buf );
-    if( CWD_LEN < FILE_NAME_LEN )
+    const unsigned BUF_LEN = 1024;
+    char buf[ BUF_LEN ];
+    strncpy( buf, rel_2_path, BUF_LEN-1 );
+    buf[ BUF_LEN-1 ] = 0;
+    const int REL_PATH_LEN = strlen( buf );
+    if( REL_PATH_LEN < BUF_LEN )
     {
-      const int REMAINDER = FILE_NAME_LEN - CWD_LEN;
-      int rval = snprintf( buf+CWD_LEN, REMAINDER, "%c%s", DIR_DELIM, in_fname );
+      const int REMAINDER = BUF_LEN - REL_PATH_LEN;
+      int rval = snprintf( buf+REL_PATH_LEN
+                         , REMAINDER
+                         , "%c%s", DIR_DELIM, in_fname );
 
       if( 0 < rval && rval < REMAINDER )
       {

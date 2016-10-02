@@ -55,7 +55,7 @@ struct Colon::Data
   Key&       key;
   Diff&      diff;
   View*      cv;
-  FileBuf*   fb;
+  FileBuf*   pfb;
   char*      cbuf;
   String&    sbuf;
   String     cover_key;
@@ -84,7 +84,7 @@ Colon::Data::Data( Colon&  colon
   , key( key )
   , diff( diff )
   , cv( 0 )
-  , fb( 0 )
+  , pfb( 0 )
   , cbuf( cbuf )
   , sbuf( sbuf )
   , cover_key()
@@ -204,7 +204,7 @@ Colon::Data::Data( Colon&  colon
 void Reset_File_Name_Completion_Variables( Colon::Data& m )
 {
   m.cv          = m.vis.CV();
-  m.fb          = 0;
+  m.pfb         = 0;
   m.file_index  = 0;
   m.colon_op    = ColonOp::unknown;
   m.partial_path.clear();
@@ -265,11 +265,6 @@ bool FindFileBuf( Colon::Data& m )
   String f_full_path = f_name_tail;
   if( 0==f_full_path.len() ) f_full_path.push('.');
 
-  const unsigned FILE_NAME_LEN = 1024;
-  char orig_dir[ FILE_NAME_LEN ];
-  bool got_orig_dir = !! getcwd( orig_dir, FILE_NAME_LEN );
-
-//if( m.cv->GoToDir() && FindFullFileName( f_full_path ) )
   if( FindFullFileNameRel2( m.cv->GetPathName(), f_full_path ) )
   {
     m.partial_path = f_name_tail;
@@ -279,17 +274,15 @@ bool FindFileBuf( Colon::Data& m )
     unsigned file_index = 0;
     if( m.vis.HaveFile( f_full_path.c_str(), &file_index ) )
     {
-      m.fb = m.vis.GetFileBuf( file_index );
+      m.pfb = m.vis.GetFileBuf( file_index );
     }
     else {
       // This is not a memory leak.
-      // m.fb gets added to m.vis.m.files in Vis::Add_FileBuf_2_Lists_Create_Views()
-      m.fb = new(__FILE__,__LINE__)
-             FileBuf( m.vis, f_full_path.c_str(), true, FT_UNKNOWN );
-      m.fb->ReadFile();
+      // m.pfb gets added to m.vis.m.files in Vis::Add_FileBuf_2_Lists_Create_Views()
+      m.pfb = new(__FILE__,__LINE__)
+              FileBuf( m.vis, f_full_path.c_str(), true, FT_UNKNOWN );
+      m.pfb->ReadFile();
     }
-    // Restore original directory, for next call to FindFullFileName()
-    if( got_orig_dir ) chdir( orig_dir );
     return true;
   }
   return false;
@@ -299,7 +292,6 @@ bool FindFileBuf( Colon::Data& m )
 bool Find_File_Name_Completion_Variables( Colon::Data& m )
 {
   bool found_tab_fname = false;
-
   m.sbuf = m.cbuf;
   m.sbuf.trim(); // Remove leading and trailing white space
   if( m.sbuf.has_at("e ", 0)
@@ -312,18 +304,16 @@ bool Find_File_Name_Completion_Variables( Colon::Data& m )
   {
     m.colon_op = ColonOp::w;
   }
-
   if( ColonOp::e == m.colon_op
    || ColonOp::w == m.colon_op )
   {
     m.sbuf.shift(1); m.sbuf.trim_beg(); // Remove initial 'e' and space after 'e'
-
     if( FindFileBuf(m) )
     {
       // Have FileBuf, so add matching files names to tab_fnames
-      for( unsigned k=0; !found_tab_fname && k<m.fb->NumLines(); k++ )
+      for( unsigned k=0; !found_tab_fname && k<m.pfb->NumLines(); k++ )
       {
-        Line l = m.fb->GetLine( k );
+        Line l = m.pfb->GetLine( k );
         const char* fname = l.c_str( 0 );
 
         if( fname && 0==strncmp( fname, m.search__head.c_str(), m.search__head.len() ) )
@@ -354,9 +344,9 @@ bool Have_File_Name_Completion_Variables( Colon::Data& m )
 
   // Already have a FileBuf, just search for next matching filename:
   for( unsigned k=m.file_index+1
-     ; !found_tab_fname && k<m.file_index+m.fb->NumLines(); k++ )
+     ; !found_tab_fname && k<m.file_index+m.pfb->NumLines(); k++ )
   {
-    Line l = m.fb->GetLine( k % m.fb->NumLines() );
+    Line l = m.pfb->GetLine( k % m.pfb->NumLines() );
     const char* fname = l.c_str( 0 );
 
     if( 0==strncmp( fname, m.search__head.c_str(), m.search__head.len() ) )
@@ -421,7 +411,7 @@ void HandleTab( Colon::Data& m
   *p = 0;
   bool found_tab_fname = false;
 
-  if( 0 == m.fb )
+  if( 0 == m.pfb )
   {
     found_tab_fname = Find_File_Name_Completion_Variables(m);
   }
@@ -575,24 +565,24 @@ void Colon::Cover()
 {
   m.vis.NoDiff();
 
-  m.cv = m.vis.CV();
-  m.fb = m.cv->GetFB();
+  m.cv  = m.vis.CV();
+  m.pfb = m.cv->GetFB();
 
-  if( m.fb->IsDir() )
+  if( m.pfb->IsDir() )
   {
     m.cv->PrintCursor();
   }
   else {
-    const uint8_t seed = m.fb->GetSize() % 256;
+    const uint8_t seed = m.pfb->GetSize() % 256;
 
-    Cover_Array( *m.fb, m.cover_buf, seed, m.cover_key );
+    Cover_Array( *m.pfb, m.cover_buf, seed, m.cover_key );
 
     // Fill in m.cover_buf from old file data:
     // Clear old file:
-    m.fb->ClearChanged();
-    m.fb->ClearLines();
+    m.pfb->ClearChanged();
+    m.pfb->ClearLines();
     // Read in covered file:
-    m.fb->ReadArray( m.cover_buf );
+    m.pfb->ReadArray( m.cover_buf );
 
     // Make sure all windows have proper change status in borders
     m.vis.Update_Change_Statuses();

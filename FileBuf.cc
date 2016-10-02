@@ -946,9 +946,6 @@ FileBuf::FileBuf( Vis& vis
   // Absolute byte offset of beginning of first line in file is always zero:
   m.lineOffsets.push(__FILE__,__LINE__, 0 );
 
-//if( m.file_name.get_end() == DIR_DELIM ) m.is_dir = true;
-//m.is_dir = ::IsDir( m.file_name.c_str() );
-
   if( FT == FT_BUFFER_EDITOR )
   {
     m.file_type = FT_BUFFER_EDITOR;

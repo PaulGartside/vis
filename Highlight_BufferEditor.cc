@@ -34,7 +34,7 @@ extern const char* EDIT_BUF_NAME;
 extern const char* HELP_BUF_NAME;
 extern const char* SRCH_BUF_NAME;
 extern const char* MSG__BUF_NAME;
-extern const char* CMD__BUF_NAME;
+extern const char* SHEL_BUF_NAME;
 
 Highlight_BufferEditor::Highlight_BufferEditor( FileBuf& rfb )
   : Highlight_Base( rfb )
@@ -73,7 +73,7 @@ void Highlight_BufferEditor::Hi_In_None( unsigned& l, unsigned& p )
        || 0==strncmp( ls, HELP_BUF_NAME, lr.len() )
        || 0==strncmp( ls, SRCH_BUF_NAME, lr.len() )
        || 0==strncmp( ls, MSG__BUF_NAME, lr.len() )
-       || 0==strncmp( ls, CMD__BUF_NAME, lr.len() ) )
+       || 0==strncmp( ls, SHEL_BUF_NAME, lr.len() ) )
       {
         for( int k=0; k<LL; k++ )
         {
