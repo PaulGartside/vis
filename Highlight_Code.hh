@@ -53,6 +53,7 @@ private:
   void Hi_NumberHex     ( unsigned& l, unsigned& p );
   void Hi_NumberFraction( unsigned& l, unsigned& p );
   void Hi_NumberExponent( unsigned& l, unsigned& p );
+  void Hi_NumberTypeSpec( unsigned& l, unsigned& p );
 
   typedef Highlight_Code ME;
   typedef void (ME::*HiStateFunc) ( unsigned&, unsigned& );

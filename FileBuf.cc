@@ -511,11 +511,13 @@ void ChangedLine( FileBuf::Data& m, const unsigned line_num )
   // HVLO = Highest valid line offset
   unsigned HVLO = 0;
 
-  if( line_num && m.lineOffsets.len() )
+  if( 0<line_num && 0<m.lineOffsets.len() )
   {
     HVLO = Min( line_num-1, m.lineOffsets.len()-1 );
   }
   m.lineOffsets.set_len(__FILE__,__LINE__, HVLO );
+
+  m.hi_touched_line = Min( m.hi_touched_line, line_num );
 }
 
 void SwapLines( FileBuf::Data& m
@@ -588,7 +590,7 @@ void Append_DirDelim( FileBuf::Data& m, const unsigned l_num )
 
     if( SavingHist( m ) ) m.history.Save_InsertChar( l_num, lp->len()-1 );
 
-    m.hi_touched_line = Min( m.hi_touched_line, l_num );
+  //m.hi_touched_line = Min( m.hi_touched_line, l_num );
   }
 }
 
@@ -1136,39 +1138,18 @@ void FileBuf::ReReadFile()
   ClearChanged();
   ClearLines();
 
-  m.save_history = false;
+  m.save_history = false; //< Gets turned back on in ReadFile()
 
-  if( m.is_dir )
-  {
-    // Directory
-    DIR* dp = opendir( m.file_name.c_str() );
-    if( dp ) {
-      ReadExistingDir( m, dp, m.file_name.c_str() );
-      closedir( dp );
-    }
-  }
-  else {
-    // Regular file
-    FILE* fp = fopen( m.file_name.c_str(), "rb" );
-    if( fp )
-    {
-      ReadExistingFile( m, fp );
-      fclose( fp );
-    }
-    else {
-      // File does not exist, so add an empty line:
-      PushLine();
-    }
-  }
+  ReadFile();
+
   // To be safe, put cursor at top,left of each view of this file:
   for( unsigned w=0; w<MAX_WINS; w++ )
   {
     View* const pV = m.views[w];
 
-  //pV->Clear_Context();
     pV->Check_Context();
   }
-  m.save_history = true;
+  m.save_history      = true;
   m.need_2_find_stars = true;
   m.hi_touched_line   = 0;
 
@@ -1362,6 +1343,7 @@ void FileBuf::Set( const unsigned l_num
     {
       m.history.Save_Set( l_num, c_num, old_C, continue_last_update );
     }
+    // Did not call ChangedLine(), so need to set m.hi_touched_line here:
     m.hi_touched_line = Min( m.hi_touched_line, l_num );
   }
 }
@@ -1432,7 +1414,7 @@ void FileBuf::InsertLine( const unsigned l_num, const Line& line )
 
   if( SavingHist( m ) ) m.history.Save_InsertLine( l_num );
 
-  m.hi_touched_line = Min( m.hi_touched_line, l_num );
+//m.hi_touched_line = Min( m.hi_touched_line, l_num );
 
   InsertLine_Adjust_Views_topLines( l_num );
 }
@@ -1456,7 +1438,7 @@ void FileBuf::InsertLine( const unsigned l_num, Line* const pLine )
 
   if( SavingHist( m ) ) m.history.Save_InsertLine( l_num );
 
-  m.hi_touched_line = Min( m.hi_touched_line, l_num );
+//m.hi_touched_line = Min( m.hi_touched_line, l_num );
 
   InsertLine_Adjust_Views_topLines( l_num );
 }
@@ -1481,7 +1463,7 @@ void FileBuf::InsertLine( const unsigned l_num )
 
   if( SavingHist( m ) ) m.history.Save_InsertLine( l_num );
 
-  m.hi_touched_line = Min( m.hi_touched_line, l_num );
+//m.hi_touched_line = Min( m.hi_touched_line, l_num );
 
   InsertLine_Adjust_Views_topLines( l_num );
 }
@@ -1523,7 +1505,7 @@ void FileBuf::InsertChar( const unsigned l_num
 
   if( SavingHist( m ) ) m.history.Save_InsertChar( l_num, c_num );
 
-  m.hi_touched_line = Min( m.hi_touched_line, l_num );
+//m.hi_touched_line = Min( m.hi_touched_line, l_num );
 }
 
 // Add a new line at the end of FileBuf, which is a copy of line
@@ -1598,7 +1580,7 @@ void FileBuf::PushChar( const unsigned l_num, const uint8_t C )
 
   if( SavingHist( m ) ) m.history.Save_InsertChar( l_num, lp->len()-1 );
 
-  m.hi_touched_line = Min( m.hi_touched_line, l_num );
+//m.hi_touched_line = Min( m.hi_touched_line, l_num );
 }
 
 // Add byte C to last line.  If no m.lines in file, add a line.
@@ -1660,7 +1642,7 @@ void FileBuf::RemoveLine( const unsigned l_num, Line& line )
 
   if( SavingHist( m ) ) m.history.Save_RemoveLine( l_num, line );
 
-  m.hi_touched_line = Min( m.hi_touched_line, l_num );
+//m.hi_touched_line = Min( m.hi_touched_line, l_num );
 
   RemoveLine_Adjust_Views_topLines( m, l_num );
 
@@ -1688,7 +1670,7 @@ Line* FileBuf::RemoveLineP( const unsigned l_num )
 
   if( SavingHist( m ) ) m.history.Save_RemoveLine( l_num, *pLine );
 
-  m.hi_touched_line = Min( m.hi_touched_line, l_num );
+//m.hi_touched_line = Min( m.hi_touched_line, l_num );
 
   RemoveLine_Adjust_Views_topLines( m, l_num );
 
@@ -1714,7 +1696,7 @@ void FileBuf::RemoveLine( const unsigned l_num )
 
   if( SavingHist( m ) ) m.history.Save_RemoveLine( l_num, *lp );
 
-  m.hi_touched_line = Min( m.hi_touched_line, l_num );
+//m.hi_touched_line = Min( m.hi_touched_line, l_num );
 
   RemoveLine_Adjust_Views_topLines( m, l_num );
 
@@ -1745,7 +1727,7 @@ uint8_t FileBuf::RemoveChar( const unsigned l_num, const unsigned c_num )
 
   if( SavingHist( m ) ) m.history.Save_RemoveChar( l_num, c_num, C );
 
-  m.hi_touched_line = Min( m.hi_touched_line, l_num );
+//m.hi_touched_line = Min( m.hi_touched_line, l_num );
 
   return C;
 }
@@ -1822,7 +1804,7 @@ void FileBuf::AppendLineToLine( const unsigned l_num, const Line& line )
       m.history.Save_InsertChar( l_num, first_insert + k );
     }
   }
-  m.hi_touched_line = Min( m.hi_touched_line, l_num );
+//m.hi_touched_line = Min( m.hi_touched_line, l_num );
 }
 
 // Append pLine to end of line l_num, and delete pLine.
@@ -1853,7 +1835,7 @@ void FileBuf::AppendLineToLine( const unsigned l_num, const Line* pLine )
       m.history.Save_InsertChar( l_num, first_insert + k );
     }
   }
-  m.hi_touched_line = Min( m.hi_touched_line, l_num );
+//m.hi_touched_line = Min( m.hi_touched_line, l_num );
 
   m.vis.ReturnLine( const_cast<Line*>( pLine ) );
 }

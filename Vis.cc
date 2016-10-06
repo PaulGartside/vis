@@ -348,14 +348,11 @@ void InitFileHistory( Vis::Data& m )
   }
 }
 
-// 1. Get filename underneath the cursor
-// 2. Search for filename in buffer list, and if found, go to that buffer
-// 3. If not found, print a command line message
-//
 void GoToFile( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
-  // 1. Get fname underneath the cursor:
+
+  // Get fname underneath the cursor:
   String fname;
   bool ok = CV(m)->GoToFile_GetFileName( fname );
 
@@ -2782,8 +2779,8 @@ bool RunCommand_GetCommand( Vis::Data& m, String& cmd )
       while( first_non_white<LL && IsSpace( pfb->Get( l, first_non_white ) ) ) first_non_white++;
       if( first_non_white<LL && '#' == pfb->Get( l, first_non_white ) )
       {
-        first_line = l+1;
         found_first_line = true;
+        first_line = l+1;
       }
     }
     if( first_line <= LAST_LINE )
@@ -2798,7 +2795,7 @@ bool RunCommand_GetCommand( Vis::Data& m, String& cmd )
           if( C == '#' ) break; //< Ignore # to end of line
           cmd.push( C );
         }
-        if( LL && LAST_LINE != k ) cmd.push(' ');
+        if( 0<LL && k<LAST_LINE ) cmd.push(' ');
       }
       cmd.trim(); //< Remove leading and ending spaces
 
@@ -4014,6 +4011,47 @@ void Vis::Handle_SemiColon()
   ::Handle_SemiColon(m);
 }
 
+//void Vis::Handle_Slash_GotPattern( const String& pattern
+//                                 , const bool MOVE_TO_FIRST_PATTERN )
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//  if( m.slash && pattern == m.star )
+//  {
+//    CV()->PrintCursor();
+//    return;
+//  }
+//  // Un-highlight old star patterns for windows displayed:
+//  if( 0 < m.star.len()  )
+//  { // Since m.diff_mode does Console::Update(),
+//    // no need to print patterns here if in m.diff_mode
+//    if( !m.diff_mode ) Do_Star_PrintPatterns( m, false );
+//  }
+//  Do_Star_ClearPatterns(m);
+//
+//  m.star = pattern;
+//
+//  if( !m.star.len() ) CV()->PrintCursor();
+//  else {
+//    m.slash = true;
+//
+//    Do_Star_Update_Search_Editor(m);
+//    Do_Star_FindPatterns(m);
+//
+//    // Highlight new star patterns for windows displayed:
+//    if( !m.diff_mode )
+//    {
+//      Do_Star_PrintPatterns( m, true );
+//      Console::Update();
+//    }
+//    if( MOVE_TO_FIRST_PATTERN )
+//    {
+//      if( m.diff_mode ) m.diff.Do_n(); // Move to first pattern
+//      else               CV()->Do_n(); // Move to first pattern
+//    }
+//    if( m.diff_mode ) m.diff.Update();
+//  }
+//}
+
 void Vis::Handle_Slash_GotPattern( const String& pattern
                                  , const bool MOVE_TO_FIRST_PATTERN )
 {
@@ -4041,17 +4079,16 @@ void Vis::Handle_Slash_GotPattern( const String& pattern
     Do_Star_FindPatterns(m);
 
     // Highlight new star patterns for windows displayed:
-    if( !m.diff_mode )
+    if( m.diff_mode )
     {
+      if( MOVE_TO_FIRST_PATTERN ) m.diff.Do_n(); // Move to first pattern
+      m.diff.Update();
+    }
+    else {
       Do_Star_PrintPatterns( m, true );
-      Console::Update();
+      if( MOVE_TO_FIRST_PATTERN ) CV()->Do_n(); // Move to first pattern
+      else                        Console::Update();
     }
-    if( MOVE_TO_FIRST_PATTERN )
-    {
-      if( m.diff_mode ) m.diff.Do_n(); // Move to first pattern
-      else               CV()->Do_n(); // Move to first pattern
-    }
-    if( m.diff_mode ) m.diff.Update();
   }
 }
 

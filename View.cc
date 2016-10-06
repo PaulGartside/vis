@@ -2009,9 +2009,9 @@ bool Do_dw_get_fn( View::Data& m
   const unsigned LL = m.fb.LineLen( st_line );
   const uint8_t  C  = m.fb.Get( st_line, st_char );
 
-  if( IsSpace( C )      // On white space
-    || ( st_char < LLM1(LL) // On non-white space before white space
-       && IsSpace( m.fb.Get( st_line, st_char+1 ) ) ) )
+  if( IsSpace( C )         // On white space
+   || ( st_char < LLM1(LL) // On non-white space before white space
+     && IsSpace( m.fb.Get( st_line, st_char+1 ) ) ) )
   {
     // w:
     CrsPos ncp_w = { 0, 0 };
@@ -2255,50 +2255,6 @@ void Do_P_block( View::Data& m )
   }
   m.fb.Update();
 }
-
-//bool GoToFile_GetFileName( View::Data& m, String& fname )
-//{
-//  Trace trace( __PRETTY_FUNCTION__ );
-//
-//  bool got_filename = false;
-//
-//  const unsigned CL = m.view.CrsLine();
-//  const unsigned LL = m.fb.LineLen( CL );
-//
-//  if( 0 < LL )
-//  {
-//    m.view.MoveInBounds();
-//    const int CP = m.view.CrsChar();
-//    char c = m.fb.Get( CL, CP );
-//
-//    if( IsFileNameChar( c ) )
-//    {
-//      // Get the file name:
-//      got_filename = true;
-//
-//      fname.push( c );
-//
-//      // Search backwards, until white space is found:
-//      for( int k=CP-1; -1<k; k-- )
-//      {
-//        c = m.fb.Get( CL, k );
-//
-//        if( !IsFileNameChar( c ) ) break;
-//        else fname.insert( 0, c );
-//      }
-//      // Search forwards, until white space is found:
-//      for( unsigned k=CP+1; k<LL; k++ )
-//      {
-//        c = m.fb.Get( CL, k );
-//
-//        if( !IsFileNameChar( c ) ) break;
-//        else fname.push( c );
-//      }
-//      EnvKeys2Vals( fname );
-//    }
-//  }
-//  return got_filename;
-//}
 
 View::View( Vis& vis
           , Key& key
@@ -3237,16 +3193,7 @@ void View::Do_s()
     Do_x();
     Do_i();
   }
-  else if( EOL < CP )
-  {
-    // Extend line out to where cursor is:
-    for( unsigned k=LL; k<CP; k++ )
-    {
-      m.fb.PushChar( CL, ' ' );
-    }
-    Do_a();
-  }
-  else // CP == EOL
+  else // EOL <= CP
   {
     Do_x();
     Do_a();
@@ -3338,7 +3285,7 @@ void View::Do_f( const char FAST_CHAR )
     const unsigned LL  = m.fb.LineLen( OCL ); // Line length
     const unsigned OCP = CrsChar();           // Old cursor position
 
-    if( OCP < LL-1 )
+    if( OCP < LLM1(LL) )
     {
       unsigned NCP = 0;
       bool found_char = false;
@@ -4053,6 +4000,24 @@ void View::PrintPatterns( const bool HIGHLIGHT )
   }
 }
 
+bool View::Has_Context()
+{
+  return 0 != m.topLine
+      || 0 != m.leftChar
+      || 0 != m.crsRow
+      || 0 != m.crsCol ;
+}
+
+void View::Set_Context( View& vr )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  m.topLine  = vr.GetTopLine ();
+  m.leftChar = vr.GetLeftChar();
+  m.crsRow   = vr.GetCrsRow  ();
+  m.crsCol   = vr.GetCrsCol  ();
+}
+
 void View::Clear_Context()
 {
   m.topLine  = 0;
@@ -4082,7 +4047,7 @@ void View::Check_Context()
     unsigned CP = CrsChar();
     if( LL <= CP )
     {
-      CP = LL-1;
+      CP = LLM1(LL);
       changed = true;
     }
     if( changed )
@@ -4090,24 +4055,6 @@ void View::Check_Context()
       GoToCrsPos_NoWrite( CL, CP );
     }
   }
-}
-
-bool View::Has_Context()
-{
-  return 0 != m.topLine
-      || 0 != m.leftChar
-      || 0 != m.crsRow
-      || 0 != m.crsCol ;
-}
-
-void View::Set_Context( View& vr )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  m.topLine  = vr.GetTopLine ();
-  m.leftChar = vr.GetLeftChar();
-  m.crsRow   = vr.GetCrsRow  ();
-  m.crsCol   = vr.GetCrsCol  ();
 }
 
 // Change directory to that of file of view:

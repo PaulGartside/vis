@@ -372,6 +372,10 @@ void Highlight_Code::Hi_NumberIn( unsigned& l, unsigned& p )
       m_fb.SetSyntaxStyle( l, p, HI_CONST );
       p++;
     }
+    else if( c1=='L' || c1=='F' || c1=='U' )
+    {
+      m_state = &ME::Hi_NumberTypeSpec;
+    }
     else {
       m_state = &ME::Hi_In_None;
     }
@@ -441,6 +445,48 @@ void Highlight_Code::Hi_NumberExponent( unsigned& l, unsigned& p )
       p++;
     }
     else {
+      m_state = &ME::Hi_In_None;
+    }
+  }
+}
+
+void Highlight_Code::Hi_NumberTypeSpec( unsigned& l, unsigned& p )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  const unsigned LL = m_fb.LineLen( l );
+
+  if( p < LL )
+  {
+    const char c0 = m_fb.Get( l, p );
+
+    if( c0=='L' )
+    {
+      m_fb.SetSyntaxStyle( l, p, HI_VARTYPE );
+      p++;
+      m_state = &ME::Hi_In_None;
+    }
+    else if( c0=='F' )
+    {
+      m_fb.SetSyntaxStyle( l, p, HI_VARTYPE );
+      p++;
+      m_state = &ME::Hi_In_None;
+    }
+    else if( c0=='U' )
+    {
+      m_fb.SetSyntaxStyle( l, p, HI_VARTYPE ); p++;
+      if( p<LL ) {
+        const char c1 = m_fb.Get( l, p );
+        if( c1=='L' ) { // UL
+          m_fb.SetSyntaxStyle( l, p, HI_VARTYPE ); p++;
+          if( p<LL ) {
+            const char c2 = m_fb.Get( l, p );
+            if( c2=='L' ) { // ULL
+              m_fb.SetSyntaxStyle( l, p, HI_VARTYPE ); p++;
+            }
+          }
+        }
+      }
       m_state = &ME::Hi_In_None;
     }
   }

@@ -1157,7 +1157,7 @@ unsigned DiffLine_S( Diff::Data& m, const unsigned view_line )
     }
     ASSERT( __LINE__, 0, "view_line : %u : not found", view_line );
   }
-  return view_line;
+  return 0;
 }
 
 // Return the diff line of the view line on the long side
@@ -1185,7 +1185,7 @@ unsigned DiffLine_L( Diff::Data& m, const unsigned view_line )
     }
     ASSERT( __LINE__, 0, "view_line : %u : not found", view_line );
   }
-  return view_line;
+  return 0;
 }
 
 unsigned DiffLine( Diff::Data& m, const View* pV, const unsigned view_line )
@@ -2442,7 +2442,7 @@ bool MoveInBounds( Diff::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  View* pV  = m.vis.CV();
+  View* pV = m.vis.CV();
 
   const unsigned DL  = CrsLine(m);  // Diff line
   const unsigned VL  = ViewLine( m, pV, DL );      // View line
@@ -3255,7 +3255,9 @@ void Do_x_range_pre( Diff::Data& m
   m.reg.clear();
 }
 
-void Do_x_range_post( Diff::Data& m, unsigned st_line, unsigned st_char )
+void Do_x_range_post( Diff::Data& m
+                    , const unsigned st_line
+                    , const unsigned st_char )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -4444,30 +4446,30 @@ bool GoToFile_GetFileName( Diff::Data& m, String& fname )
   {
     MoveInBounds(m);
     const int CP = CrsChar(m);
-    char c = pfb->Get( VL, CP );
+    char C = pfb->Get( VL, CP );
 
-    if( IsFileNameChar( c ) )
+    if( IsFileNameChar( C ) )
     {
       // Get the file name:
       got_filename = true;
 
-      fname.push( c );
+      fname.push( C );
 
       // Search backwards, until white space is found:
       for( int k=CP-1; -1<k; k-- )
       {
-        c = pfb->Get( VL, k );
+        C = pfb->Get( VL, k );
 
-        if( !IsFileNameChar( c ) ) break;
-        else fname.insert( 0, c );
+        if( !IsFileNameChar( C ) ) break;
+        else fname.insert( 0, C );
       }
       // Search forwards, until white space is found:
       for( unsigned k=CP+1; k<LL; k++ )
       {
-        c = pfb->Get( VL, k );
+        C = pfb->Get( VL, k );
 
-        if( !IsFileNameChar( c ) ) break;
-        else fname.push( c );
+        if( !IsFileNameChar( C ) ) break;
+        else fname.push( C );
       }
       EnvKeys2Vals( fname );
     }
@@ -5451,17 +5453,7 @@ void Diff::Do_s()
     Do_x();
     Do_i();
   }
-  else if( EOL < CP )
-  {
-    // Extend line out to where cursor is:
-    for( unsigned k=LL; k<CP; k++ )
-    {
-      pfb->PushChar( VL, ' ' );
-    }
-    Patch_Diff_Info_Changed( m, pV, DL );
-    Do_a();
-  }
-  else // CP == EOL
+  else // EOL <= CP
   {
     Do_x();
     Do_a();
