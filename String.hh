@@ -91,6 +91,7 @@ public:
 
   // If this string has pat at pos, returns 1, else returns 0
   bool has_at( const char* pat, unsigned pos );
+  bool ends_with( const char* pat );
 
   int esc_len();
   int chomp();

@@ -172,21 +172,44 @@ FileBuf::Data::~Data()
 {
 }
 
+//bool Find_File_Type_Bash( FileBuf::Data& m )
+//{
+//  const unsigned LEN = m.file_name.len();
+//
+//  if( ( 3 < LEN && m.file_name.has_at(".sh"      , LEN-3 ) )
+//   || ( 7 < LEN && m.file_name.has_at(".sh.new"  , LEN-7 ) )
+//   || ( 7 < LEN && m.file_name.has_at(".sh.old"  , LEN-7 ) )
+//   || ( 5 < LEN && m.file_name.has_at(".bash"    , LEN-5 ) )
+//   || ( 9 < LEN && m.file_name.has_at(".bash.new", LEN-9 ) )
+//   || ( 9 < LEN && m.file_name.has_at(".bash.old", LEN-9 ) )
+//   || ( 6 < LEN && m.file_name.has_at(".alias"   , LEN-6 ) )
+//   || ( 7 < LEN && m.file_name.has_at(".bashrc"  , LEN-7 ) )
+//   || ( 8 < LEN && m.file_name.has_at(".profile" , LEN-8 ) )
+//   || (13 < LEN && m.file_name.has_at(".bash_profile", LEN-13 ) )
+//   || (12 < LEN && m.file_name.has_at(".bash_logout" , LEN-12 ) ) )
+//  {
+//    m.file_type = FT_BASH;
+//    m.pHi = new(__FILE__,__LINE__) Highlight_Bash( m.self );
+//    return true;
+//  }
+//  return false;
+//}
+
 bool Find_File_Type_Bash( FileBuf::Data& m )
 {
   const unsigned LEN = m.file_name.len();
 
-  if( ( 3 < LEN && m.file_name.has_at(".sh"      , LEN-3 ) )
-   || ( 7 < LEN && m.file_name.has_at(".sh.new"  , LEN-7 ) )
-   || ( 7 < LEN && m.file_name.has_at(".sh.old"  , LEN-7 ) )
-   || ( 5 < LEN && m.file_name.has_at(".bash"    , LEN-5 ) )
-   || ( 9 < LEN && m.file_name.has_at(".bash.new", LEN-9 ) )
-   || ( 9 < LEN && m.file_name.has_at(".bash.old", LEN-9 ) )
-   || ( 6 < LEN && m.file_name.has_at(".alias"   , LEN-6 ) )
-   || ( 7 < LEN && m.file_name.has_at(".bashrc"  , LEN-7 ) )
-   || ( 8 < LEN && m.file_name.has_at(".profile" , LEN-8 ) )
-   || (13 < LEN && m.file_name.has_at(".bash_profile", LEN-13 ) )
-   || (12 < LEN && m.file_name.has_at(".bash_logout" , LEN-12 ) ) )
+  if( m.file_name.ends_with(".sh"      )
+   || m.file_name.ends_with(".sh.new"  )
+   || m.file_name.ends_with(".sh.old"  )
+   || m.file_name.ends_with(".bash"    )
+   || m.file_name.ends_with(".bash.new")
+   || m.file_name.ends_with(".bash.old")
+   || m.file_name.ends_with(".alias"   )
+   || m.file_name.ends_with(".bashrc"  )
+   || m.file_name.ends_with(".profile" )
+   || m.file_name.ends_with(".bash_profile")
+   || m.file_name.ends_with(".bash_logout" ) )
   {
     m.file_type = FT_BASH;
     m.pHi = new(__FILE__,__LINE__) Highlight_Bash( m.self );
@@ -195,31 +218,64 @@ bool Find_File_Type_Bash( FileBuf::Data& m )
   return false;
 }
 
+//bool Find_File_Type_CPP( FileBuf::Data& m )
+//{
+//  const unsigned LEN = m.file_name.len();
+//
+//  if( ( 2 < LEN && m.file_name.has_at(".h"      , LEN-2 ) )
+//   || ( 6 < LEN && m.file_name.has_at(".h.new"  , LEN-6 ) )
+//   || ( 6 < LEN && m.file_name.has_at(".h.old"  , LEN-6 ) )
+//   || ( 2 < LEN && m.file_name.has_at(".c"      , LEN-2 ) )
+//   || ( 6 < LEN && m.file_name.has_at(".c.new"  , LEN-6 ) )
+//   || ( 6 < LEN && m.file_name.has_at(".c.old"  , LEN-6 ) )
+//   || ( 3 < LEN && m.file_name.has_at(".hh"     , LEN-3 ) )
+//   || ( 7 < LEN && m.file_name.has_at(".hh.new" , LEN-7 ) )
+//   || ( 7 < LEN && m.file_name.has_at(".hh.old" , LEN-7 ) )
+//   || ( 3 < LEN && m.file_name.has_at(".cc"     , LEN-3 ) )
+//   || ( 7 < LEN && m.file_name.has_at(".cc.new" , LEN-7 ) )
+//   || ( 7 < LEN && m.file_name.has_at(".cc.old" , LEN-7 ) )
+//   || ( 4 < LEN && m.file_name.has_at(".hpp"    , LEN-4 ) )
+//   || ( 8 < LEN && m.file_name.has_at(".hpp.new", LEN-8 ) )
+//   || ( 8 < LEN && m.file_name.has_at(".hpp.old", LEN-8 ) )
+//   || ( 4 < LEN && m.file_name.has_at(".cpp"    , LEN-4 ) )
+//   || ( 8 < LEN && m.file_name.has_at(".cpp.new", LEN-8 ) )
+//   || ( 8 < LEN && m.file_name.has_at(".cpp.old", LEN-8 ) )
+//   || ( 4 < LEN && m.file_name.has_at(".cxx"    , LEN-4 ) )
+//   || ( 8 < LEN && m.file_name.has_at(".cxx.new", LEN-8 ) )
+//   || ( 8 < LEN && m.file_name.has_at(".cxx.old", LEN-8 ) ) )
+//  {
+//    m.file_type = FT_CPP;
+//    m.pHi = new(__FILE__,__LINE__) Highlight_CPP( m.self );
+//    return true;
+//  }
+//  return false;
+//}
+
 bool Find_File_Type_CPP( FileBuf::Data& m )
 {
   const unsigned LEN = m.file_name.len();
 
-  if( ( 2 < LEN && m.file_name.has_at(".h"      , LEN-2 ) )
-   || ( 6 < LEN && m.file_name.has_at(".h.new"  , LEN-6 ) )
-   || ( 6 < LEN && m.file_name.has_at(".h.old"  , LEN-6 ) )
-   || ( 2 < LEN && m.file_name.has_at(".c"      , LEN-2 ) )
-   || ( 6 < LEN && m.file_name.has_at(".c.new"  , LEN-6 ) )
-   || ( 6 < LEN && m.file_name.has_at(".c.old"  , LEN-6 ) )
-   || ( 3 < LEN && m.file_name.has_at(".hh"     , LEN-3 ) )
-   || ( 7 < LEN && m.file_name.has_at(".hh.new" , LEN-7 ) )
-   || ( 7 < LEN && m.file_name.has_at(".hh.old" , LEN-7 ) )
-   || ( 3 < LEN && m.file_name.has_at(".cc"     , LEN-3 ) )
-   || ( 7 < LEN && m.file_name.has_at(".cc.new" , LEN-7 ) )
-   || ( 7 < LEN && m.file_name.has_at(".cc.old" , LEN-7 ) )
-   || ( 4 < LEN && m.file_name.has_at(".hpp"    , LEN-4 ) )
-   || ( 8 < LEN && m.file_name.has_at(".hpp.new", LEN-8 ) )
-   || ( 8 < LEN && m.file_name.has_at(".hpp.old", LEN-8 ) )
-   || ( 4 < LEN && m.file_name.has_at(".cpp"    , LEN-4 ) )
-   || ( 8 < LEN && m.file_name.has_at(".cpp.new", LEN-8 ) )
-   || ( 8 < LEN && m.file_name.has_at(".cpp.old", LEN-8 ) )
-   || ( 4 < LEN && m.file_name.has_at(".cxx"    , LEN-4 ) )
-   || ( 8 < LEN && m.file_name.has_at(".cxx.new", LEN-8 ) )
-   || ( 8 < LEN && m.file_name.has_at(".cxx.old", LEN-8 ) ) )
+  if( m.file_name.ends_with(".h"      )
+   || m.file_name.ends_with(".h.new"  )
+   || m.file_name.ends_with(".h.old"  )
+   || m.file_name.ends_with(".c"      )
+   || m.file_name.ends_with(".c.new"  )
+   || m.file_name.ends_with(".c.old"  )
+   || m.file_name.ends_with(".hh"     )
+   || m.file_name.ends_with(".hh.new" )
+   || m.file_name.ends_with(".hh.old" )
+   || m.file_name.ends_with(".cc"     )
+   || m.file_name.ends_with(".cc.new" )
+   || m.file_name.ends_with(".cc.old" )
+   || m.file_name.ends_with(".hpp"    )
+   || m.file_name.ends_with(".hpp.new")
+   || m.file_name.ends_with(".hpp.old")
+   || m.file_name.ends_with(".cpp"    )
+   || m.file_name.ends_with(".cpp.new")
+   || m.file_name.ends_with(".cpp.old")
+   || m.file_name.ends_with(".cxx"    )
+   || m.file_name.ends_with(".cxx.new")
+   || m.file_name.ends_with(".cxx.old") )
   {
     m.file_type = FT_CPP;
     m.pHi = new(__FILE__,__LINE__) Highlight_CPP( m.self );
@@ -228,13 +284,28 @@ bool Find_File_Type_CPP( FileBuf::Data& m )
   return false;
 }
 
+//bool Find_File_Type_IDL( FileBuf::Data& m )
+//{
+//  const unsigned LEN = m.file_name.len();
+//
+//  if( ( 4 < LEN && m.file_name.has_at(".idl"      , LEN-4 ) )
+//   || ( 8 < LEN && m.file_name.has_at(".idl.new"  , LEN-8 ) )
+//   || ( 8 < LEN && m.file_name.has_at(".idl.old"  , LEN-8 ) ) )
+//  {
+//    m.file_type = FT_IDL;
+//    m.pHi = new(__FILE__,__LINE__) Highlight_IDL( m.self );
+//    return true;
+//  }
+//  return false;
+//}
+
 bool Find_File_Type_IDL( FileBuf::Data& m )
 {
   const unsigned LEN = m.file_name.len();
 
-  if( ( 4 < LEN && m.file_name.has_at(".idl"      , LEN-4 ) )
-   || ( 8 < LEN && m.file_name.has_at(".idl.new"  , LEN-8 ) )
-   || ( 8 < LEN && m.file_name.has_at(".idl.old"  , LEN-8 ) ) )
+  if( m.file_name.ends_with(".idl"    )
+   || m.file_name.ends_with(".idl.new")
+   || m.file_name.ends_with(".idl.old") )
   {
     m.file_type = FT_IDL;
     m.pHi = new(__FILE__,__LINE__) Highlight_IDL( m.self );
@@ -243,13 +314,28 @@ bool Find_File_Type_IDL( FileBuf::Data& m )
   return false;
 }
 
+//bool Find_File_Type_Java( FileBuf::Data& m )
+//{
+//  const unsigned LEN = m.file_name.len();
+//
+//  if( ( 5 < LEN && m.file_name.has_at(".java"      , LEN-5 ) )
+//   || ( 9 < LEN && m.file_name.has_at(".java.new"  , LEN-9 ) )
+//   || ( 9 < LEN && m.file_name.has_at(".java.old"  , LEN-9 ) ) )
+//  {
+//    m.file_type = FT_JAVA;
+//    m.pHi = new(__FILE__,__LINE__) Highlight_Java( m.self );
+//    return true;
+//  }
+//  return false;
+//}
+
 bool Find_File_Type_Java( FileBuf::Data& m )
 {
   const unsigned LEN = m.file_name.len();
 
-  if( ( 5 < LEN && m.file_name.has_at(".java"      , LEN-5 ) )
-   || ( 9 < LEN && m.file_name.has_at(".java.new"  , LEN-9 ) )
-   || ( 9 < LEN && m.file_name.has_at(".java.old"  , LEN-9 ) ) )
+  if( m.file_name.ends_with(".java"    )
+   || m.file_name.ends_with(".java.new")
+   || m.file_name.ends_with(".java.old") )
   {
     m.file_type = FT_JAVA;
     m.pHi = new(__FILE__,__LINE__) Highlight_Java( m.self );
@@ -258,16 +344,34 @@ bool Find_File_Type_Java( FileBuf::Data& m )
   return false;
 }
 
+//bool Find_File_Type_HTML( FileBuf::Data& m )
+//{
+//  const unsigned LEN = m.file_name.len();
+//
+//  if( ( 4 < LEN && m.file_name.has_at(".htm"     , LEN-4 ) )
+//   || ( 8 < LEN && m.file_name.has_at(".htm.new" , LEN-8 ) )
+//   || ( 8 < LEN && m.file_name.has_at(".htm.old" , LEN-8 ) )
+//   || ( 5 < LEN && m.file_name.has_at(".html"    , LEN-5 ) )
+//   || ( 9 < LEN && m.file_name.has_at(".html.new", LEN-9 ) )
+//   || ( 9 < LEN && m.file_name.has_at(".html.old", LEN-9 ) ) )
+//  {
+//    m.file_type = FT_HTML;
+//    m.pHi = new(__FILE__,__LINE__) Highlight_HTML( m.self );
+//    return true;
+//  }
+//  return false;
+//}
+
 bool Find_File_Type_HTML( FileBuf::Data& m )
 {
   const unsigned LEN = m.file_name.len();
 
-  if( ( 4 < LEN && m.file_name.has_at(".htm"     , LEN-4 ) )
-   || ( 8 < LEN && m.file_name.has_at(".htm.new" , LEN-8 ) )
-   || ( 8 < LEN && m.file_name.has_at(".htm.old" , LEN-8 ) )
-   || ( 5 < LEN && m.file_name.has_at(".html"    , LEN-5 ) )
-   || ( 9 < LEN && m.file_name.has_at(".html.new", LEN-9 ) )
-   || ( 9 < LEN && m.file_name.has_at(".html.old", LEN-9 ) ) )
+  if( m.file_name.ends_with(".htm"     )
+   || m.file_name.ends_with(".htm.new" )
+   || m.file_name.ends_with(".htm.old" )
+   || m.file_name.ends_with(".html"    )
+   || m.file_name.ends_with(".html.new")
+   || m.file_name.ends_with(".html.old") )
   {
     m.file_type = FT_HTML;
     m.pHi = new(__FILE__,__LINE__) Highlight_HTML( m.self );
@@ -276,16 +380,34 @@ bool Find_File_Type_HTML( FileBuf::Data& m )
   return false;
 }
 
+//bool Find_File_Type_XML( FileBuf::Data& m )
+//{
+//  const unsigned LEN = m.file_name.len();
+//
+//  if( (  4 < LEN && m.file_name.has_at(".xml"        , LEN- 4 ) )
+//   || (  8 < LEN && m.file_name.has_at(".xml.new"    , LEN- 8 ) )
+//   || (  8 < LEN && m.file_name.has_at(".xml.old"    , LEN- 8 ) )
+//   || (  7 < LEN && m.file_name.has_at(".xml.in"     , LEN- 7 ) )
+//   || ( 11 < LEN && m.file_name.has_at(".xml.in.new" , LEN-11 ) )
+//   || ( 11 < LEN && m.file_name.has_at(".xml.in.old" , LEN-11 ) ) )
+//  {
+//    m.file_type = FT_XML;
+//    m.pHi = new(__FILE__,__LINE__) Highlight_XML( m.self );
+//    return true;
+//  }
+//  return false;
+//}
+
 bool Find_File_Type_XML( FileBuf::Data& m )
 {
   const unsigned LEN = m.file_name.len();
 
-  if( (  4 < LEN && m.file_name.has_at(".xml"        , LEN- 4 ) )
-   || (  8 < LEN && m.file_name.has_at(".xml.new"    , LEN- 8 ) )
-   || (  8 < LEN && m.file_name.has_at(".xml.old"    , LEN- 8 ) )
-   || (  7 < LEN && m.file_name.has_at(".xml.in"     , LEN- 7 ) )
-   || ( 11 < LEN && m.file_name.has_at(".xml.in.new" , LEN-11 ) )
-   || ( 11 < LEN && m.file_name.has_at(".xml.in.old" , LEN-11 ) ) )
+  if( m.file_name.ends_with(".xml"       )
+   || m.file_name.ends_with(".xml.new"   )
+   || m.file_name.ends_with(".xml.old"   )
+   || m.file_name.ends_with(".xml.in"    )
+   || m.file_name.ends_with(".xml.in.new")
+   || m.file_name.ends_with(".xml.in.old") )
   {
     m.file_type = FT_XML;
     m.pHi = new(__FILE__,__LINE__) Highlight_XML( m.self );
@@ -294,13 +416,28 @@ bool Find_File_Type_XML( FileBuf::Data& m )
   return false;
 }
 
+//bool Find_File_Type_JS( FileBuf::Data& m )
+//{
+//  const unsigned LEN = m.file_name.len();
+//
+//  if( ( 3 < LEN && m.file_name.has_at(".js"    , LEN-3 ) )
+//   || ( 7 < LEN && m.file_name.has_at(".js.new", LEN-7 ) )
+//   || ( 7 < LEN && m.file_name.has_at(".js.old", LEN-7 ) ) )
+//  {
+//    m.file_type = FT_JS;
+//    m.pHi = new(__FILE__,__LINE__) Highlight_JS( m.self );
+//    return true;
+//  }
+//  return false;
+//}
+
 bool Find_File_Type_JS( FileBuf::Data& m )
 {
   const unsigned LEN = m.file_name.len();
 
-  if( ( 3 < LEN && m.file_name.has_at(".js"    , LEN-3 ) )
-   || ( 7 < LEN && m.file_name.has_at(".js.new", LEN-7 ) )
-   || ( 7 < LEN && m.file_name.has_at(".js.old", LEN-7 ) ) )
+  if( m.file_name.ends_with(".js"    )
+   || m.file_name.ends_with(".js.new")
+   || m.file_name.ends_with(".js.old") )
   {
     m.file_type = FT_JS;
     m.pHi = new(__FILE__,__LINE__) Highlight_JS( m.self );
@@ -309,22 +446,46 @@ bool Find_File_Type_JS( FileBuf::Data& m )
   return false;
 }
 
+//bool Find_File_Type_Make( FileBuf::Data& m )
+//{
+//  const unsigned LEN = m.file_name.len();
+//
+//  if( (  5 <  LEN && m.file_name.has_at(".Make"       , LEN-5  ) )
+//   || (  5 <  LEN && m.file_name.has_at(".make"       , LEN-5  ) )
+//   || (  9 <  LEN && m.file_name.has_at(".Make.new"   , LEN-9  ) )
+//   || (  9 <  LEN && m.file_name.has_at(".make.new"   , LEN-9  ) )
+//   || (  9 <  LEN && m.file_name.has_at(".Make.old"   , LEN-9  ) )
+//   || (  9 <  LEN && m.file_name.has_at(".make.old"   , LEN-9  ) )
+//   || (  8 <= LEN && m.file_name.has_at("Makefile"    , LEN-8  ) )
+//   || (  8 <= LEN && m.file_name.has_at("makefile"    , LEN-8  ) )
+//   || ( 12 <= LEN && m.file_name.has_at("Makefile.new", LEN-12 ) )
+//   || ( 12 <= LEN && m.file_name.has_at("makefile.new", LEN-12 ) )
+//   || ( 12 <= LEN && m.file_name.has_at("Makefile.old", LEN-12 ) )
+//   || ( 12 <= LEN && m.file_name.has_at("makefile.old", LEN-12 ) ) )
+//  {
+//    m.file_type = FT_MAKE;
+//    m.pHi = new(__FILE__,__LINE__) Highlight_Make( m.self );
+//    return true;
+//  }
+//  return false;
+//}
+
 bool Find_File_Type_Make( FileBuf::Data& m )
 {
   const unsigned LEN = m.file_name.len();
 
-  if( (  5 <  LEN && m.file_name.has_at(".Make"       , LEN-5  ) )
-   || (  5 <  LEN && m.file_name.has_at(".make"       , LEN-5  ) )
-   || (  9 <  LEN && m.file_name.has_at(".Make.new"   , LEN-9  ) )
-   || (  9 <  LEN && m.file_name.has_at(".make.new"   , LEN-9  ) )
-   || (  9 <  LEN && m.file_name.has_at(".Make.old"   , LEN-9  ) )
-   || (  9 <  LEN && m.file_name.has_at(".make.old"   , LEN-9  ) )
-   || (  8 <= LEN && m.file_name.has_at("Makefile"    , LEN-8  ) )
-   || (  8 <= LEN && m.file_name.has_at("makefile"    , LEN-8  ) )
-   || ( 12 <= LEN && m.file_name.has_at("Makefile.new", LEN-12 ) )
-   || ( 12 <= LEN && m.file_name.has_at("makefile.new", LEN-12 ) )
-   || ( 12 <= LEN && m.file_name.has_at("Makefile.old", LEN-12 ) )
-   || ( 12 <= LEN && m.file_name.has_at("makefile.old", LEN-12 ) ) )
+  if( m.file_name.ends_with(".Make"       )
+   || m.file_name.ends_with(".make"       )
+   || m.file_name.ends_with(".Make.new"   )
+   || m.file_name.ends_with(".make.new"   )
+   || m.file_name.ends_with(".Make.old"   )
+   || m.file_name.ends_with(".make.old"   )
+   || m.file_name.ends_with("Makefile"    )
+   || m.file_name.ends_with("makefile"    )
+   || m.file_name.ends_with("Makefile.new")
+   || m.file_name.ends_with("makefile.new")
+   || m.file_name.ends_with("Makefile.old")
+   || m.file_name.ends_with("makefile.old") )
   {
     m.file_type = FT_MAKE;
     m.pHi = new(__FILE__,__LINE__) Highlight_Make( m.self );
@@ -333,16 +494,34 @@ bool Find_File_Type_Make( FileBuf::Data& m )
   return false;
 }
 
+//bool Find_File_Type_CMake( FileBuf::Data& m )
+//{
+//  const unsigned LEN = m.file_name.len();
+//
+//  if( (  6 <  LEN && m.file_name.has_at(".cmake"    , LEN-6  ) )
+//   || ( 10 <  LEN && m.file_name.has_at(".cmake.new", LEN-10 ) )
+//   || ( 10 <  LEN && m.file_name.has_at(".cmake.old", LEN-10 ) )
+//   || ( 14 <= LEN && m.file_name.has_at("CMakeLists.txt"    , LEN-14 ) )
+//   || ( 18 <= LEN && m.file_name.has_at("CMakeLists.new.txt", LEN-18 ) )
+//   || ( 18 <= LEN && m.file_name.has_at("CMakeLists.old.txt", LEN-18 ) ) )
+//  {
+//    m.file_type = FT_CMAKE;
+//    m.pHi = new(__FILE__,__LINE__) Highlight_CMake( m.self );
+//    return true;
+//  }
+//  return false;
+//}
+
 bool Find_File_Type_CMake( FileBuf::Data& m )
 {
   const unsigned LEN = m.file_name.len();
 
-  if( (  6 <  LEN && m.file_name.has_at(".cmake"    , LEN-6  ) )
-   || ( 10 <  LEN && m.file_name.has_at(".cmake.new", LEN-10 ) )
-   || ( 10 <  LEN && m.file_name.has_at(".cmake.old", LEN-10 ) )
-   || ( 14 <= LEN && m.file_name.has_at("CMakeLists.txt"    , LEN-14 ) )
-   || ( 18 <= LEN && m.file_name.has_at("CMakeLists.new.txt", LEN-18 ) )
-   || ( 18 <= LEN && m.file_name.has_at("CMakeLists.old.txt", LEN-18 ) ) )
+  if( m.file_name.ends_with(".cmake"    )
+   || m.file_name.ends_with(".cmake.new")
+   || m.file_name.ends_with(".cmake.old")
+   || m.file_name.ends_with("CMakeLists.txt"    )
+   || m.file_name.ends_with("CMakeLists.new.txt")
+   || m.file_name.ends_with("CMakeLists.old.txt") )
   {
     m.file_type = FT_CMAKE;
     m.pHi = new(__FILE__,__LINE__) Highlight_CMake( m.self );
@@ -351,13 +530,28 @@ bool Find_File_Type_CMake( FileBuf::Data& m )
   return false;
 }
 
+//bool Find_File_Type_SQL( FileBuf::Data& m )
+//{
+//  const unsigned LEN = m.file_name.len();
+//
+//  if( ( 4 < LEN && m.file_name.has_at(".sql"    , LEN-4 ) )
+//   || ( 8 < LEN && m.file_name.has_at(".sql.new", LEN-8 ) )
+//   || ( 8 < LEN && m.file_name.has_at(".sql.old", LEN-8 ) ) )
+//  {
+//    m.file_type = FT_SQL;
+//    m.pHi = new(__FILE__,__LINE__) Highlight_SQL( m.self );
+//    return true;
+//  }
+//  return false;
+//}
+
 bool Find_File_Type_SQL( FileBuf::Data& m )
 {
   const unsigned LEN = m.file_name.len();
 
-  if( ( 4 < LEN && m.file_name.has_at(".sql"    , LEN-4 ) )
-   || ( 8 < LEN && m.file_name.has_at(".sql.new", LEN-8 ) )
-   || ( 8 < LEN && m.file_name.has_at(".sql.old", LEN-8 ) ) )
+  if( m.file_name.ends_with(".sql"    )
+   || m.file_name.ends_with(".sql.new")
+   || m.file_name.ends_with(".sql.old") )
   {
     m.file_type = FT_SQL;
     m.pHi = new(__FILE__,__LINE__) Highlight_SQL( m.self );
@@ -365,6 +559,24 @@ bool Find_File_Type_SQL( FileBuf::Data& m )
   }
   return false;
 }
+
+//bool Find_File_Type_STL( FileBuf::Data& m )
+//{
+//  const unsigned LEN = m.file_name.len();
+//
+//  if( ( 4 < LEN && m.file_name.has_at(".stl"    , LEN-4 ) )
+//   || ( 8 < LEN && m.file_name.has_at(".stl.new", LEN-8 ) )
+//   || ( 8 < LEN && m.file_name.has_at(".stl.old", LEN-8 ) )
+//   || ( 4 < LEN && m.file_name.has_at(".ste"    , LEN-4 ) )
+//   || ( 8 < LEN && m.file_name.has_at(".ste.new", LEN-8 ) )
+//   || ( 8 < LEN && m.file_name.has_at(".ste.old", LEN-8 ) ) )
+//  {
+//    m.file_type = FT_STL;
+//    m.pHi = new(__FILE__,__LINE__) Highlight_STL( m.self );
+//    return true;
+//  }
+//  return false;
+//}
 
 bool Find_File_Type_STL( FileBuf::Data& m )
 {
@@ -384,13 +596,28 @@ bool Find_File_Type_STL( FileBuf::Data& m )
   return false;
 }
 
+//bool Find_File_Type_ODB( FileBuf::Data& m )
+//{
+//  const unsigned LEN = m.file_name.len();
+//
+//  if( ( 4 < LEN && m.file_name.has_at(".odb"    , LEN-4 ) )
+//   || ( 8 < LEN && m.file_name.has_at(".odb.new", LEN-8 ) )
+//   || ( 8 < LEN && m.file_name.has_at(".odb.old", LEN-8 ) ) )
+//  {
+//    m.file_type = FT_ODB;
+//    m.pHi = new(__FILE__,__LINE__) Highlight_ODB( m.self );
+//    return true;
+//  }
+//  return false;
+//}
+
 bool Find_File_Type_ODB( FileBuf::Data& m )
 {
   const unsigned LEN = m.file_name.len();
 
-  if( ( 4 < LEN && m.file_name.has_at(".odb"    , LEN-4 ) )
-   || ( 8 < LEN && m.file_name.has_at(".odb.new", LEN-8 ) )
-   || ( 8 < LEN && m.file_name.has_at(".odb.old", LEN-8 ) ) )
+  if( m.file_name.ends_with(".odb"    )
+   || m.file_name.ends_with(".odb.new")
+   || m.file_name.ends_with(".odb.old") )
   {
     m.file_type = FT_ODB;
     m.pHi = new(__FILE__,__LINE__) Highlight_ODB( m.self );
@@ -399,13 +626,28 @@ bool Find_File_Type_ODB( FileBuf::Data& m )
   return false;
 }
 
+//bool Find_File_Type_Swift( FileBuf::Data& m )
+//{
+//  const unsigned LEN = m.file_name.len();
+//
+//  if( ( 6  < LEN && m.file_name.has_at(".swift"    , LEN-6 ) )
+//   || ( 10 < LEN && m.file_name.has_at(".swift.new", LEN-10 ) )
+//   || ( 10 < LEN && m.file_name.has_at(".swift.old", LEN-10 ) ) )
+//  {
+//    m.file_type = FT_SWIFT;
+//    m.pHi = new(__FILE__,__LINE__) Highlight_Swift( m.self );
+//    return true;
+//  }
+//  return false;
+//}
+
 bool Find_File_Type_Swift( FileBuf::Data& m )
 {
   const unsigned LEN = m.file_name.len();
 
-  if( ( 6  < LEN && m.file_name.has_at(".swift"    , LEN-6 ) )
-   || ( 10 < LEN && m.file_name.has_at(".swift.new", LEN-10 ) )
-   || ( 10 < LEN && m.file_name.has_at(".swift.old", LEN-10 ) ) )
+  if( m.file_name.ends_with(".swift"    )
+   || m.file_name.ends_with(".swift.new")
+   || m.file_name.ends_with(".swift.old") )
   {
     m.file_type = FT_SWIFT;
     m.pHi = new(__FILE__,__LINE__) Highlight_Swift( m.self );
@@ -414,13 +656,28 @@ bool Find_File_Type_Swift( FileBuf::Data& m )
   return false;
 }
 
+//bool Find_File_Type_TCL( FileBuf::Data& m )
+//{
+//  const unsigned LEN = m.file_name.len();
+//
+//  if( ( 4 < LEN && m.file_name.has_at(".tcl"    , LEN-4 ) )
+//   || ( 8 < LEN && m.file_name.has_at(".tcl.new", LEN-8 ) )
+//   || ( 8 < LEN && m.file_name.has_at(".tcl.old", LEN-8 ) ) )
+//  {
+//    m.file_type = FT_TCL;
+//    m.pHi = new(__FILE__,__LINE__) Highlight_TCL( m.self );
+//    return true;
+//  }
+//  return false;
+//}
+
 bool Find_File_Type_TCL( FileBuf::Data& m )
 {
   const unsigned LEN = m.file_name.len();
 
-  if( ( 4 < LEN && m.file_name.has_at(".tcl"    , LEN-4 ) )
-   || ( 8 < LEN && m.file_name.has_at(".tcl.new", LEN-8 ) )
-   || ( 8 < LEN && m.file_name.has_at(".tcl.old", LEN-8 ) ) )
+  if( m.file_name.ends_with(".tcl"    )
+   || m.file_name.ends_with(".tcl.new")
+   || m.file_name.ends_with(".tcl.old") )
   {
     m.file_type = FT_TCL;
     m.pHi = new(__FILE__,__LINE__) Highlight_TCL( m.self );
@@ -1988,8 +2245,13 @@ void FileBuf::Update()
     }
   }
   Console::Update();
-  // Put cursor back into current window
-  m.vis.CV()->PrintCursor();
+
+//if( !m.vis.Shell_Running()
+// || m.vis.FileNum2Buf(SHELL_FILE) != m.vis.CV()->GetFB() )
+//{
+    // Put cursor back into current window
+    m.vis.CV()->PrintCursor();
+//}
 }
 
 void FileBuf::ClearStyles()

@@ -24,7 +24,10 @@
 #ifndef __VIS_HH__
 #define __VIS_HH__
 
+#include "Types.hh"
+
 class String;
+class View;
 
 class Vis
 {
@@ -37,13 +40,15 @@ public:
   void Stop();
   View* CV() const;
   View* WinView( const unsigned w ) const;
+  FileBuf*    FileNum2Buf( const unsigned file_num ) const;
   unsigned    GetNumWins() const;
   Paste_Mode  GetPasteMode() const;
   void        SetPasteMode( Paste_Mode pm );
   void        NoDiff();
   bool        InDiffMode() const;
   bool        RunningDot() const;
-  bool        RunningCmd() const;
+  bool        Shell_Running() const;
+  void        Update_Shell();
   FileBuf*    GetFileBuf( const unsigned index ) const;
   unsigned    GetStarLen() const;
   const char* GetStar() const;

@@ -832,6 +832,7 @@ char Console::KeyIn()
     // Try to use less CPU time while waiting:
     if( 0==count ) vis.CheckWindowSize(); // If window has resized, update window
     if( 4==count ) vis.CheckFileModTime();
+    if( vis.Shell_Running() ) vis.Update_Shell();
 
     bool updated_sts_line = vis.Update_Status_Lines();
     bool updated_chg_sts  = vis.Update_Change_Statuses();

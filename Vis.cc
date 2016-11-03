@@ -45,6 +45,7 @@
 #include "Diff.hh"
 #include "View.hh"
 #include "Key.hh"
+#include "Shell.hh"
 #include "Vis.hh"
 
 const char* PROG_NAME;
@@ -54,12 +55,12 @@ const int FD_IO = 0; // read/write file descriptor
 extern MemLog<MEM_LOG_BUF_SIZE> Log;
 extern const char* DIR_DELIM_STR;
 
-const uint16_t MAX_COLS   = 1024; // Arbitrary maximum char width of window
-const unsigned BE_FILE    = 0;    // Buffer editor file
-const unsigned HELP_FILE  = 1;    // Help          file
-const unsigned SE_FILE    = 2;    // Search editor file
-const unsigned MSG_FILE   = 3;    // Message       file
-const unsigned SHELL_FILE = 4;    // Command Shell file
+       const uint16_t MAX_COLS   = 1024; // Arbitrary maximum char width of window
+extern const unsigned BE_FILE    = 0;    // Buffer editor file
+extern const unsigned HELP_FILE  = 1;    // Help          file
+extern const unsigned SE_FILE    = 2;    // Search editor file
+extern const unsigned MSG_FILE   = 3;    // Message       file
+extern const unsigned SHELL_FILE = 4;    // Command Shell file
 
 const char* EDIT_BUF_NAME = "BUFFER_EDITOR";
 const char* HELP_BUF_NAME = "VIS_HELP";
@@ -87,6 +88,7 @@ struct Vis::Data
   Key        key;
   Diff       diff;
   Colon      colon;
+  Shell      shell;
   char       cbuf[MAX_COLS];    // General purpose char buffer
   String     sbuf;              // General purpose string buffer
   unsigned   win;               // Sub-window index
@@ -99,7 +101,6 @@ struct Vis::Data
   ChangeList change_cache;
   Paste_Mode paste_mode;
   bool       diff_mode; // true if displaying diff
-  bool       cmd_mode;  // true if running a shell command
   String     star;      // current text highlighted by '*' command
   bool       slash;     // indicated whether star pattern is slash type or * type
   int        fast_char; // Char on line to goto when ';' is entered
@@ -117,6 +118,7 @@ Vis::Data::Data( Vis& vis )
   , key()
   , diff( vis, key, reg )
   , colon( vis, key, diff, cbuf, sbuf )
+  , shell( vis )
   , win( 0 )
   , num_wins( 1 )
   , files(__FILE__, __LINE__)
@@ -127,7 +129,6 @@ Vis::Data::Data( Vis& vis )
   , change_cache()
   , paste_mode( PM_LINE )
   , diff_mode( false )
-  , cmd_mode( false )
   , star()
   , slash( false )
   , fast_char( -1 )
@@ -2521,15 +2522,10 @@ void DoDiff( Vis::Data& m )
       pv0 = DoDiff_FindRegFileView( m, pfb1, pfb0, 0, pv0 );
     }
     else {
-      if( !FileExists( pfb0->GetFileName() ) )
+      if( !FileExists( pfb0->GetFileName() )
+       || !FileExists( pfb1->GetFileName() ) )
       {
         ok = false;
-        Log.Log("\n%s does not exist\n", pfb0->GetFileName() );
-      }
-      else if( !FileExists( pfb1->GetFileName() ) )
-      {
-        ok = false;
-        Log.Log("\n%s does not exist\n", pfb1->GetFileName() );
       }
     }
     if( !ok ) m.running = false;
@@ -2708,187 +2704,16 @@ void HSplitWindow( Vis::Data& m )
   m.vis.UpdateAll();
 }
 
-#ifndef WIN32
-//bool RunCommand_GetCommand( Vis::Data& m, String& cmd )
-//{
-//  Trace trace( __PRETTY_FUNCTION__ );
-//
-//  if( SHELL_FILE != m.file_hist[m.win][0] ) return false;
-//
-//  FileBuf* pfb = CV(m)->GetFB();
-//  const int LAST_LINE = pfb->NumLines() - 1;
-//  // Nothing in COMMAND_BUFFER so just return
-//  if( LAST_LINE < 0 ) return false;
-//
-//  // Find first line:
-//  bool found_first_line = false;
-//  int first_line = 0;
-//  for( int l=LAST_LINE; !found_first_line && 0<=l; l-- )
-//  {
-//    const unsigned LL = pfb->LineLen( l );
-//
-//    for( unsigned p=0; !found_first_line && p<LL; p++ )
-//    {
-//      const uint8_t C = pfb->Get( l, p );
-//      if( !IsSpace( C ) ) {
-//        if( '#' == C ) {
-//          first_line = l+1;
-//          found_first_line = true;
-//        }
-//      }
-//    }
-//  }
-//  // No command so just return
-//  if( LAST_LINE < first_line ) return false;
-//
-//  // Concatenate all command lines into String cmd:
-//  for( unsigned k=first_line; k<=LAST_LINE; k++ )
-//  {
-//    const unsigned LL = pfb->LineLen( k );
-//    for( unsigned p=0; p<LL; p++ )
-//    {
-//      const uint8_t C = pfb->Get( k, p );
-//      cmd.push( C );
-//    }
-//    if( LL && LAST_LINE != k ) cmd.push(' ');
-//  }
-//  cmd.trim(); //< Remove leading and ending spaces
-//
-//  return cmd.len() ? true : false;
-//}
-
-bool RunCommand_GetCommand( Vis::Data& m, String& cmd )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  bool got_command = false;
-  FileBuf* pfb = CV(m)->GetFB();
-
-  if( SHELL_FILE == m.file_hist[m.win][0]
-   && 0 < pfb->NumLines() )
-  {
-    const unsigned LAST_LINE = pfb->NumLines()-1;
-
-    // Find first line, which is line below last line matching '^[ ]*#':
-    bool found_first_line = false;
-    int first_line = 0;
-    for( int l=LAST_LINE; !found_first_line && 0<=l; l-- )
-    {
-      const unsigned LL = pfb->LineLen( l );
-      unsigned first_non_white = 0;
-      while( first_non_white<LL && IsSpace( pfb->Get( l, first_non_white ) ) ) first_non_white++;
-      if( first_non_white<LL && '#' == pfb->Get( l, first_non_white ) )
-      {
-        found_first_line = true;
-        first_line = l+1;
-      }
-    }
-    if( first_line <= LAST_LINE )
-    {
-      // Concatenate all command lines into String cmd:
-      for( unsigned k=first_line; k<=LAST_LINE; k++ )
-      {
-        const unsigned LL = pfb->LineLen( k );
-        for( unsigned p=0; p<LL; p++ )
-        {
-          const uint8_t C = pfb->Get( k, p );
-          if( C == '#' ) break; //< Ignore # to end of line
-          cmd.push( C );
-        }
-        if( 0<LL && k<LAST_LINE ) cmd.push(' ');
-      }
-      cmd.trim(); //< Remove leading and ending spaces
-
-      got_command = cmd.len() ? true : false;
-    }
-  }
-  return got_command;
-}
-
-// Returns true of ran command, else false
-bool RunCommand_RunCommand( Vis::Data& m
-                          , const String& cmd
-                          , FileBuf* pfb
-                          , int& exit_val )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  pid_t child_pid = 0;
-  FILE* fp = POpenRead( cmd.c_str(), child_pid );
-  if( NULL == fp )
-  {
-    m.vis.Window_Message("\nPOpenRead( %s ) failed\n\n", cmd.c_str() );
-    return false;
-  }
-  pfb->PushLine();
-  m.cmd_mode = true;
-  // Move cursor to bottom of file
-  const unsigned NUM_LINES = pfb->NumLines();
-  CV(m)->GoToCrsPos_NoWrite( NUM_LINES-1, 0 );
-  pfb->Update();
-
-  double T1 = GetTimeSeconds();
-  for( int C = fgetc( fp ); EOF != C; C = fgetc( fp ) )
-  {
-    if( '\n' != C ) pfb->PushChar( C );
-    else {
-      pfb->PushLine();
-      double T2 = GetTimeSeconds();
-      if( 0.5 < (T2-T1) ) {
-        T1 = T2;
-        // Move cursor to bottom of file
-        const unsigned NUM_LINES = pfb->NumLines();
-        CV(m)->GoToCrsPos_NoWrite( NUM_LINES-1, 0 );
-        pfb->Update();
-      }
-    }
-  }
-  exit_val = PClose( fp, child_pid );
-  m.cmd_mode = false;
-  return true;
-}
-
 void RunCommand( Vis::Data& m )
 {
-  Trace trace( __PRETTY_FUNCTION__ );
-  String cmd;
-  bool ok = RunCommand_GetCommand( m, cmd );
-  if( !ok )
+  if( !m.vis.Shell_Running() )
   {
-    CV(m)->PrintCursor();
-  }
-  else {
-    FileBuf* pfb = CV(m)->GetFB();
-    // Add ######################################
-    pfb->PushLine();
-    for( unsigned k=0; k<40; k++ ) pfb->PushChar( '#' );
-
-    int exit_val = 0;
-    bool ran_cmd = RunCommand_RunCommand( m, cmd, pfb, exit_val );
-
-    if( ran_cmd )
+    if( SHELL_FILE == m.file_hist[ m.win ][ 0 ] )
     {
-      char exit_msg[128];
-      sprintf( exit_msg, "Exit_Value=%i", exit_val );
-
-      // Append exit_msg:
-      if( 0<pfb->LineLen( pfb->NumLines()-1 ) ) pfb->PushLine();
-      const unsigned EXIT_MSG_LEN = strlen( exit_msg );
-      for( unsigned k=0; k<EXIT_MSG_LEN; k++ ) pfb->PushChar( exit_msg[k] );
+      m.shell.Run();
     }
-    // Add ###.. line followed by empty line
-    pfb->PushLine();
-    for( unsigned k=0; k<40; k++ ) pfb->PushChar( '#' );
-    pfb->PushLine();
-
-    // Move cursor to bottom of file
-    const unsigned NUM_LINES = pfb->NumLines();
-    CV(m)->GoToCrsPos_NoWrite( NUM_LINES-1, 0 );
-    pfb->Update();
   }
 }
-
-#endif
 
 void HandleColon_e( Vis::Data& m )
 {
@@ -3020,9 +2845,7 @@ void Handle_Colon( Vis::Data& m )
   else if( strcmp( m.cbuf,"pwd" )==0 ) { GetCWD(m); }
   else if( strcmp( m.cbuf,"sh"  )==0
         || strcmp( m.cbuf,"shell")==0) { GoToShellBuffer(m); }
-#ifndef WIN32
   else if( strcmp( m.cbuf,"run" )==0 ) { RunCommand(m); }
-#endif
   else if( strncmp(m.cbuf,"re",2)==0 ) { Console::Refresh(); }
   else if( strcmp( m.cbuf,"map" )==0 )    m.colon.MapStart();
   else if( strcmp( m.cbuf,"showmap")==0)  m.colon.MapShow();
@@ -3628,6 +3451,11 @@ View* Vis::WinView( const unsigned w ) const
   return m.views[w][ m.file_hist[w][0] ];
 }
 
+FileBuf* Vis::FileNum2Buf( const unsigned file_num ) const
+{
+  return m.views[0][ file_num ]->GetFB();
+}
+
 unsigned Vis::GetNumWins() const
 {
   return m.num_wins;
@@ -3677,9 +3505,14 @@ bool Vis::InDiffMode() const
   return m.diff_mode;
 }
 
-bool Vis::RunningCmd() const
+bool Vis::Shell_Running() const
 {
-  return m.cmd_mode;
+  return m.shell.Running();;
+}
+
+void Vis::Update_Shell()
+{
+  m.shell.Update();
 }
 
 bool Vis::RunningDot() const

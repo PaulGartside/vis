@@ -63,7 +63,7 @@ bool String::inc_size( unsigned new_size, bool keep_data )
     if( new_size < my_new_size ) new_size = my_new_size ;
 
     char* new_data = new(__FILE__,__LINE__) char[new_size];
-    if( !new_data ) return 0;
+    if( !new_data ) return false;
 
     if( !keep_data ) new_data[0] = 0;
     else {
@@ -75,7 +75,7 @@ bool String::inc_size( unsigned new_size, bool keep_data )
     data = new_data;
     size = new_size;
   }
-  return 1;
+  return true;
 }
 
 // copy() does no assume that data points to something because
@@ -86,13 +86,13 @@ bool String::copy( const char* cp )
   unsigned s_len = cp ? strlen(cp) : 0 ;
 
   if( s_len ) {
-    if( size < s_len+1 ) { if( !inc_size( s_len+1 ) ) return 0; }
+    if( size < s_len+1 ) { if( !inc_size( s_len+1 ) ) return false; }
     for( unsigned k=0; k<s_len; k++ ) data[k] = cp[k];
   }
   length = s_len ;
   if( size ) data[ length ] = 0;
 
-  return 1;
+  return true;
 }
 
 bool String::operator==( const char* cp ) const
@@ -109,10 +109,10 @@ bool String::operator==( const char* cp ) const
       {
         return strncmp( data, cp, length )==0;
       }
-      return 1;
+      return true;
     }
   }
-  return 0;
+  return false;
 }
 
 bool String::operator==( const String& s ) const
@@ -124,9 +124,9 @@ bool String::operator==( const String& s ) const
     {
       return strncmp( data, s.c_str(), length )==0;
     }
-    return 1;
+    return true;
   }
-  return 0;
+  return false;
 }
 
 bool String::operator!=( const String& s ) const
@@ -137,7 +137,7 @@ bool String::operator!=( const String& s ) const
 char String::get( unsigned i ) const
 {
   if( i<length ) return data[i];
-  return 0;
+  return false;
 }
 
 bool String::set( unsigned i, char c )
@@ -146,36 +146,36 @@ bool String::set( unsigned i, char c )
   {
     if( c==0 ) length = i ;
     data[i] = c ;
-    return 1;
+    return true;
   }
   else if( i==length )
   {
     return push( c );
   }
-  return 0;
+  return false;
 }
 
 char String::get_end( unsigned i ) const
 {
   const int index = length-1-i;
   if( 0 <= index && index < length ) return data[index];
-  return 0;
+  return false;
 }
 
 bool String::append( const char* cp )
 {
-  if( !cp ) return 0;
+  if( !cp ) return false;
 
   unsigned cp_len = strlen(cp);
   if( cp_len ) {
     unsigned new_size = length + cp_len + 1 ;
     // if inc_size() fails, this does not change
-    if( size < new_size && !inc_size( new_size, true ) ) return 0;
+    if( size < new_size && !inc_size( new_size, true ) ) return false;
     for( unsigned k=0; k<cp_len; k++ ) data[length+k] = cp[k] ;
     length += cp_len ;
     data[length] = 0 ;
   }
-  return 1;
+  return true;
 }
 
 bool String::append( const String& s )
@@ -184,25 +184,25 @@ bool String::append( const String& s )
   if( s_len ) {
     unsigned new_size = length + s_len + 1 ;
     // if inc_size() fails, this does not change
-    if( size < new_size && !inc_size( new_size, true ) ) return 0;
+    if( size < new_size && !inc_size( new_size, true ) ) return false;
     for( unsigned k=0; k<s_len; k++ ) data[length+k] = s.get(k);
     length += s_len ;
     data[length] = 0 ;
   }
-  return 1;
+  return true;
 }
 
 bool String::push( char c )
 {
-  if( !c ) return 0;
+  if( !c ) return false;
 
   // size must be at least current length + 1 for c + 1 for NULL
-  if( size < length+2 && !inc_size( size+1, true ) ) return 0;
+  if( size < length+2 && !inc_size( size+1, true ) ) return false;
 
   data[length++] = c;
   data[length  ] = 0;
 
-  return 1;
+  return true;
 }
 
 bool String::insert( unsigned p, char c )
@@ -298,14 +298,14 @@ int String::shift( unsigned num_chars )
 // returning 1 on success and 0 on failure
 bool String::replace( const String& s1, const String& s2 )
 {
-  if( length==0 ) return 0;
+  if( length==0 ) return false;
 
   const char* str1 = s1.c_str(); int str1_len = s1.len();
   const char* str2 = s2.c_str(); int str2_len = s2.len();
 
   // If s1 has zero length, or is not in data, there is nothing to replace.
   // When s2 is a null string s1 is simply removed from data.
-  if( str1_len==0 || strstr(data, str1)==0 ) return 0;
+  if( str1_len==0 || strstr(data, str1)==0 ) return false;
 
   int S1L = strstr( data, str1 ) - data; // Segment 1 length
   int S2L = str2_len;                    // Segment 2 length
@@ -323,7 +323,7 @@ bool String::replace( const String& s1, const String& s2 )
   {
     if( int(size) < S1L+S2L+S3L+1 ) {
       bool keep_data = true;
-      if( !inc_size( S1L+S2L+S3L+1, keep_data ) ) return 0;
+      if( !inc_size( S1L+S2L+S3L+1, keep_data ) ) return false;
     }
     // Move segment 3 up to make room for a larger segment 2
     for( int k=S3L-1; k>=0; k-- ) data[ k+S1L+S2L ] = data[ k+S1L+str1_len ];
@@ -332,7 +332,7 @@ bool String::replace( const String& s1, const String& s2 )
   length = S1L+S2L+S3L ;
   data[ length ] = 0 ;
 
-  return 1;
+  return true;
 }
 
 // Returns the number of chars changed from lower case to upper case
@@ -376,7 +376,7 @@ int String::to_lower()
 bool String::has( const char* pat, unsigned* pos )
 {
   // No pattern, or zero length pattern or no data, or zero length data
-  if( !pat || !pat[0] || !data || !data[0] ) return 0;
+  if( !pat || !pat[0] || !data || !data[0] ) return false;
 
   unsigned offset = pos ? *pos : 0;
 
@@ -388,21 +388,43 @@ bool String::has( const char* pat, unsigned* pos )
     if( pos && result ) *pos = result - data;
     return result ? 1 : 0;
   }
-  return 0;
+  return false;
 }
+
+//// If this string has pat at pos, returns 1, else returns 0
+//bool String::has_at( const char* pat, unsigned pos )
+//{
+//  // No pattern, or zero length pattern or no data, or zero length data
+//  if( !pat || !pat[0] || !data || !data[0] ) return false;
+//
+//  if( pos < length )
+//  {
+//    unsigned pat_len = strlen( pat );
+//    return ! strncmp( data+pos, pat, pat_len );
+//  }
+//  return false;
+//}
 
 // If this string has pat at pos, returns 1, else returns 0
 bool String::has_at( const char* pat, unsigned pos )
 {
   // No pattern, or zero length pattern or no data, or zero length data
-  if( !pat || !pat[0] || !data || !data[0] ) return 0;
+  if( !pat || !pat[0] || !data || !data[0] ) return false;
 
-  if( pos < length )
+  unsigned pat_len = strlen( pat );
+
+  if( pos+pat_len <= length )
   {
-    unsigned pat_len = strlen( pat );
     return ! strncmp( data+pos, pat, pat_len );
   }
-  return 0;
+  return false;
+}
+
+bool String::ends_with( const char* pat )
+{
+  const unsigned pat_len = strlen( pat );
+
+  return has_at( pat, length-pat_len );
 }
 
 // Returns print length of string with the escape sequences

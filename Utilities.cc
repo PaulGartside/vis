@@ -109,6 +109,13 @@ void Swap( unsigned& A, unsigned& B )
   A = T;
 }
 
+void Safe_Strcpy( char* dst, const char* src, const size_t dst_size )
+{
+  strncpy( dst, src, dst_size-1 );
+
+  dst[ dst_size-1 ] = 0;
+}
+
 void RemoveSpaces( char* cp )
 {
   if( cp )
@@ -251,7 +258,7 @@ double ModificationTime( const char* fname )
 //  }
 //}
 
-// Changes 'path/.' to 'path/.
+// Changes 'path/.' to 'path/'
 void Remove_dot_at_end( char* path )
 {
   if( 0 != path )
@@ -294,7 +301,7 @@ void Remove_dot_slash( char* path )
   }
 }
 
-// Removes '//' from path
+// Changes '//' to '/'
 void Remove_slash_slash( char* path )
 {
   if( 0 != path )
@@ -360,14 +367,27 @@ void Remove_parent_slash_dot_dot( char* path )
   }
 }
 
+//void Normalize_Full_Path( char* path )
+//{
+//  if( 0 != path )
+//  {
+//    Remove_dot_at_end( path );
+//    Remove_parent_slash_dot_dot( path );
+//    Remove_dot_slash( path );
+//    Remove_slash_slash( path );
+//
+//  }
+//}
+
 void Normalize_Full_Path( char* path )
 {
   if( 0 != path )
   {
     Remove_dot_at_end( path );
-    Remove_dot_slash( path );
     Remove_slash_slash( path );
     Remove_parent_slash_dot_dot( path );
+    Remove_dot_slash( path );
+
   }
 }
 
@@ -484,40 +504,6 @@ void Normalize_Full_Path( char* path )
 //}
 
 // Finds full name of file or directory of in_out_fname passed in
-// relative to current directory, and places result in in_out_fname.
-// The full name found does not need to exist to return success.
-// Returns true on success, false on failure.
-//
-//bool FindFullFileName( String& in_out_fname )
-//{
-//  EnvKeys2Vals( in_out_fname );
-//
-//  const char* in_fname = in_out_fname.c_str();
-//
-//  const unsigned BUF_LEN = 1024;
-//  char buf[ BUF_LEN ];
-//  if( getcwd( buf, BUF_LEN ) )
-//  {
-//    const int CWD_LEN = strlen( buf );
-//    if( CWD_LEN < BUF_LEN )
-//    {
-//      const int BUF_REMAINDER = BUF_LEN - CWD_LEN;
-//      int rval = snprintf( buf+CWD_LEN
-//                         , BUF_REMAINDER
-//                         , "%c%s", DIR_DELIM, in_fname );
-//
-//      if( 0 < rval && rval < BUF_REMAINDER )
-//      {
-//        Normalize_Full_Path( buf );
-//        in_out_fname = buf;
-//        return true;
-//      }
-//    }
-//  }
-//  return false;
-//}
-
-// Finds full name of file or directory of in_out_fname passed in
 // relative to the current directory, and places result in in_out_fname.
 // The full name found does not need to exist to return success.
 // Returns true on success, false on failure.
@@ -579,8 +565,7 @@ bool FindFullFileNameRel2( const char* rel_2_path, String& in_out_fname )
     }
     const unsigned BUF_LEN = 1024;
     char buf[ BUF_LEN ];
-    strncpy( buf, rel_2_path, BUF_LEN-1 );
-    buf[ BUF_LEN-1 ] = 0;
+    Safe_Strcpy( buf, rel_2_path, BUF_LEN );
     const int REL_PATH_LEN = strlen( buf );
     if( REL_PATH_LEN < BUF_LEN )
     {
@@ -697,8 +682,8 @@ void EnvKeys2Vals( String& in_out_fname )
 }
 
 #ifndef WIN32
-// On success, return non-zero fd and fill in child_pid.
-// On failure, return zero.
+// On success, returns non-zero fd and fills in child_pid.
+// On failure, returns zero.
 FILE* POpenRead( const char* cmd, pid_t& child_pid )
 {
   FILE* fp = 0;
@@ -725,7 +710,6 @@ FILE* POpenRead( const char* cmd, pid_t& child_pid )
       // stdout and stderr, which are still tied to write end of pipe.
       close( pfd[1] );
 
-    //execl("/bin/bash", "bash", "-c", cmd, (char*) 0 );
       ExecShell( cmd );
       // If we get here, execl() failed, so make child return with 127
       _exit( 127 );
@@ -745,8 +729,8 @@ int PClose( FILE* fp, const pid_t child_pid )
   else {
     if( fclose( fp ) == EOF ) ; // fp was not open, drop out
     else {
-      bool wait_done = false;
-      while( !wait_done )
+      bool child_done = false;
+      while( !child_done )
       {
         int err = waitpid( child_pid, &child_termination_sts, 0 );
         if( 0 != err && EINTR == errno )
@@ -755,7 +739,7 @@ int PClose( FILE* fp, const pid_t child_pid )
         }
         else {
           // waitpid successful, or had error, either way, drop out
-          wait_done = true;
+          child_done = true;
         }
       }
     }
@@ -765,7 +749,7 @@ int PClose( FILE* fp, const pid_t child_pid )
 
 void ExecShell( const char* cmd )
 {
-  const char*           shell_prog = getenv("VIT_SHELL");
+  const char*           shell_prog = getenv("VIS_SHELL");
   if( 0 == shell_prog ) shell_prog = getenv("SHELL");
   if( 0 == shell_prog ) shell_prog = "/bin/bash";
 

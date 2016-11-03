@@ -15,7 +15,7 @@ public:
 
   void clear();
 
-  bool set_len ( const char* _FILE_, const unsigned _LINE_, unsigned new_len )
+  bool set_len( const char* _FILE_, const unsigned _LINE_, unsigned new_len )
   {
     return m_data.set_len( _FILE_, _LINE_, new_len );
   }

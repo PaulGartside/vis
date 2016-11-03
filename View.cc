@@ -36,8 +36,8 @@
 
 extern MemLog<MEM_LOG_BUF_SIZE> Log;
 
-const unsigned BE_FILE  = 0;   // Buffer editor file
-const unsigned CMD_FILE = 4;   // Command Shell file
+extern const unsigned BE_FILE   ;  // Buffer editor file
+extern const unsigned SHELL_FILE;  // Command Shell file
 
 static const unsigned top___border = 1;
 static const unsigned bottomborder = 1;
@@ -2074,7 +2074,7 @@ void Do_dd_BufferEditor( View::Data& m, const unsigned ONL )
   const unsigned OCL = m.view.CrsLine(); // Old cursor line
 
   // Can only delete one of the user files out of buffer editor
-  if( CMD_FILE < OCL )
+  if( SHELL_FILE < OCL )
   {
     Line* lp = m.fb.GetLineP( OCL );
 
@@ -3798,7 +3798,9 @@ void View::PrintCmdLine()
     col=11; // Strlen of "--REPLACE--"
     Console::SetS( Cmd__Line_Row(), Col_Win_2_GL( 0 ), "--REPLACE--", S_BANNER );
   }
-  else if( m.vis.RunningCmd() && m.vis.CV() == &m.view )
+//else if( m.vis.Shell_Running() && m.vis.CV() == &m.view )
+  else if( m.vis.Shell_Running()
+        && m.vis.FileNum2Buf(SHELL_FILE) == &m.fb )
   {
     col=11; // Strlen of "--RUNNING--"
     Console::SetS( Cmd__Line_Row(), Col_Win_2_GL( 0 ), "--RUNNING--", S_BANNER );

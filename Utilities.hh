@@ -38,6 +38,7 @@ unsigned Min( const unsigned a, const unsigned b );
 unsigned Max( const unsigned a, const unsigned b );
 unsigned LLM1( const unsigned LL );
 void Swap( unsigned& A, unsigned& B );
+void Safe_Strcpy( char* dst, const char* src, const size_t dst_size );
 void RemoveSpaces( char* cp );
 void Shift( char* cp, const unsigned SHIFT_LEN );
 int  my_stat( const char* fname, struct stat& sbuf );

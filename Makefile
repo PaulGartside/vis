@@ -46,6 +46,7 @@ SOURCES = ChangeHist \
           Line \
           MemCheck \
           MemLog \
+          Shell \
           String \
           Types \
           Utilities \
