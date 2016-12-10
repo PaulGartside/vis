@@ -585,23 +585,28 @@ bool FindFullFileNameRel2( const char* rel_2_path, String& in_out_fname )
   return false;
 }
 
-void GetFnameHeadAndTail( const String& in_fname, String& head, String& tail )
+void GetFnameHeadAndTail( const char* in_fname, String& head, String& tail )
 {
   head.clear();
   tail.clear();
 
-  // This const_cast is okay because we are not changing in_fname_cp:
-  char* in_fname_cp = CCast<char*>(in_fname.c_str());
-  char* const last_slash = strrchr( in_fname_cp, DIR_DELIM );
+  // This const_cast is okay because we are not changing in_fname_nc:
+  char* in_fname_nc = CCast<char*>(in_fname);
+  char* const last_slash = strrchr( in_fname_nc, DIR_DELIM );
   if( last_slash )
   {
-    for( char* cp = last_slash + 1; *cp; cp++ ) head.push( *cp );
-    for( char* cp = in_fname_cp; cp < last_slash; cp++ ) tail.push( *cp );
+    for( const char* cp = last_slash + 1; *cp; cp++ ) head.push( *cp );
+    for( const char* cp = in_fname; cp < last_slash; cp++ ) tail.push( *cp );
   }
   else {
     // No tail, all head:
-    for( char* cp = in_fname_cp; *cp; cp++ ) head.push( *cp );
+    for( const char* cp = in_fname; *cp; cp++ ) head.push( *cp );
   }
+}
+
+void GetFnameHeadAndTail( const String& in_fname, String& head, String& tail )
+{
+  GetFnameHeadAndTail( in_fname.c_str(), head, tail );
 }
 
 String GetFnameHead( const char* in_full_fname )
@@ -613,11 +618,11 @@ String GetFnameHead( const char* in_full_fname )
   char* const last_slash = strrchr( in_fname_cp, DIR_DELIM );
   if( last_slash )
   {
-    for( char* cp = last_slash + 1; *cp; cp++ ) head.push( *cp );
+    for( const char* cp = last_slash + 1; *cp; cp++ ) head.push( *cp );
   }
   else {
     // No tail, all head:
-    for( char* cp = in_fname_cp; *cp; cp++ ) head.push( *cp );
+    for( const char* cp = in_full_fname; *cp; cp++ ) head.push( *cp );
   }
   return head;
 }
@@ -631,7 +636,7 @@ String GetFnameTail( const char* in_full_fname )
   char* const last_slash = strrchr( in_fname_cp, DIR_DELIM );
   if( last_slash )
   {
-    for( char* cp = in_fname_cp; cp<last_slash; cp++ ) tail.push( *cp );
+    for( const char* cp = in_full_fname; cp<last_slash; cp++ ) tail.push( *cp );
   }
   return tail;
 }

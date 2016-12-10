@@ -88,6 +88,8 @@ Shell::Data::~Data()
 
 bool Blocking_Cmd( Shell::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   bool blocking_cmd = false;
 
   m.cmd_copy = m.cmd; 
@@ -99,9 +101,6 @@ bool Blocking_Cmd( Shell::Data& m )
     // Editor commands running in this console must be run in blocking mode,
     // or this instance of vis will and the child editor will be clobbering
     // each other
-  //if( ((3 < LEN) && m.cmd_part.has_at("vis", LEN-3))
-  // || ((3 < LEN) && m.cmd_part.has_at("vim", LEN-3))
-  // || ((2 < LEN) && m.cmd_part.has_at("vi" , LEN-2)) )
     if( m.cmd_part.ends_with("vis")
      || m.cmd_part.ends_with("vim")
      || m.cmd_part.ends_with("vi" ) )
@@ -116,6 +115,8 @@ bool Blocking_Cmd( Shell::Data& m )
 // On failure, returns zero.
 int Pipe_Fork_Exec( Shell::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   int fd = 0;
   int pfd[2];
 
@@ -236,6 +237,8 @@ bool Get_Shell_Cmd( Shell::Data& m )
 
 void Print_Divider_Move_Cursor_2_Bottom( Shell::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   // Add ###################################### followed by empty line
   m.pfb->PushLine( m.divider );
   m.pfb->PushLine();
@@ -273,6 +276,8 @@ void Run_Shell_Start( Shell::Data& m )
 
 void Join_Print_Exit_Status( Shell::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   const int exit_val = CloseFd_WaitPID( m.fd, m.child_pid );
   m.running = false;
 
@@ -287,6 +292,8 @@ void Join_Print_Exit_Status( Shell::Data& m )
 
 void Run_Blocking( Shell::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   double T1 = GetTimeSeconds();
   char C = 0;
   // 1==success, 0==EOF, -1==Error. If not 1, drop out.
@@ -312,6 +319,8 @@ void Run_Blocking( Shell::Data& m )
 
 void Run_Non_Blocking( Shell::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   const ssize_t bytes_read = read( m.fd, m.buffer, BUF_SIZE );
 
   if( 0 < bytes_read )
@@ -355,11 +364,11 @@ Shell::Shell( Vis& vis )
 
 void Shell::Run()
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
 #ifndef WIN32
   m.view = m.vis.CV(); 
   m.pfb  = m.view->GetFB();
-
-  Trace trace( __PRETTY_FUNCTION__ );
 
   bool ok = Get_Shell_Cmd( m );
 

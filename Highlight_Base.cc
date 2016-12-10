@@ -22,6 +22,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include <string.h>    // memcpy, memset
+
 #include "MemLog.hh"
 #include "Utilities.hh"
 #include "FileBuf.hh"
@@ -33,52 +34,6 @@ Highlight_Base::Highlight_Base( FileBuf& rfb )
   : m_fb( rfb )
 {
 }
-
-//void Highlight_Base::Hi_FindKey( HiKeyVal* HiPairs )
-//{
-//  Trace trace( __PRETTY_FUNCTION__ );
-//  const unsigned NUM_LINES = m_fb.NumLines();
-//
-//  for( unsigned l=0; l<NUM_LINES; l++ )
-//  {
-//    const Line&    lr = m_fb.GetLine( l );
-//    const Line&    sr = m_fb.GetStyle( l );
-//    const unsigned LL = lr.len();
-//
-//    for( unsigned p=0; p<LL; p++ )
-//    {
-//      bool key_search = 0==sr.get(p) //< No style at p
-//                     && line_start_or_prev_C_non_ident( lr, p );
-//
-//      for( unsigned h=0; key_search && HiPairs[h].key; h++ )
-//      {
-//        bool matches = true;
-//        const char*    key     = HiPairs[h].key;
-//        const uint8_t  HI_TYPE = HiPairs[h].val;
-//        const unsigned KEY_LEN = strlen( key );
-//
-//        for( unsigned k=0; matches && (p+k)<LL && k<KEY_LEN; k++ )
-//        {
-//          if( sr.get(p+k) || key[k] != lr.get(p+k) ) matches = false;
-//          else {
-//            if( k+1 == KEY_LEN ) // Found pattern
-//            {
-//              matches = line_end_or_non_ident( lr, LL, p+k );
-//              if( matches ) {
-//                for( unsigned m=p; m<p+KEY_LEN; m++ ) m_fb.SetSyntaxStyle( l, m, HI_TYPE );
-//                // Increment p one less than KEY_LEN, because p
-//                // will be incremented again by the for loop
-//                p += KEY_LEN-1;
-//                // Set key_search to false here to break out of h for loop
-//                key_search = false;
-//              }
-//            }
-//          }
-//        }
-//      }
-//    }
-//  }
-//}
 
 void Highlight_Base::Hi_FindKey_In_Range( HiKeyVal* HiPairs
                                         , const CrsPos   st

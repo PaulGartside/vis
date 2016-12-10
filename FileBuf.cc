@@ -35,6 +35,7 @@
 #include "Utilities.hh"
 #include "MemLog.hh"
 #include "View.hh"
+#include "LineView.hh"
 #include "Vis.hh"
 #include "FileBuf.hh"
 #include "Highlight_Bash.hh"
@@ -56,6 +57,8 @@
 #include "Highlight_XML.hh"
 
 extern MemLog<MEM_LOG_BUF_SIZE> Log;
+
+extern const unsigned USER_FILE;  // First user file
 
 struct FileBuf::Data
 {
@@ -81,7 +84,8 @@ struct FileBuf::Data
   String          head_name; // Filename head = file_name - path_name, (for directories this is empty)
   bool            is_dir;
   double          mod_time;
-  ViewList        views; // List of views that display this file
+  ViewList        views;     // List of views that display this file
+  LineView*       line_view;
   bool            need_2_find_stars;
   bool            need_2_clear_stars;
 
@@ -110,6 +114,7 @@ FileBuf::Data::Data( FileBuf& parent
   , is_dir( ::IsDir( file_name.c_str() ) )
   , mod_time( 0 )
   , views(__FILE__, __LINE__)
+  , line_view( 0 )
   , need_2_find_stars( true )
   , need_2_clear_stars( false )
   , save_history( false )
@@ -144,6 +149,7 @@ FileBuf::Data::Data( FileBuf& parent
   , is_dir( rfb.m.is_dir )
   , mod_time( rfb.m.mod_time )
   , views(__FILE__, __LINE__)
+  , line_view( 0 )
   , need_2_find_stars( true )
   , need_2_clear_stars( false )
   , history( vis, parent )
@@ -172,29 +178,6 @@ FileBuf::Data::~Data()
 {
 }
 
-//bool Find_File_Type_Bash( FileBuf::Data& m )
-//{
-//  const unsigned LEN = m.file_name.len();
-//
-//  if( ( 3 < LEN && m.file_name.has_at(".sh"      , LEN-3 ) )
-//   || ( 7 < LEN && m.file_name.has_at(".sh.new"  , LEN-7 ) )
-//   || ( 7 < LEN && m.file_name.has_at(".sh.old"  , LEN-7 ) )
-//   || ( 5 < LEN && m.file_name.has_at(".bash"    , LEN-5 ) )
-//   || ( 9 < LEN && m.file_name.has_at(".bash.new", LEN-9 ) )
-//   || ( 9 < LEN && m.file_name.has_at(".bash.old", LEN-9 ) )
-//   || ( 6 < LEN && m.file_name.has_at(".alias"   , LEN-6 ) )
-//   || ( 7 < LEN && m.file_name.has_at(".bashrc"  , LEN-7 ) )
-//   || ( 8 < LEN && m.file_name.has_at(".profile" , LEN-8 ) )
-//   || (13 < LEN && m.file_name.has_at(".bash_profile", LEN-13 ) )
-//   || (12 < LEN && m.file_name.has_at(".bash_logout" , LEN-12 ) ) )
-//  {
-//    m.file_type = FT_BASH;
-//    m.pHi = new(__FILE__,__LINE__) Highlight_Bash( m.self );
-//    return true;
-//  }
-//  return false;
-//}
-
 bool Find_File_Type_Bash( FileBuf::Data& m )
 {
   const unsigned LEN = m.file_name.len();
@@ -217,39 +200,6 @@ bool Find_File_Type_Bash( FileBuf::Data& m )
   }
   return false;
 }
-
-//bool Find_File_Type_CPP( FileBuf::Data& m )
-//{
-//  const unsigned LEN = m.file_name.len();
-//
-//  if( ( 2 < LEN && m.file_name.has_at(".h"      , LEN-2 ) )
-//   || ( 6 < LEN && m.file_name.has_at(".h.new"  , LEN-6 ) )
-//   || ( 6 < LEN && m.file_name.has_at(".h.old"  , LEN-6 ) )
-//   || ( 2 < LEN && m.file_name.has_at(".c"      , LEN-2 ) )
-//   || ( 6 < LEN && m.file_name.has_at(".c.new"  , LEN-6 ) )
-//   || ( 6 < LEN && m.file_name.has_at(".c.old"  , LEN-6 ) )
-//   || ( 3 < LEN && m.file_name.has_at(".hh"     , LEN-3 ) )
-//   || ( 7 < LEN && m.file_name.has_at(".hh.new" , LEN-7 ) )
-//   || ( 7 < LEN && m.file_name.has_at(".hh.old" , LEN-7 ) )
-//   || ( 3 < LEN && m.file_name.has_at(".cc"     , LEN-3 ) )
-//   || ( 7 < LEN && m.file_name.has_at(".cc.new" , LEN-7 ) )
-//   || ( 7 < LEN && m.file_name.has_at(".cc.old" , LEN-7 ) )
-//   || ( 4 < LEN && m.file_name.has_at(".hpp"    , LEN-4 ) )
-//   || ( 8 < LEN && m.file_name.has_at(".hpp.new", LEN-8 ) )
-//   || ( 8 < LEN && m.file_name.has_at(".hpp.old", LEN-8 ) )
-//   || ( 4 < LEN && m.file_name.has_at(".cpp"    , LEN-4 ) )
-//   || ( 8 < LEN && m.file_name.has_at(".cpp.new", LEN-8 ) )
-//   || ( 8 < LEN && m.file_name.has_at(".cpp.old", LEN-8 ) )
-//   || ( 4 < LEN && m.file_name.has_at(".cxx"    , LEN-4 ) )
-//   || ( 8 < LEN && m.file_name.has_at(".cxx.new", LEN-8 ) )
-//   || ( 8 < LEN && m.file_name.has_at(".cxx.old", LEN-8 ) ) )
-//  {
-//    m.file_type = FT_CPP;
-//    m.pHi = new(__FILE__,__LINE__) Highlight_CPP( m.self );
-//    return true;
-//  }
-//  return false;
-//}
 
 bool Find_File_Type_CPP( FileBuf::Data& m )
 {
@@ -284,21 +234,6 @@ bool Find_File_Type_CPP( FileBuf::Data& m )
   return false;
 }
 
-//bool Find_File_Type_IDL( FileBuf::Data& m )
-//{
-//  const unsigned LEN = m.file_name.len();
-//
-//  if( ( 4 < LEN && m.file_name.has_at(".idl"      , LEN-4 ) )
-//   || ( 8 < LEN && m.file_name.has_at(".idl.new"  , LEN-8 ) )
-//   || ( 8 < LEN && m.file_name.has_at(".idl.old"  , LEN-8 ) ) )
-//  {
-//    m.file_type = FT_IDL;
-//    m.pHi = new(__FILE__,__LINE__) Highlight_IDL( m.self );
-//    return true;
-//  }
-//  return false;
-//}
-
 bool Find_File_Type_IDL( FileBuf::Data& m )
 {
   const unsigned LEN = m.file_name.len();
@@ -314,21 +249,6 @@ bool Find_File_Type_IDL( FileBuf::Data& m )
   return false;
 }
 
-//bool Find_File_Type_Java( FileBuf::Data& m )
-//{
-//  const unsigned LEN = m.file_name.len();
-//
-//  if( ( 5 < LEN && m.file_name.has_at(".java"      , LEN-5 ) )
-//   || ( 9 < LEN && m.file_name.has_at(".java.new"  , LEN-9 ) )
-//   || ( 9 < LEN && m.file_name.has_at(".java.old"  , LEN-9 ) ) )
-//  {
-//    m.file_type = FT_JAVA;
-//    m.pHi = new(__FILE__,__LINE__) Highlight_Java( m.self );
-//    return true;
-//  }
-//  return false;
-//}
-
 bool Find_File_Type_Java( FileBuf::Data& m )
 {
   const unsigned LEN = m.file_name.len();
@@ -343,24 +263,6 @@ bool Find_File_Type_Java( FileBuf::Data& m )
   }
   return false;
 }
-
-//bool Find_File_Type_HTML( FileBuf::Data& m )
-//{
-//  const unsigned LEN = m.file_name.len();
-//
-//  if( ( 4 < LEN && m.file_name.has_at(".htm"     , LEN-4 ) )
-//   || ( 8 < LEN && m.file_name.has_at(".htm.new" , LEN-8 ) )
-//   || ( 8 < LEN && m.file_name.has_at(".htm.old" , LEN-8 ) )
-//   || ( 5 < LEN && m.file_name.has_at(".html"    , LEN-5 ) )
-//   || ( 9 < LEN && m.file_name.has_at(".html.new", LEN-9 ) )
-//   || ( 9 < LEN && m.file_name.has_at(".html.old", LEN-9 ) ) )
-//  {
-//    m.file_type = FT_HTML;
-//    m.pHi = new(__FILE__,__LINE__) Highlight_HTML( m.self );
-//    return true;
-//  }
-//  return false;
-//}
 
 bool Find_File_Type_HTML( FileBuf::Data& m )
 {
@@ -380,24 +282,6 @@ bool Find_File_Type_HTML( FileBuf::Data& m )
   return false;
 }
 
-//bool Find_File_Type_XML( FileBuf::Data& m )
-//{
-//  const unsigned LEN = m.file_name.len();
-//
-//  if( (  4 < LEN && m.file_name.has_at(".xml"        , LEN- 4 ) )
-//   || (  8 < LEN && m.file_name.has_at(".xml.new"    , LEN- 8 ) )
-//   || (  8 < LEN && m.file_name.has_at(".xml.old"    , LEN- 8 ) )
-//   || (  7 < LEN && m.file_name.has_at(".xml.in"     , LEN- 7 ) )
-//   || ( 11 < LEN && m.file_name.has_at(".xml.in.new" , LEN-11 ) )
-//   || ( 11 < LEN && m.file_name.has_at(".xml.in.old" , LEN-11 ) ) )
-//  {
-//    m.file_type = FT_XML;
-//    m.pHi = new(__FILE__,__LINE__) Highlight_XML( m.self );
-//    return true;
-//  }
-//  return false;
-//}
-
 bool Find_File_Type_XML( FileBuf::Data& m )
 {
   const unsigned LEN = m.file_name.len();
@@ -416,21 +300,6 @@ bool Find_File_Type_XML( FileBuf::Data& m )
   return false;
 }
 
-//bool Find_File_Type_JS( FileBuf::Data& m )
-//{
-//  const unsigned LEN = m.file_name.len();
-//
-//  if( ( 3 < LEN && m.file_name.has_at(".js"    , LEN-3 ) )
-//   || ( 7 < LEN && m.file_name.has_at(".js.new", LEN-7 ) )
-//   || ( 7 < LEN && m.file_name.has_at(".js.old", LEN-7 ) ) )
-//  {
-//    m.file_type = FT_JS;
-//    m.pHi = new(__FILE__,__LINE__) Highlight_JS( m.self );
-//    return true;
-//  }
-//  return false;
-//}
-
 bool Find_File_Type_JS( FileBuf::Data& m )
 {
   const unsigned LEN = m.file_name.len();
@@ -445,30 +314,6 @@ bool Find_File_Type_JS( FileBuf::Data& m )
   }
   return false;
 }
-
-//bool Find_File_Type_Make( FileBuf::Data& m )
-//{
-//  const unsigned LEN = m.file_name.len();
-//
-//  if( (  5 <  LEN && m.file_name.has_at(".Make"       , LEN-5  ) )
-//   || (  5 <  LEN && m.file_name.has_at(".make"       , LEN-5  ) )
-//   || (  9 <  LEN && m.file_name.has_at(".Make.new"   , LEN-9  ) )
-//   || (  9 <  LEN && m.file_name.has_at(".make.new"   , LEN-9  ) )
-//   || (  9 <  LEN && m.file_name.has_at(".Make.old"   , LEN-9  ) )
-//   || (  9 <  LEN && m.file_name.has_at(".make.old"   , LEN-9  ) )
-//   || (  8 <= LEN && m.file_name.has_at("Makefile"    , LEN-8  ) )
-//   || (  8 <= LEN && m.file_name.has_at("makefile"    , LEN-8  ) )
-//   || ( 12 <= LEN && m.file_name.has_at("Makefile.new", LEN-12 ) )
-//   || ( 12 <= LEN && m.file_name.has_at("makefile.new", LEN-12 ) )
-//   || ( 12 <= LEN && m.file_name.has_at("Makefile.old", LEN-12 ) )
-//   || ( 12 <= LEN && m.file_name.has_at("makefile.old", LEN-12 ) ) )
-//  {
-//    m.file_type = FT_MAKE;
-//    m.pHi = new(__FILE__,__LINE__) Highlight_Make( m.self );
-//    return true;
-//  }
-//  return false;
-//}
 
 bool Find_File_Type_Make( FileBuf::Data& m )
 {
@@ -494,24 +339,6 @@ bool Find_File_Type_Make( FileBuf::Data& m )
   return false;
 }
 
-//bool Find_File_Type_CMake( FileBuf::Data& m )
-//{
-//  const unsigned LEN = m.file_name.len();
-//
-//  if( (  6 <  LEN && m.file_name.has_at(".cmake"    , LEN-6  ) )
-//   || ( 10 <  LEN && m.file_name.has_at(".cmake.new", LEN-10 ) )
-//   || ( 10 <  LEN && m.file_name.has_at(".cmake.old", LEN-10 ) )
-//   || ( 14 <= LEN && m.file_name.has_at("CMakeLists.txt"    , LEN-14 ) )
-//   || ( 18 <= LEN && m.file_name.has_at("CMakeLists.new.txt", LEN-18 ) )
-//   || ( 18 <= LEN && m.file_name.has_at("CMakeLists.old.txt", LEN-18 ) ) )
-//  {
-//    m.file_type = FT_CMAKE;
-//    m.pHi = new(__FILE__,__LINE__) Highlight_CMake( m.self );
-//    return true;
-//  }
-//  return false;
-//}
-
 bool Find_File_Type_CMake( FileBuf::Data& m )
 {
   const unsigned LEN = m.file_name.len();
@@ -530,21 +357,6 @@ bool Find_File_Type_CMake( FileBuf::Data& m )
   return false;
 }
 
-//bool Find_File_Type_SQL( FileBuf::Data& m )
-//{
-//  const unsigned LEN = m.file_name.len();
-//
-//  if( ( 4 < LEN && m.file_name.has_at(".sql"    , LEN-4 ) )
-//   || ( 8 < LEN && m.file_name.has_at(".sql.new", LEN-8 ) )
-//   || ( 8 < LEN && m.file_name.has_at(".sql.old", LEN-8 ) ) )
-//  {
-//    m.file_type = FT_SQL;
-//    m.pHi = new(__FILE__,__LINE__) Highlight_SQL( m.self );
-//    return true;
-//  }
-//  return false;
-//}
-
 bool Find_File_Type_SQL( FileBuf::Data& m )
 {
   const unsigned LEN = m.file_name.len();
@@ -559,24 +371,6 @@ bool Find_File_Type_SQL( FileBuf::Data& m )
   }
   return false;
 }
-
-//bool Find_File_Type_STL( FileBuf::Data& m )
-//{
-//  const unsigned LEN = m.file_name.len();
-//
-//  if( ( 4 < LEN && m.file_name.has_at(".stl"    , LEN-4 ) )
-//   || ( 8 < LEN && m.file_name.has_at(".stl.new", LEN-8 ) )
-//   || ( 8 < LEN && m.file_name.has_at(".stl.old", LEN-8 ) )
-//   || ( 4 < LEN && m.file_name.has_at(".ste"    , LEN-4 ) )
-//   || ( 8 < LEN && m.file_name.has_at(".ste.new", LEN-8 ) )
-//   || ( 8 < LEN && m.file_name.has_at(".ste.old", LEN-8 ) ) )
-//  {
-//    m.file_type = FT_STL;
-//    m.pHi = new(__FILE__,__LINE__) Highlight_STL( m.self );
-//    return true;
-//  }
-//  return false;
-//}
 
 bool Find_File_Type_STL( FileBuf::Data& m )
 {
@@ -596,21 +390,6 @@ bool Find_File_Type_STL( FileBuf::Data& m )
   return false;
 }
 
-//bool Find_File_Type_ODB( FileBuf::Data& m )
-//{
-//  const unsigned LEN = m.file_name.len();
-//
-//  if( ( 4 < LEN && m.file_name.has_at(".odb"    , LEN-4 ) )
-//   || ( 8 < LEN && m.file_name.has_at(".odb.new", LEN-8 ) )
-//   || ( 8 < LEN && m.file_name.has_at(".odb.old", LEN-8 ) ) )
-//  {
-//    m.file_type = FT_ODB;
-//    m.pHi = new(__FILE__,__LINE__) Highlight_ODB( m.self );
-//    return true;
-//  }
-//  return false;
-//}
-
 bool Find_File_Type_ODB( FileBuf::Data& m )
 {
   const unsigned LEN = m.file_name.len();
@@ -626,21 +405,6 @@ bool Find_File_Type_ODB( FileBuf::Data& m )
   return false;
 }
 
-//bool Find_File_Type_Swift( FileBuf::Data& m )
-//{
-//  const unsigned LEN = m.file_name.len();
-//
-//  if( ( 6  < LEN && m.file_name.has_at(".swift"    , LEN-6 ) )
-//   || ( 10 < LEN && m.file_name.has_at(".swift.new", LEN-10 ) )
-//   || ( 10 < LEN && m.file_name.has_at(".swift.old", LEN-10 ) ) )
-//  {
-//    m.file_type = FT_SWIFT;
-//    m.pHi = new(__FILE__,__LINE__) Highlight_Swift( m.self );
-//    return true;
-//  }
-//  return false;
-//}
-
 bool Find_File_Type_Swift( FileBuf::Data& m )
 {
   const unsigned LEN = m.file_name.len();
@@ -655,21 +419,6 @@ bool Find_File_Type_Swift( FileBuf::Data& m )
   }
   return false;
 }
-
-//bool Find_File_Type_TCL( FileBuf::Data& m )
-//{
-//  const unsigned LEN = m.file_name.len();
-//
-//  if( ( 4 < LEN && m.file_name.has_at(".tcl"    , LEN-4 ) )
-//   || ( 8 < LEN && m.file_name.has_at(".tcl.new", LEN-8 ) )
-//   || ( 8 < LEN && m.file_name.has_at(".tcl.old", LEN-8 ) ) )
-//  {
-//    m.file_type = FT_TCL;
-//    m.pHi = new(__FILE__,__LINE__) Highlight_TCL( m.self );
-//    return true;
-//  }
-//  return false;
-//}
 
 bool Find_File_Type_TCL( FileBuf::Data& m )
 {
@@ -846,44 +595,8 @@ void Append_DirDelim( FileBuf::Data& m, const unsigned l_num )
     ChangedLine( m, l_num );
 
     if( SavingHist( m ) ) m.history.Save_InsertChar( l_num, lp->len()-1 );
-
-  //m.hi_touched_line = Min( m.hi_touched_line, l_num );
   }
 }
-
-// Add symbolic link info, i.e., -> symbolic_link_path, to file name
-//
-//void ReadExistingDir_AddLink( FileBuf::Data& m
-//                            , const String& dir_path_fname
-//                            , const unsigned LINE_NUM )
-//{
-//#ifndef WIN32
-//  const unsigned mbuf_sz = 1024;
-//  char mbuf[ 1024 ];
-//  int rval = readlink( dir_path_fname.c_str(), mbuf, mbuf_sz );
-//  if( 0 < rval )
-//  {
-//    m.self.PushChar( LINE_NUM, ' ');
-//    m.self.PushChar( LINE_NUM, '-');
-//    m.self.PushChar( LINE_NUM, '>');
-//    m.self.PushChar( LINE_NUM, ' ');
-//
-//    for( unsigned k=0; k<rval; k++ )
-//    {
-//      m.self.PushChar( LINE_NUM, mbuf[k] );
-//    }
-//    if( rval < 1024 )
-//    {
-//      mbuf[ rval ] = 0;
-//      // See if file linked to is directory:
-//      struct stat stat_buf ;
-//      int err = my_stat( mbuf, stat_buf );
-//      bool IS_DIR = 0==err && S_ISDIR( stat_buf.st_mode );
-//      if( IS_DIR ) Append_DirDelim( m, LINE_NUM );
-//    }
-//  }
-//#endif
-//}
 
 // Add symbolic link info, i.e., -> symbolic_link_path, to file name
 //
@@ -1014,32 +727,45 @@ uint8_t GetEnd( FileBuf::Data& m, const unsigned l_num )
   return lp->get(lp->len()-1);
 }
 
+void Adjust_View_topLine( FileBuf::Data& m
+                        , View_IF* pV
+                        , const unsigned l_num )
+{
+  const unsigned top_line = pV->GetTopLine();
+
+  if( l_num < top_line )
+  {
+    // Line removed was above views top line, so decrement views
+    // top line so the view will appear to be in the same position:
+    pV->SetTopLine( top_line-1 );
+  }
+  if( m.lines.len() <= pV->CrsLine() )
+  {
+    // Cursor was on last line before a line was removed, so
+    // decrement cursor line by either decrementing cursor row,
+    // or decrementing top line
+    const unsigned crs_row  = pV->GetCrsRow();
+    const unsigned top_line = pV->GetTopLine();
+
+    // Only one line is removed at a time, so just decrementing should work:
+    if     ( 0 < crs_row  ) pV->SetCrsRow( crs_row-1 );
+    else if( 0 < top_line ) pV->SetTopLine( top_line-1 );
+  }
+}
+
 void RemoveLine_Adjust_Views_topLines( FileBuf::Data& m, const unsigned l_num )
 {
   for( unsigned w=0; w<MAX_WINS && w<m.views.len(); w++ )
   {
-    View* const pV = m.views[w];
+    View* pV = m.views[w];
 
-    unsigned top_line = pV->GetTopLine();
+    Adjust_View_topLine( m, pV, l_num );
+  }
+  if( 0 != m.line_view )
+  {
+    LineView* pV = m.line_view;
 
-    if( l_num < top_line )
-    {
-      // Line removed was above views top line, so decrement views
-      // top line so the view will appear to be in the same position:
-      pV->SetTopLine( top_line-1 );
-    }
-    if( m.lines.len() <= pV->CrsLine() )
-    {
-      // Cursor was on last line before a line was removed, so
-      // decrement cursor line by either decrementing cursor row,
-      // or decrementing top line
-      unsigned crs_row  = pV->GetCrsRow();
-      unsigned top_line = pV->GetTopLine();
-
-      // Only one line is removed at a time, so just decrementing should work:
-      if     ( 0 < crs_row  ) pV->SetCrsRow( crs_row-1 );
-      else if( 0 < top_line ) pV->SetTopLine( top_line-1 );
-    }
+    Adjust_View_topLine( m, pV, l_num );
   }
 }
 
@@ -1357,9 +1083,19 @@ void FileBuf::Set_File_Type( const char* syn )
   }
 }
 
+//void FileBuf::Set_Save_History( const bool val )
+//{
+//  m.save_history = val;
+//}
+
 void FileBuf::AddView( View* v )
 {
   m.views.push(__FILE__,__LINE__, v );
+}
+
+void FileBuf::AddView( LineView* v )
+{
+  m.line_view = v;
 }
 
 void FileBuf::ReadFile()
@@ -1420,7 +1156,7 @@ void FileBuf::BufferEditor_Sort()
   // Add terminating NULL to all lines (file names):
   for( unsigned k=0; k<NUM_LINES; k++ ) PushChar( k, 0 );
 
-  const unsigned NUM_BUILT_IN_FILES = 5;
+  const unsigned NUM_BUILT_IN_FILES = USER_FILE;
   const unsigned FNAME_START_CHAR   = 0;
 
   // Sort lines (file names), least to greatest:
@@ -1671,8 +1407,6 @@ void FileBuf::InsertLine( const unsigned l_num, const Line& line )
 
   if( SavingHist( m ) ) m.history.Save_InsertLine( l_num );
 
-//m.hi_touched_line = Min( m.hi_touched_line, l_num );
-
   InsertLine_Adjust_Views_topLines( l_num );
 }
 
@@ -1694,8 +1428,6 @@ void FileBuf::InsertLine( const unsigned l_num, Line* const pLine )
   ChangedLine( m, l_num );
 
   if( SavingHist( m ) ) m.history.Save_InsertLine( l_num );
-
-//m.hi_touched_line = Min( m.hi_touched_line, l_num );
 
   InsertLine_Adjust_Views_topLines( l_num );
 }
@@ -1720,8 +1452,6 @@ void FileBuf::InsertLine( const unsigned l_num )
 
   if( SavingHist( m ) ) m.history.Save_InsertLine( l_num );
 
-//m.hi_touched_line = Min( m.hi_touched_line, l_num );
-
   InsertLine_Adjust_Views_topLines( l_num );
 }
 
@@ -1730,6 +1460,14 @@ void FileBuf::InsertLine_Adjust_Views_topLines( const unsigned l_num )
   for( unsigned w=0; w<MAX_WINS && w<m.views.len(); w++ )
   {
     View* const pV = m.views[w];
+
+    const unsigned top_line = pV->GetTopLine();
+
+    if( l_num < top_line ) pV->SetTopLine( top_line+1 );
+  }
+  if( 0 != m.line_view )
+  {
+    LineView* const pV = m.line_view;
 
     const unsigned top_line = pV->GetTopLine();
 
@@ -1761,8 +1499,6 @@ void FileBuf::InsertChar( const unsigned l_num
   ChangedLine( m, l_num );
 
   if( SavingHist( m ) ) m.history.Save_InsertChar( l_num, c_num );
-
-//m.hi_touched_line = Min( m.hi_touched_line, l_num );
 }
 
 // Add a new line at the end of FileBuf, which is a copy of line
@@ -1836,8 +1572,6 @@ void FileBuf::PushChar( const unsigned l_num, const uint8_t C )
   ChangedLine( m, l_num );
 
   if( SavingHist( m ) ) m.history.Save_InsertChar( l_num, lp->len()-1 );
-
-//m.hi_touched_line = Min( m.hi_touched_line, l_num );
 }
 
 // Add byte C to last line.  If no m.lines in file, add a line.
@@ -1899,8 +1633,6 @@ void FileBuf::RemoveLine( const unsigned l_num, Line& line )
 
   if( SavingHist( m ) ) m.history.Save_RemoveLine( l_num, line );
 
-//m.hi_touched_line = Min( m.hi_touched_line, l_num );
-
   RemoveLine_Adjust_Views_topLines( m, l_num );
 
   m.vis.ReturnLine( lp );
@@ -1927,8 +1659,6 @@ Line* FileBuf::RemoveLineP( const unsigned l_num )
 
   if( SavingHist( m ) ) m.history.Save_RemoveLine( l_num, *pLine );
 
-//m.hi_touched_line = Min( m.hi_touched_line, l_num );
-
   RemoveLine_Adjust_Views_topLines( m, l_num );
 
   return pLine;
@@ -1952,8 +1682,6 @@ void FileBuf::RemoveLine( const unsigned l_num )
   ChangedLine( m, l_num );
 
   if( SavingHist( m ) ) m.history.Save_RemoveLine( l_num, *lp );
-
-//m.hi_touched_line = Min( m.hi_touched_line, l_num );
 
   RemoveLine_Adjust_Views_topLines( m, l_num );
 
@@ -1983,8 +1711,6 @@ uint8_t FileBuf::RemoveChar( const unsigned l_num, const unsigned c_num )
   ChangedLine( m, l_num );
 
   if( SavingHist( m ) ) m.history.Save_RemoveChar( l_num, c_num, C );
-
-//m.hi_touched_line = Min( m.hi_touched_line, l_num );
 
   return C;
 }
@@ -2115,22 +1841,28 @@ void FileBuf::ClearLines()
   ChangedLine( m, 0 );
 }
 
-void FileBuf::Undo( View& rV )
+void FileBuf::Undo( View_IF& rV )
 {
-  m.save_history = false;
+  if( m.save_history )
+  {
+    m.save_history = false;
 
-  m.history.Undo( rV );
+    m.history.Undo( rV );
 
-  m.save_history = true;
+    m.save_history = true;
+  }
 }
 
-void FileBuf::UndoAll( View& rV )
+void FileBuf::UndoAll( View_IF& rV )
 {
-  m.save_history = false;
+  if( m.save_history )
+  {
+    m.save_history = false;
 
-  m.history.UndoAll( rV );
+    m.history.UndoAll( rV );
 
-  m.save_history = true;
+    m.save_history = true;
+  }
 }
 
 bool FileBuf::Changed() const
@@ -2215,11 +1947,9 @@ unsigned FileBuf::GetCursorByte( unsigned CL, unsigned CC )
   return crsByte;
 }
 
-void FileBuf::Update()
+void UpdateWinViews( FileBuf::Data& m, const bool PRINT_CMD_LINE )
 {
   Trace trace( __PRETTY_FUNCTION__ );
-
-  if( m.vis.RunningDot() ) return;
 
   for( unsigned w=0; w<MAX_WINS; w++ )
   {
@@ -2229,29 +1959,58 @@ void FileBuf::Update()
     {
       if( pV == m.vis.WinView( w2 ) )
       {
-        Find_Styles( pV->GetTopLine() + pV->WorkingRows() );
-        ClearStars();
-        Find_Stars();
+        m.self.Find_Styles( pV->GetTopLine() + pV->WorkingRows() );
+        m.self.ClearStars();
+        m.self.Find_Stars();
 
         pV->RepositionView();
         pV->Print_Borders();
         pV->PrintWorkingView();
         pV->PrintStsLine();
         pV->PrintFileLine();
-        pV->PrintCmdLine();
+
+        if( PRINT_CMD_LINE ) pV->PrintCmdLine();
 
         pV->SetStsLineNeedsUpdate( true );
       }
     }
   }
+}
+
+void FileBuf::Update()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( m.vis.RunningDot() ) return;
+
+  UpdateWinViews( m, true );
+
   Console::Update();
 
-//if( !m.vis.Shell_Running()
-// || m.vis.FileNum2Buf(SHELL_FILE) != m.vis.CV()->GetFB() )
-//{
+  // Put cursor back into current window
+  m.vis.CV()->PrintCursor();
+}
+
+void FileBuf::UpdateCmd()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( m.vis.RunningDot() ) return;
+
+  UpdateWinViews( m, false );
+
+  if( 0 != m.line_view )
+  {
+    LineView* const pV = m.line_view;
+
+    pV->RepositionView();
+    pV->PrintWorkingView();
+
+    Console::Update();
+
     // Put cursor back into current window
-    m.vis.CV()->PrintCursor();
-//}
+    pV->PrintCursor();
+  }
 }
 
 void FileBuf::ClearStyles()
@@ -2405,4 +2164,5 @@ bool FileBuf::HasStyle( const unsigned l_num
 
   return S & style;
 }
+
 

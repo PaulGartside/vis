@@ -18,7 +18,6 @@ DEPS_DIR  = DEPS/$(OS)
 PP_DIR    = PP/$(OS)
 
 SOURCES = ChangeHist \
-          Colon \
           Console \
           Cover_Array \
           Diff \
@@ -44,6 +43,7 @@ SOURCES = ChangeHist \
           Highlight_XML \
           Key \
           Line \
+          LineView \
           MemCheck \
           MemLog \
           Shell \

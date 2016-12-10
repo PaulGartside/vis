@@ -211,28 +211,28 @@ void Reset_File_Name_Completion_Variables( Colon::Data& m )
   m.search__head.clear();
 }
 
-void HandleNormal( Colon::Data& m
+void HandleNormal( Colon::Data&   m
                  , const unsigned MSG_LEN
                  , const bool     HIDE
-                 , const uint8_t  c
+                 , const uint8_t  C
                  ,       char*&   p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   const unsigned WC    = m.cv->WorkingCols();
   const unsigned G_ROW = m.cv->Cmd__Line_Row(); // Global row
 
-  *p++ = c;
+  *p++ = C;
   const unsigned local_COL = Min( p-m.cbuf+MSG_LEN-1, WC-2 );
   const unsigned G_COL = m.cv->Col_Win_2_GL( local_COL );
 
-  Console::Set( G_ROW, G_COL, (HIDE ? '*' : c), S_NORMAL );
+  Console::Set( G_ROW, G_COL, (HIDE ? '*' : C), S_NORMAL );
 
   const bool c_written = Console::Update();
   if( !c_written )
   {
-    // If c was written, the cursor moves over automatically.
-    // If c was not written, the cursor must be moved over manually.
-    // Cursor is not written if c entered is same as what is already displayed.
+    // If C was written, the cursor moves over automatically.
+    // If C was not written, the cursor must be moved over manually.
+    // Cursor is not written if C entered is same as what is already displayed.
     Console::Move_2_Row_Col( G_ROW, G_COL+1 );
   }
 }
@@ -240,25 +240,64 @@ void HandleNormal( Colon::Data& m
 // in_out_fname goes in as         some/path/partial_file_name
 // and if successful, comes out as some/path
 // the relative path to the files
+//bool FindFileBuf( Colon::Data& m )
+//{
+//  const char*    in_fname     = m.sbuf.c_str();
+//  const unsigned in_fname_len = strlen( in_fname );
+//
+//  // 1. seperate in_fname into f_name_tail and f_name_head
+//  String f_name_head;
+//  String f_name_tail;
+//  char* nc_in_fname = const_cast<char*>(in_fname);
+//  char* const last_slash = strrchr( nc_in_fname, DIR_DELIM );
+//  if( last_slash )
+//  {
+//    for( char* cp = last_slash + 1; *cp; cp++ ) f_name_head.push( *cp );
+//    for( char* cp = nc_in_fname; cp < last_slash; cp++ ) f_name_tail.push( *cp );
+//  }
+//  else {
+//    // No tail, all head:
+//    for( char* cp = nc_in_fname; *cp; cp++ ) f_name_head.push( *cp );
+//  }
+//#ifndef WIN32
+//  if( f_name_tail == "~" ) f_name_tail = "$HOME";
+//#endif
+//  String f_full_path = f_name_tail;
+//  if( 0==f_full_path.len() ) f_full_path.push('.');
+//
+//  if( FindFullFileNameRel2( m.cv->GetPathName(), f_full_path ) )
+//  {
+//    m.partial_path = f_name_tail;
+//    m.search__head = f_name_head;
+//    // f_full_path is now the full path to the directory
+//    // to search for matches to f_name_head
+//    unsigned file_index = 0;
+//    if( m.vis.HaveFile( f_full_path.c_str(), &file_index ) )
+//    {
+//      m.pfb = m.vis.GetFileBuf( file_index );
+//    }
+//    else {
+//      // This is not a memory leak.
+//      // m.pfb gets added to m.vis.m.files in Vis::Add_FileBuf_2_Lists_Create_Views()
+//      m.pfb = new(__FILE__,__LINE__)
+//              FileBuf( m.vis, f_full_path.c_str(), true, FT_UNKNOWN );
+//      m.pfb->ReadFile();
+//    }
+//    return true;
+//  }
+//  return false;
+//}
+
+// in_out_fname goes in as         some/path/partial_file_name
+// and if successful, comes out as some/path
+// the relative path to the files
 bool FindFileBuf( Colon::Data& m )
 {
-  const char*    in_fname     = m.sbuf.c_str();
-  const unsigned in_fname_len = strlen( in_fname );
-
-  // 1. seperate in_fname into f_name_tail and f_name_head
+  // 1. seperate fname, in m.sbuf, into f_name_tail and f_name_head
   String f_name_head;
   String f_name_tail;
-  char* nc_in_fname = const_cast<char*>(in_fname);
-  char* const last_slash = strrchr( nc_in_fname, DIR_DELIM );
-  if( last_slash )
-  {
-    for( char* cp = last_slash + 1; *cp; cp++ ) f_name_head.push( *cp );
-    for( char* cp = nc_in_fname; cp < last_slash; cp++ ) f_name_tail.push( *cp );
-  }
-  else {
-    // No tail, all head:
-    for( char* cp = nc_in_fname; *cp; cp++ ) f_name_head.push( *cp );
-  }
+  GetFnameHeadAndTail( m.sbuf.c_str(), f_name_head, f_name_tail );
+
 #ifndef WIN32
   if( f_name_tail == "~" ) f_name_tail = "$HOME";
 #endif
@@ -360,6 +399,7 @@ bool Have_File_Name_Completion_Variables( Colon::Data& m )
       }
       // Cant use m.sbuf.append here because Line is not NULL terminated:
       for( unsigned i=0; i<l.len(); i++ ) m.sbuf.push( l.get(i) );
+
       if( ColonOp::e == m.colon_op ) m.sbuf.insert( 0, "e ");
       else                           m.sbuf.insert( 0, "w ");
     }
@@ -433,8 +473,7 @@ Colon::Colon( Vis&    vis
             , Diff&   diff
             , char*   cbuf
             , String& sbuf )
-  : m( *new(__FILE__, __LINE__)
-        Colon::Data( *this, vis, key, diff, cbuf, sbuf ) )
+  : m( *new(__FILE__, __LINE__) Data( *this, vis, key, diff, cbuf, sbuf ) )
 {
 }
 
@@ -457,14 +496,14 @@ void Colon::GetCommand( const unsigned MSG_LEN, const bool HIDE )
     {
       HandleTab( m, MSG_LEN, p );
     }
-    else {                  // Clear
+    else {
       Reset_File_Name_Completion_Variables(m);
 
       if( BS != c && DEL != c )
       {
         HandleNormal( m, MSG_LEN, HIDE, c, p );
       }
-      else {  // Backspace or Delete key
+      else { // Backspace or Delete key
         if( m.cbuf < p )
         {
           // Replace last typed char with space:

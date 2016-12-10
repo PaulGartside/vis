@@ -38,6 +38,7 @@ extern MemLog<MEM_LOG_BUF_SIZE> Log;
 
 extern const unsigned BE_FILE   ;  // Buffer editor file
 extern const unsigned SHELL_FILE;  // Command Shell file
+extern const unsigned USER_FILE;   // First user file
 
 static const unsigned top___border = 1;
 static const unsigned bottomborder = 1;
@@ -297,54 +298,6 @@ Style Get_Style( View::Data& m
   return s;
 }
 
-//void PrintLines( View::Data& m
-//               , const unsigned st_line
-//               , const unsigned fn_line )
-//{
-//  Trace trace( __PRETTY_FUNCTION__ );
-//  const unsigned WC = m.view.WorkingCols();
-//
-//  for( unsigned k=st_line; k<=fn_line; k++ )
-//  {
-//    // Dont allow line wrap:
-//    const unsigned LL    = m.fb.LineLen( k );
-//    const unsigned G_ROW = m.view.Line_2_GL( k );
-//    unsigned col=0;
-//    for( unsigned i=m.leftChar; col<WC && i<LL; i++, col++ )
-//    {
-//      Style s = Get_Style( m, k, i );
-//
-//      int byte = m.fb.Get( k, i );
-//
-//      m.view.PrintWorkingView_Set( LL, G_ROW, col, i, byte, s );
-//    }
-//    for( ; col<WC; col++ )
-//    {
-//      Console::Set( G_ROW, m.view.Col_Win_2_GL( col ), ' ', S_EMPTY );
-//    }
-//  }
-//  Console::Update();
-//  Console::Flush();
-//}
-
-//void UpdateLines( View::Data& m
-//                , const unsigned st_line
-//                , const unsigned fn_line )
-//{
-//  Trace trace( __PRETTY_FUNCTION__ );
-//
-//  // Figure out which lines are currently on screen:
-//  unsigned m_st_line = st_line;
-//  unsigned m_fn_line = fn_line;
-//
-//  if( m_st_line < m.topLine ) m_st_line = m.topLine;
-//  if( m.view.BotLine() < m_fn_line ) m_fn_line = m.view.BotLine();
-//  if( m_fn_line < m_st_line ) return; // Nothing to update
-//
-//  // Re-draw lines:
-//  PrintLines( m, m_st_line, m_fn_line );
-//}
-
 void InsertAddChar( View::Data& m
                   , const char c )
 {
@@ -403,7 +356,8 @@ void InsertBackspace_RmC( View::Data& m
 
   m.fb.RemoveChar( OCL, OCP-1 );
 
-  m.crsCol -= 1;
+  if( 0 < m.crsCol ) m.crsCol -= 1;
+  else               m.leftChar -= 1;
 
   m.fb.Update();
 }
@@ -443,9 +397,8 @@ void InsertBackspace( View::Data& m )
   // If no lines in buffer, no backspacing to be done
   if( 0 < m.fb.NumLines() )
   {
-    const unsigned OCL = m.view.CrsLine();    // Old cursor line
-    const unsigned OCP = m.view.CrsChar();    // Old cursor position
-    const unsigned OLL = m.fb.LineLen( OCL ); // Old line length
+    const unsigned OCL = m.view.CrsLine(); // Old cursor line
+    const unsigned OCP = m.view.CrsChar(); // Old cursor position
 
     if( OCP ) InsertBackspace_RmC ( m, OCL, OCP );
     else      InsertBackspace_RmNL( m, OCL );
@@ -498,13 +451,6 @@ void Undo_v( View::Data& m )
   Trace trace( __PRETTY_FUNCTION__ );
 
   m.fb.Update();
-
-//const unsigned st_line = Min( m.v_st_line, m.v_fn_line );
-//const unsigned fn_line = Max( m.v_st_line, m.v_fn_line );
-//
-//UpdateLines( m, st_line, fn_line );
-//
-//m.sts_line_needs_update = true;
 }
 
 void Remove_Banner( View::Data& m )
@@ -2074,7 +2020,7 @@ void Do_dd_BufferEditor( View::Data& m, const unsigned ONL )
   const unsigned OCL = m.view.CrsLine(); // Old cursor line
 
   // Can only delete one of the user files out of buffer editor
-  if( SHELL_FILE < OCL )
+  if( USER_FILE <= OCL )
   {
     Line* lp = m.fb.GetLineP( OCL );
 
@@ -3419,9 +3365,9 @@ void View::Do_p()
 
   const Paste_Mode PM = m.vis.GetPasteMode();
 
-  if     ( PM_ST_FN == PM ) return Do_p_or_P_st_fn( m, PP_After );
-  else if( PM_BLOCK == PM ) return Do_p_block(m);
-  else /*( PM_LINE  == PM*/ return Do_p_line(m);
+  if     ( PM_ST_FN == PM ) Do_p_or_P_st_fn( m, PP_After );
+  else if( PM_BLOCK == PM ) Do_p_block(m);
+  else /*( PM_LINE  == PM*/ Do_p_line(m);
 }
 
 void View::Do_P()
@@ -3430,9 +3376,9 @@ void View::Do_P()
 
   const Paste_Mode PM = m.vis.GetPasteMode();
 
-  if     ( PM_ST_FN == PM ) return Do_p_or_P_st_fn( m, PP_Before );
-  else if( PM_BLOCK == PM ) return Do_P_block(m);
-  else /*( PM_LINE  == PM*/ return Do_P_line(m);
+  if     ( PM_ST_FN == PM ) Do_p_or_P_st_fn( m, PP_Before );
+  else if( PM_BLOCK == PM ) Do_P_block(m);
+  else /*( PM_LINE  == PM*/ Do_P_line(m);
 }
 
 void View::Do_R()
@@ -3798,7 +3744,6 @@ void View::PrintCmdLine()
     col=11; // Strlen of "--REPLACE--"
     Console::SetS( Cmd__Line_Row(), Col_Win_2_GL( 0 ), "--REPLACE--", S_BANNER );
   }
-//else if( m.vis.Shell_Running() && m.vis.CV() == &m.view )
   else if( m.vis.Shell_Running()
         && m.vis.FileNum2Buf(SHELL_FILE) == &m.fb )
   {
@@ -4058,40 +4003,6 @@ void View::Check_Context()
     }
   }
 }
-
-// Change directory to that of file of view:
-//
-//bool View::GoToDir()
-//{
-//  Trace trace( __PRETTY_FUNCTION__ );
-//
-//  char* fname_str = const_cast<char*>( m.fb.GetFileName() );
-//
-//  if( m.fb.IsDir() )
-//  {
-//    int err = chdir( fname_str );
-//    if( err ) return false;
-//  }
-//  else {
-//    char* const last_slash = strrchr( fname_str, DIR_DELIM );
-//    if( last_slash )
-//    {
-//      const int TAIL_LEN = last_slash - fname_str;
-//      if( 0<TAIL_LEN )
-//      {
-//        char f_name_tail[ 1024 ];
-//        strncpy( f_name_tail, fname_str, TAIL_LEN );
-//        f_name_tail[ TAIL_LEN ] = 0;
-//
-//        int err = chdir( f_name_tail );
-//        if( err ) return false;
-//      }
-//    }
-//  }
-//  // If the directory of the view cannot be determined, just return true
-//  // so that the current directory will be used
-//  return true;
-//}
 
 const char* View::GetPathName()
 {

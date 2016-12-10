@@ -424,7 +424,7 @@ bool String::ends_with( const char* pat )
 {
   const unsigned pat_len = strlen( pat );
 
-  return has_at( pat, length-pat_len );
+  return length < pat_len ? false : has_at( pat, length-pat_len );
 }
 
 // Returns print length of string with the escape sequences

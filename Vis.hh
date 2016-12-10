@@ -27,6 +27,7 @@
 #include "Types.hh"
 
 class String;
+class FileBuf;
 class View;
 
 class Vis
@@ -68,8 +69,10 @@ public:
   void ReleaseFileName( const String& full_fname );
   bool GoToBuffer_Fname( String& fname );
   void Handle_f();
+  void L_Handle_f();
   void Handle_z();
   void Handle_SemiColon();
+  void L_Handle_SemiColon();
   void Handle_Slash_GotPattern( const String& pattern
                               , const bool MOVE_TO_FIRST_PATTERN=true );
 

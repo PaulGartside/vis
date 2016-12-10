@@ -25,9 +25,9 @@
 
 #include "MemLog.hh"
 #include "Utilities.hh"
-#include "FileBuf.hh"
 #include "Vis.hh"
-#include "View.hh"
+#include "View_IF.hh"
+#include "FileBuf.hh"
 #include "ChangeHist.hh"
 
 extern MemLog<MEM_LOG_BUF_SIZE> Log;
@@ -55,7 +55,7 @@ bool ChangeHist::Has_Changes() const
   return !! changes.len();
 }
 
-void ChangeHist::Undo( View& rV )
+void ChangeHist::Undo( View_IF& rV )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -74,7 +74,7 @@ void ChangeHist::Undo( View& rV )
   }
 }
 
-void ChangeHist::UndoAll( View& rV )
+void ChangeHist::UndoAll( View_IF& rV )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -194,7 +194,7 @@ void ChangeHist::Save_SwapLines( const unsigned l_num_1
 {
 }
 
-void ChangeHist::Undo_Set( LineChange* plc, View& rV )
+void ChangeHist::Undo_Set( LineChange* plc, View_IF& rV )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -211,7 +211,7 @@ void ChangeHist::Undo_Set( LineChange* plc, View& rV )
   m_fb.Update();
 }
 
-void ChangeHist::Undo_InsertLine( LineChange* plc, View& rV )
+void ChangeHist::Undo_InsertLine( LineChange* plc, View_IF& rV )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -228,7 +228,7 @@ void ChangeHist::Undo_InsertLine( LineChange* plc, View& rV )
   m_fb.Update();
 }
 
-void ChangeHist::Undo_RemoveLine( LineChange* plc, View& rV )
+void ChangeHist::Undo_RemoveLine( LineChange* plc, View_IF& rV )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -240,7 +240,7 @@ void ChangeHist::Undo_RemoveLine( LineChange* plc, View& rV )
   m_fb.Update();
 }
 
-void ChangeHist::Undo_InsertChar( LineChange* plc, View& rV )
+void ChangeHist::Undo_InsertChar( LineChange* plc, View_IF& rV )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -256,7 +256,7 @@ void ChangeHist::Undo_InsertChar( LineChange* plc, View& rV )
   m_fb.Update();
 }
 
-void ChangeHist::Undo_RemoveChar( LineChange* plc, View& rV )
+void ChangeHist::Undo_RemoveChar( LineChange* plc, View_IF& rV )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 

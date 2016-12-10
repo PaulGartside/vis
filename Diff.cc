@@ -2947,7 +2947,8 @@ void InsertBackspace_RmC( Diff::Data& m
 
   pfb->RemoveChar( VL, OCP-1 );
 
-  m.crsCol -= 1;
+  if( 0 < m.crsCol ) m.crsCol -= 1;
+  else               m.leftChar -= 1;
 
   Patch_Diff_Info_Changed( m, pV, DL );
   m.diff.Update();

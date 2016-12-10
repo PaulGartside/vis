@@ -32,9 +32,11 @@ extern MemLog<MEM_LOG_BUF_SIZE> Log;
 
 extern const char* EDIT_BUF_NAME;
 extern const char* HELP_BUF_NAME;
-extern const char* SRCH_BUF_NAME;
+//extern const char* SRCH_BUF_NAME;
 extern const char* MSG__BUF_NAME;
-extern const char* SHEL_BUF_NAME;
+extern const char* SHELL_BUF_NAME;
+extern const char* COLON_BUF_NAME;
+extern const char* SLASH_BUF_NAME;
 
 Highlight_BufferEditor::Highlight_BufferEditor( FileBuf& rfb )
   : Highlight_Base( rfb )
@@ -71,9 +73,11 @@ void Highlight_BufferEditor::Hi_In_None( unsigned& l, unsigned& p )
 
       if( 0==strncmp( ls, EDIT_BUF_NAME, lr.len() )
        || 0==strncmp( ls, HELP_BUF_NAME, lr.len() )
-       || 0==strncmp( ls, SRCH_BUF_NAME, lr.len() )
+     //|| 0==strncmp( ls, SRCH_BUF_NAME, lr.len() )
        || 0==strncmp( ls, MSG__BUF_NAME, lr.len() )
-       || 0==strncmp( ls, SHEL_BUF_NAME, lr.len() ) )
+       || 0==strncmp( ls, SHELL_BUF_NAME, lr.len() )
+       || 0==strncmp( ls, COLON_BUF_NAME, lr.len() )
+       || 0==strncmp( ls, SLASH_BUF_NAME, lr.len() ) )
       {
         for( int k=0; k<LL; k++ )
         {

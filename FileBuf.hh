@@ -27,6 +27,9 @@
 #include "Types.hh"
 
 class String;
+class View_IF;
+class View;
+class LineView;
 class Vis;
 
 // Basic description of the file buffer
@@ -82,12 +85,15 @@ public:
   bool     Changed() const;
   void     ClearChanged();
   void     ClearLines();
-  void     Undo( View& rV );
-  void     UndoAll( View& rV );
+  void     Undo( View_IF& rV );
+  void     UndoAll( View_IF& rV );
   void     Update();
+  void     UpdateCmd();
   void Set_File_Type( const char* syn );
+//void Set_Save_History( const bool val );
 
   void AddView( View* v );
+  void AddView( LineView* v );
 
   void ReadString( const char* const STR );
   void ReadArray( const Line& line );

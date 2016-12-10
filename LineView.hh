@@ -21,8 +21,8 @@
 // DEALINGS IN THE SOFTWARE.                                                  //
 ////////////////////////////////////////////////////////////////////////////////
 
-#ifndef __VIEW_HH__
-#define __VIEW_HH__
+#ifndef __LINE_VIEW_HH__
+#define __LINE_VIEW_HH__
 
 #include "View_IF.hh"
 
@@ -31,16 +31,21 @@ class Key;
 class FileBuf;
 class String;
 
-class View : public View_IF // Window View
+class LineView : public View_IF // Line View
 {
 public:
-  View( Vis& vis, Key& key, FileBuf& fb, LinesList& reg );
-  ~View();
+  LineView( Vis&       vis
+          , Key&       key
+          , FileBuf&   fb
+          , LinesList& reg
+          , char*      cbuf
+          , String&    sbuf
+          , const char banner_delim );
+  ~LineView();
 
   FileBuf* GetFB() const;
 
   unsigned WinCols() const;
-  unsigned WinRows() const;
   unsigned X() const;
   unsigned Y() const;
 
@@ -48,29 +53,26 @@ public:
   unsigned GetLeftChar() const;
   unsigned GetCrsRow  () const;
   unsigned GetCrsCol  () const;
+  Line*    GetCrsLine();
 
   void SetTopLine ( const unsigned val );
   void SetLeftChar( const unsigned val );
   void SetCrsRow  (       unsigned val );
   void SetCrsCol  ( const unsigned val );
 
-  unsigned WorkingRows() const;
   unsigned WorkingCols() const;
   unsigned CrsLine  () const;
   unsigned BotLine  () const;
   unsigned CrsChar  () const;
   unsigned RightChar() const;
 
-  unsigned Row_Win_2_GL( const unsigned win_row ) const;
   unsigned Col_Win_2_GL( const unsigned win_col ) const;
-  unsigned Line_2_GL( const unsigned file_line ) const;
   unsigned Char_2_GL( const unsigned line_char ) const;
-  unsigned Sts__Line_Row() const;
-  unsigned File_Line_Row() const;
-  unsigned Cmd__Line_Row() const;
   Tile_Pos GetTilePos() const;
   void     SetTilePos( const Tile_Pos tp );
-  void     SetViewPos();
+  void     SetContext( const unsigned num_cols
+                     , const unsigned x
+                     , const unsigned y );
 
   bool GetInsertMode() const;
   void SetInsertMode( const bool val );
@@ -81,8 +83,6 @@ public:
   void GoDown();
   void GoLeft();
   void GoRight();
-  void PageDown();
-  void PageUp();
   void GoToBegOfLine();
   void GoToEndOfLine();
   void GoToBegOfNextLine();
@@ -98,48 +98,35 @@ public:
   void GoToPrevWord();
   void GoToEndOfWord();
   void GoToOppositeBracket();
-  void GoToLeftSquigglyBracket();
-  void GoToRightSquigglyBracket();
-  void MoveCurrLineToTop();
-  void MoveCurrLineCenter();
-  void MoveCurrLineToBottom();
 
-  void Do_a();
-  void Do_A();
+  bool Do_a();
+  bool Do_A();
   void Do_cw();
   void Do_dd();
   int  Do_dw();
   void Do_D();
   void Do_f( const char FAST_CHAR );
-  void Do_i();
+  bool Do_i();
   void Do_J();
   void Do_n();
   void Do_N();
-  void Do_o();
-  void Do_O();
+  bool Do_o();
   void Do_p();
   void Do_P();
-  void Do_R();
+  bool Do_R();
   void Do_s();
   void Do_Tilda();
-  void Do_u();
-  void Do_U();
+//void Do_u();
+//void Do_U();
   bool Do_v();
-  bool Do_V();
   void Do_x();
   void Do_yy();
   void Do_yw();
-
-  String Do_Star_GetNewPattern();
-  void   PrintPatterns( const bool HIGHLIGHT );
 
   void GoToCrsPos_NoWrite( const unsigned ncp_crsLine
                          , const unsigned ncp_crsChar );
   void GoToCrsPos_Write( const unsigned ncp_crsLine
                        , const unsigned ncp_crsChar );
-  void GoToFile();
-  bool GoToFile_GetFileName( String& fname );
-  void GoToCmdLineClear( const char* S );
 
   bool MoveInBounds();
 
@@ -154,12 +141,10 @@ public:
   bool InStar       ( const unsigned line, const unsigned pos );
   bool InNonAscii   ( const unsigned line, const unsigned pos );
 
-  void Update( const bool PRINT_CURSOR = true );
+  void Update();
   void RepositionView();
-  void Print_Borders();
   void PrintStsLine();
   void PrintFileLine();
-  void PrintCmdLine();
   void PrintCursor();
   void PrintWorkingView();
   void PrintWorkingView_Set( const unsigned LL
@@ -170,17 +155,19 @@ public:
                            , const Style    s );
   void DisplayMapping();
 
-  bool GetStsLineNeedsUpdate() const;
   bool GetUnSavedChangeSts() const;
-  void SetStsLineNeedsUpdate( const bool val );
   void SetUnSavedChangeSts( const bool val );
 
   bool Has_Context();
-  void Set_Context( View& vr );
   void Clear_Context();
   void Check_Context();
 
   const char* GetPathName();
+
+  bool HandleReturn();
+
+  void Cover();
+  void CoverKey();
 
   struct Data;
 
