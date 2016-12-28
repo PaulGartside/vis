@@ -47,6 +47,8 @@ Highlight_BufferEditor::Highlight_BufferEditor( FileBuf& rfb )
 void Highlight_BufferEditor::Run_Range( const CrsPos   st
                                       , const unsigned fn )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   m_state = &ME::Hi_In_None;
 
   unsigned l=st.crsLine;
@@ -61,6 +63,7 @@ void Highlight_BufferEditor::Run_Range( const CrsPos   st
 void Highlight_BufferEditor::Hi_In_None( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
+
   for( ; l<m_fb.NumLines(); l++ )
   {
     const Line&    lr = m_fb.GetLine( l );
@@ -73,7 +76,6 @@ void Highlight_BufferEditor::Hi_In_None( unsigned& l, unsigned& p )
 
       if( 0==strncmp( ls, EDIT_BUF_NAME, lr.len() )
        || 0==strncmp( ls, HELP_BUF_NAME, lr.len() )
-     //|| 0==strncmp( ls, SRCH_BUF_NAME, lr.len() )
        || 0==strncmp( ls, MSG__BUF_NAME, lr.len() )
        || 0==strncmp( ls, SHELL_BUF_NAME, lr.len() )
        || 0==strncmp( ls, COLON_BUF_NAME, lr.len() )

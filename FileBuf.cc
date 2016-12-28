@@ -633,9 +633,6 @@ void ReadExistingDir_Sort( FileBuf::Data& m )
 {
   const unsigned NUM_LINES = m.self.NumLines();
 
-  // Add terminating NULL to all lines (file names):
-  for( unsigned k=0; k<NUM_LINES; k++ ) m.self.PushChar( k, 0 );
-
   // Sort lines (file names), least to greatest:
   for( unsigned i=NUM_LINES-1; 0<i; i-- )
   {
@@ -655,20 +652,16 @@ void ReadExistingDir_Sort( FileBuf::Data& m )
     {
       const char* cp = m.lines[k]->c_str( 0 );
 
-      if( 0==strcmp( cp, ".." ) || 0==strcmp( cp, "." ) ) continue;
+      if( 0!=strcmp( cp, ".." ) && 0!=strcmp( cp, "." ) )
+      {
+        Line* lp1 = m.lines[k  ];
+        Line* lp2 = m.lines[k+1];
 
-      Line* lp1 = m.lines[k  ]; const unsigned lp1_len = lp1->len();
-      Line* lp2 = m.lines[k+1]; const unsigned lp2_len = lp2->len();
-
-      // Since terminating NULLs were previously added to lines (file names),
-      // '/'s will be at second to last char:
-      if( DIR_DELIM != lp1->get( lp1_len-2 )
-       && DIR_DELIM == lp2->get( lp2_len-2 ) ) SwapLines( m, k, k+1 );
+        if( !lp1->ends_with( DIR_DELIM )
+         &&  lp2->ends_with( DIR_DELIM ) ) SwapLines( m, k, k+1 );
+      }
     }
   }
-
-  // Remove terminating NULLs just added from all lines (file names):
-  for( unsigned k=0; k<NUM_LINES; k++ ) m.self.PopChar( k );
 }
 
 void ReadExistingDir( FileBuf::Data& m, DIR* dp, String dir_path )
@@ -1376,7 +1369,8 @@ void FileBuf::GetLine( const unsigned l_num, Line& l ) const
   Trace trace( __PRETTY_FUNCTION__ );
   ASSERT( __LINE__, l_num < m.lines.len(), "l_num < m.lines.len()" );
 
-  l = *(m.lines[ l_num ]);
+//l = *(m.lines[ l_num ]);
+  l.copy( *(m.lines[ l_num ]) );
 }
 
 Line* FileBuf::GetLineP( const unsigned l_num ) const
@@ -1507,8 +1501,8 @@ void FileBuf::PushLine( const Line& line )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  Line* lp = m.vis.BorrowLine( __FILE__,__LINE__,  line );
-  Line* sp = m.vis.BorrowLine( __FILE__,__LINE__,  line.len(), 0 );
+  Line* lp = m.vis.BorrowLine( __FILE__,__LINE__, line );
+  Line* sp = m.vis.BorrowLine( __FILE__,__LINE__, line.len(), 0 );
   ASSERT( __LINE__, lp->len() == sp->len(), "(lp->len()=%u) != (sp->len()=%u)", lp->len(), sp->len() );
 
   bool ok = m.lines.push( lp ) && m.styles.push( sp );
@@ -1525,7 +1519,7 @@ void FileBuf::PushLine( Line* const pLine )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  Line* sp = m.vis.BorrowLine( __FILE__,__LINE__,  pLine->len(), 0 );
+  Line* sp = m.vis.BorrowLine( __FILE__,__LINE__, pLine->len(), 0 );
   ASSERT( __LINE__, pLine->len() == sp->len(), "(pLine->len()=%u) != (sp->len()=%u)", pLine->len(), sp->len() );
 
   bool ok = m.lines.push( pLine )
@@ -1629,7 +1623,7 @@ void FileBuf::RemoveLine( const unsigned l_num, Line& line )
 
   ChangedLine( m, l_num );
 
-  line = *lp;
+  line.copy( *lp );
 
   if( SavingHist( m ) ) m.history.Save_RemoveLine( l_num, line );
 
@@ -1724,7 +1718,7 @@ void FileBuf::PopLine( Line& line )
 
   ASSERT( __LINE__, ok, "ok" );
 
-  line = *lp;
+  line.copy( *lp );
 
   m.vis.ReturnLine( lp );
   m.vis.ReturnLine( sp );

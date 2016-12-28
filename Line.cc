@@ -2,199 +2,353 @@
 #include "Utilities.hh"
 #include "Line.hh"
 
-const unsigned
-Line::m_primes[] = {  43, 101, 149, 193, 241, 293, 353, 409, 461
-                   , 521, 587, 641, 691, 757, 823, 881, 947 };
+const unsigned m_primes[] = {  43, 101, 149, 193, 241, 293, 353, 409, 461
+                            , 521, 587, 641, 691, 757, 823, 881, 947 };
 
-const unsigned Line::m_num_primes = sizeof( m_primes )/sizeof( unsigned );
+const unsigned m_num_primes = sizeof( m_primes )/sizeof( unsigned );
 
-Line::Line()
-  : m_data()
-  , m_chksum_valid( false )
-  , m_chksum( 0 )
+struct Line::Data
 {
+  Data();
+  Data( const char*    _FILE_
+      , const unsigned _LINE_
+      , const unsigned cap );
+  Data( const char*    _FILE_
+      , const unsigned _LINE_
+      , const unsigned cap
+      , const uint8_t  fill );
+  void Init( const uint8_t fill=0 );
+
+  unsigned capacity; // capacity of data buffer = size-1
+  unsigned length;   // # of elements in data buffer
+  uint8_t* data;
+
+  bool     chksum_valid;
+  unsigned chksum;
+};
+
+Line::Data::Data()
+  : capacity( 0 )
+  , length( 0 )
+  , data( new(__FILE__,__LINE__) uint8_t[capacity+1] )
+  , chksum_valid( false )
+  , chksum( 0 )
+{
+  Init();
 }
 
-Line::Line( const char* _FILE_, const unsigned _LINE_, unsigned size )
-  : m_data( _FILE_, _LINE_, size )
-  , m_chksum_valid( false )
-  , m_chksum( 0 )
+Line::Data::Data( const char*    _FILE_
+                , const unsigned _LINE_
+                , const unsigned cap )
+  : capacity( cap )
+  , length( 0 )
+  , data( new(_FILE_,_LINE_) uint8_t[capacity+1] )
+  , chksum_valid( false )
+  , chksum( 0 )
 {
+  Init();
 }
 
-Line::Line( const char* _FILE_, const unsigned _LINE_, unsigned size, uint8_t fill )
-  : m_data( _FILE_, _LINE_, size, fill )
-  , m_chksum_valid( false )
-  , m_chksum( 0 )
+Line::Data::Data( const char*    _FILE_
+                , const unsigned _LINE_
+                , const unsigned len
+                , const uint8_t  fill )
+  : capacity( len )
+  , length( len )
+  , data( new(_FILE_,_LINE_) uint8_t[capacity+1] )
+  , chksum_valid( false )
+  , chksum( 0 )
 {
+  Init( fill );
 }
 
-void Line::clear()
+void Line::Data::Init( const uint8_t fill )
 {
-  m_chksum_valid = false;
-
-  m_data.clear();
+  for( unsigned k=0; k<length; k++ ) data[k] = fill;
+  data[ length ] = 0;
 }
 
-bool Line::copy( const Line& a )
+int skip_white_beg( Line::Data& m, int start )
 {
-  m_chksum_valid = false;
+  const unsigned LEN = m.length;
 
-  return m_data.copy( a.m_data );
-}
-
-uint8_t Line::get( const unsigned i ) const
-{
-  return m_data[i];
-}
-
-void Line::set( const unsigned i, const uint8_t C )
-{
-  m_chksum_valid = false;
-
-  m_data[i] = C;
-}
-
-//const char* Line::c_str( const unsigned i ) const
-//{
-//  const unsigned LEN = len();
-//  if( i < LEN )
-//  {
-//    if( LEN < sz() )
-//    {
-//      // Do the user of c_str() a favor and make sure m_data is
-//      // null terminated so strcmp() will work right, else the
-//      // user would have to use strncmp().
-//      m_data[LEN] = 0;
-//    }
-//    return RCast<const char*>( m_data.get(i) );
-//  }
-//  return 0;
-//}
-
-const char* Line::c_str( const unsigned i ) const
-{
-  if( i < len() )
+  if( 0<LEN )
   {
-    return RCast<const char*>( m_data.get(i) );
+    for( uint8_t C = m.data[ start ]
+       ; start<LEN && (' '==C || '\t'==C || '\r'==C); )
+    {
+      start++;
+      if( start<LEN ) C = m.data[ start ];
+    }
   }
-  return 0;
+  return start;
 }
 
-bool Line::insert( const char* _FILE_, const unsigned _LINE_
-                 , unsigned i, uint8_t t )
+int skip_white_end( Line::Data& m
+                  , const int start
+                  ,       int finish )
 {
-  m_chksum_valid = false;
-
-  return m_data.insert( _FILE_, _LINE_, i, t );
-}
-
-bool Line::push( const char* _FILE_, const unsigned _LINE_, uint8_t t )
-{
-  m_chksum_valid = false;
-
-  return m_data.push( _FILE_, _LINE_, t );
-}
-
-bool Line::remove( const unsigned i )
-{
-  m_chksum_valid = false;
-
-  return m_data.remove( i );
-}
-
-bool Line::remove( const unsigned i, uint8_t& t )
-{
-  m_chksum_valid = false;
-
-  return m_data.remove( i, t );
-}
-
-bool Line::pop( uint8_t& t )
-{
-  m_chksum_valid = false;
-
-  return m_data.pop( t );
-}
-bool Line::pop()
-{
-  m_chksum_valid = false;
-
-  return m_data.pop();
-}
-
-bool Line::append( const char* _FILE_, const unsigned _LINE_, const Line& a )
-{
-  m_chksum_valid = false;
-
-  return m_data.append( _FILE_, _LINE_, a.m_data );
-}
-
-bool Line::ends_with( const uint8_t C )
-{
-  const unsigned LEN = m_data.len();
-
-  if( 0 < LEN )
+  if( -1<finish )
   {
-    return C == m_data[ LEN-1 ];
+    for( uint8_t C = m.data[ finish ]
+       ; start<=finish && (' '==C || '\t'==C || '\r'==C); )
+    {
+      finish--;
+      if( start<=finish ) C = m.data[ finish ];
+    }
   }
-  return false;
+  return finish;
 }
 
-unsigned Line::chksum()
-{
-  if( !m_chksum_valid )
-  {
-    m_chksum = calc_chksum();
-
-    m_chksum_valid = true;
-  }
-  return m_chksum;
-}
-
-int Line::calc_chksum() const
+int calc_chksum( Line::Data& m )
 {
   unsigned chk_sum = 0;
 
   int start = 0;
-  int finish = 0<m_data.len() ? m_data.len()-1 : -1;
+  int finish = 0<m.length ? m.length-1 : -1;
 
-  start  = skip_white_beg( start );
-  finish = skip_white_end( start, finish );
+  start  = skip_white_beg( m, start );
+  finish = skip_white_end( m, start, finish );
 
   for( int i=start; i<=finish; i++ )
   {
-    chk_sum ^= m_primes[(i-start)%m_num_primes] ^ m_data[ i ];
+    chk_sum ^= m_primes[(i-start)%m_num_primes] ^ m.data[ i ];
     chk_sum = ((chk_sum << 13)&0xFFFFE000)
             | ((chk_sum >> 19)&0x00001FFF);
   }
   return chk_sum;
 }
 
-int Line::skip_white_beg( int start ) const
+Line::Line()
+  : m( *new(__FILE__,__LINE__) Data() )
 {
-  const unsigned LEN = m_data.len();
-
-  if( 0<LEN )
-  for( uint8_t C = m_data[ start ]
-     ; start<LEN && (' '==C || '\t'==C || '\r'==C); )
-  {
-    start++;
-    if( start<LEN ) C = m_data[ start ];
-  }
-  return start;
 }
 
-int Line::skip_white_end( const int start
-                        ,       int finish ) const
+Line::Line( const char* _FILE_, const unsigned _LINE_, unsigned cap )
+  : m( *new(__FILE__,__LINE__) Data( _FILE_, _LINE_, cap ) )
 {
-  if( -1<finish )
-  for( uint8_t C = m_data[ finish ]
-     ; start<=finish && (' '==C || '\t'==C || '\r'==C); )
+}
+
+Line::Line( const char*    _FILE_
+          , const unsigned _LINE_
+          , const unsigned len
+          , const uint8_t  fill )
+  : m( *new(__FILE__, __LINE__) Data( _FILE_, _LINE_, len, fill ) )
+{
+}
+
+Line::Line( const Line& a )
+//: m( *new(__FILE__,__LINE__) Data() )
+  : m( *new(__FILE__,__LINE__) Data( __FILE__, __LINE__, a.len() ) )
+{
+  copy( a );
+}
+
+Line::~Line()
+{
+  MemMark(__FILE__,__LINE__); delete[] m.data;
+  MemMark(__FILE__,__LINE__); delete &m;
+}
+
+void Line::clear()
+{
+  m.chksum_valid = false;
+
+  m.length = 0;
+  m.data[ m.length ] = 0;
+}
+
+unsigned Line::len() const { return m.length; }
+unsigned Line::cap() const { return m.capacity; }
+
+bool Line::set_len( const char*    _FILE_
+                  , const unsigned _LINE_
+                  , const unsigned new_len )
+{
+  if( new_len != m.length )
   {
-    finish--;
-    if( start<=finish ) C = m_data[ finish ];
+    m.chksum_valid = false;
+
+    if( m.capacity < new_len )
+    {
+      if( !inc_cap( _FILE_, _LINE_, new_len ) ) return false;
+    }
+    // Fill in new values with zero:
+    for( unsigned k=m.length; k<new_len; k++ ) m.data[k] = 0;
+
+    m.length = new_len;
+    m.data[ m.length ] = 0;
   }
-  return finish;
+  return true;
+}
+
+bool Line::inc_cap( const char*    _FILE_
+                  , const unsigned _LINE_
+                  ,       unsigned new_cap )
+{
+  bool ok = true;
+
+  if( m.capacity < new_cap )
+  {
+    const unsigned my_new_cap = unsigned( m.capacity*1.25+4 );
+    if( new_cap < my_new_cap ) new_cap = my_new_cap;
+
+    uint8_t* new_data = new(_FILE_,_LINE_) uint8_t[new_cap+1];
+
+    if( 0 == new_data ) ok = false;
+    else {
+      for( unsigned k=0; k<m.length; k++ ) new_data[k] = m.data[k];
+      new_data[ m.length ] = 0;
+
+      MemMark(__FILE__,__LINE__); delete[] m.data;
+
+      m.data     = new_data;
+      m.capacity = new_cap;
+    }
+  }
+  return ok;
+}
+
+bool Line::copy( const Line& a )
+{
+  if( this == &a ) return true;
+
+  m.chksum_valid = false;
+
+  const unsigned a_len = a.len();
+
+  if( 0<a_len ) {
+    if( m.capacity < a_len )
+    {
+      if( !inc_cap( __FILE__, __LINE__, a_len ) ) return false;
+    }
+    for( unsigned k=0; k<a_len; k++ ) m.data[k] = a.m.data[k];
+  }
+  m.length = a_len;
+  m.data[ m.length ] = 0;
+
+  return true;
+}
+
+uint8_t Line::get( const unsigned i ) const
+{
+  return m.data[i];
+}
+
+void Line::set( const unsigned i, const uint8_t C )
+{
+  m.chksum_valid = false;
+
+  m.data[i] = C;
+}
+
+const char* Line::c_str( const unsigned i ) const
+{
+  if( i < m.length )
+  {
+    return RCast<const char*>( &m.data[i] );
+  }
+  return 0;
+}
+
+bool Line::insert( const char*    _FILE_
+                 , const unsigned _LINE_
+                 , const unsigned i
+                 , const uint8_t  t )
+{
+  if( i<=m.length )
+  {
+    if( m.length < m.capacity || inc_cap( _FILE_, _LINE_, m.capacity+1 ) )
+    {
+      m.chksum_valid = false;
+
+      for( unsigned k=m.length; k>i; k-- ) m.data[k] = m.data[k-1];
+      m.data[ i ] = t;
+      m.length += 1;
+      m.data[ m.length ] = 0;
+      return true;
+    }
+  }
+  return false;
+}
+
+bool Line::push( const char* _FILE_, const unsigned _LINE_, uint8_t t )
+{
+  return insert( _FILE_, _LINE_, m.length, t );
+}
+
+bool Line::remove( const unsigned i )
+{
+  if( i<m.length )
+  {
+    m.chksum_valid = false;
+
+    // Remove the i'th element
+    m.length -= 1;
+    for( unsigned k=i; k<m.length; k++ ) m.data[k] = m.data[k+1];
+    m.data[ m.length ] = 0;
+    return true;
+  }
+  return false;
+}
+
+bool Line::remove( const unsigned i, uint8_t& t )
+{
+  if( i<m.length )
+  {
+    t = m.data[i];
+  }
+  return remove( i );
+}
+
+bool Line::pop( uint8_t& t )
+{
+  return 0<m.length ? remove( m.length-1, t ) : false;
+}
+
+bool Line::pop()
+{
+  return 0<m.length ? remove( m.length-1 ) : false;
+}
+
+bool Line::append( const char* _FILE_, const unsigned _LINE_, const Line& a )
+{
+  m.chksum_valid = false;
+
+  if( this == &a ) return false;
+
+  const unsigned a_len = a.len();
+
+  if( 0<a_len ) {
+    if( m.capacity < m.length + a_len )
+    {
+      if( !inc_cap( _FILE_, _LINE_, m.length + a_len ) ) return false;
+    }
+    for( unsigned k=0; k<a_len; k++ ) m.data[ m.length + k ] = a.m.data[k];
+  }
+  m.length += a_len;
+  m.data[ m.length ] = 0;
+
+  return true;
+}
+
+bool Line::ends_with( const uint8_t C )
+{
+  if( 0 < m.length )
+  {
+    return C == m.data[ m.length-1 ];
+  }
+  return false;
+}
+
+unsigned Line::chksum()
+{
+  if( !m.chksum_valid )
+  {
+    m.chksum = calc_chksum(m);
+
+    m.chksum_valid = true;
+  }
+  return m.chksum;
 }
 

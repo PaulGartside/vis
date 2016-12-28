@@ -326,6 +326,10 @@ void Screen_Restore()
   {
     out_buf->push(__FILE__,__LINE__, STR_SCREEN_RESTORE[k] );
   }
+  for( unsigned k=0; k<LEN_NORMAL; k++ )
+  {
+    out_buf->push(__FILE__,__LINE__, STR_NORMAL[k] );
+  }
   Console::Flush();
 }
 

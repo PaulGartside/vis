@@ -4140,7 +4140,7 @@ void Vis::Init( const int ARGC, const char* const ARGV[] )
     m.file_hist[ 1 ][0] = USER_FILE+1;
     m.views[0][ m.file_hist[ 0 ][0] ]->SetTilePos( TP_LEFT_HALF );
     m.views[1][ m.file_hist[ 1 ][0] ]->SetTilePos( TP_RITE_HALF );
-
+  
     DoDiff(m);
   }
 }
@@ -4646,7 +4646,7 @@ void Vis::Handle_Slash_GotPattern( const String& pattern
 
 // Line returned has at least SIZE, but zero length
 //
-Line* Vis::BorrowLine( const char* _FILE_
+Line* Vis::BorrowLine( const char*    _FILE_
                      , const unsigned _LINE_
                      , const unsigned SIZE )
 {
@@ -4654,12 +4654,13 @@ Line* Vis::BorrowLine( const char* _FILE_
 
   Line* lp = 0;
 
-  if( m.line_cache.len() )
+  if( 0<m.line_cache.len() )
   {
     bool ok = m.line_cache.pop( lp );
     ASSERT( __LINE__, ok, "ok" );
 
-    ok = lp->inc_size( __FILE__, __LINE__, SIZE );
+    ok = lp->inc_cap( __FILE__, __LINE__, SIZE );
+  //ok = lp->inc_size( __FILE__, __LINE__, SIZE );
     ASSERT( __LINE__, ok, "ok" );
 
     lp->clear();
@@ -4672,7 +4673,7 @@ Line* Vis::BorrowLine( const char* _FILE_
 
 // Line returned has LEN and is filled up to LEN with FILL
 //
-Line* Vis::BorrowLine( const char* _FILE_
+Line* Vis::BorrowLine( const char*    _FILE_
                      , const unsigned _LINE_
                      , const unsigned LEN, const uint8_t FILL )
 {
@@ -4680,7 +4681,7 @@ Line* Vis::BorrowLine( const char* _FILE_
 
   Line* lp = 0;
 
-  if( m.line_cache.len() )
+  if( 0<m.line_cache.len() )
   {
     bool ok = m.line_cache.pop( lp );
     ASSERT( __LINE__, ok, "ok" );
@@ -4698,15 +4699,15 @@ Line* Vis::BorrowLine( const char* _FILE_
 
 // Line returned has same len and contents as line
 //
-Line* Vis::BorrowLine( const char* _FILE_
+Line* Vis::BorrowLine( const char*    _FILE_
                      , const unsigned _LINE_
-                     , const Line& line )
+                     , const Line&    line )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
   Line* lp = 0;
 
-  if( m.line_cache.len() )
+  if( 0<m.line_cache.len() )
   {
     bool ok = m.line_cache.pop( lp );
     ASSERT( __LINE__, ok, "ok" );

@@ -309,9 +309,10 @@ bool Find_File_Name_Completion_Variables( LineView::Data& m )
   bool found_tab_fname = false;
 
   Line* lp = m.fb.GetLineP( m.view.CrsLine() );
-  m.sbuf.clear();
+//m.sbuf.clear();
   // Cant copy lp->c_str() to m.sbuf here because lp is not null terminated:
-  for( unsigned i=0; i<lp->len(); i++ ) m.sbuf.push( lp->get(i) );
+//for( unsigned i=0; i<lp->len(); i++ ) m.sbuf.push( lp->get(i) );
+  m.sbuf = lp->c_str(0);
   m.sbuf.trim(); // Remove leading and trailing white space
 
   if     ( m.sbuf.has_at("e ",0) || m.sbuf=="e" ) m.colon_op = ColonOp::e;
@@ -339,7 +340,8 @@ bool Find_File_Name_Completion_Variables( LineView::Data& m )
             m.sbuf.push('/'); // Dont append '/' if no m.partial_path
           }
           // Cant copy l.c_str() to m.sbuf here because l is not null terminated:
-          for( unsigned i=0; i<l.len(); i++ ) m.sbuf.push( l.get(i) );
+        //for( unsigned i=0; i<l.len(); i++ ) m.sbuf.push( l.get(i) );
+          m.sbuf.append( fname );
         }
       }
     }
@@ -2186,6 +2188,9 @@ bool LineView::Do_v()
     else if( C == '0' ) GoToBegOfLine();
     else if( C == '$' ) GoToEndOfLine();
     else if( C == 'g' ) Do_v_Handle_g(m);
+    else if( C == 'b' ) GoToPrevWord();
+    else if( C == 'w' ) GoToNextWord();
+    else if( C == 'e' ) GoToEndOfWord();
     else if( C == 'f' ) m.vis.L_Handle_f();
     else if( C == ';' ) m.vis.L_Handle_SemiColon();
     else if( C == 'y' ) { Do_y_v(m); goto EXIT_VISUAL; }

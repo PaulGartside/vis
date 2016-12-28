@@ -1,8 +1,30 @@
+////////////////////////////////////////////////////////////////////////////////
+// VI-Simplified (vis) C++ Implementation                                     //
+// Copyright (c) 27 Dec 2016 Paul J. Gartside                                 //
+////////////////////////////////////////////////////////////////////////////////
+// Permission is hereby granted, free of charge, to any person obtaining a    //
+// copy of this software and associated documentation files (the "Software"), //
+// to deal in the Software without restriction, including without  limitation //
+// the rights to use, copy, modify, merge, publish, distribute, sublicense,   //
+// and/or sell copies of the Software, and to permit persons to whom the      //
+// Software is furnished to do so, subject to the following conditions:       //
+//                                                                            //
+// The above copyright notice and this permission notice shall be included in //
+// all copies or substantial portions of the Software.                        //
+//                                                                            //
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR //
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,   //
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL    //
+// THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER //
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING    //
+// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER        //
+// DEALINGS IN THE SOFTWARE.                                                  //
+////////////////////////////////////////////////////////////////////////////////
+// Line's are arrays of uint8_t's that are NULL terminated
+// so they can be used as C-strings.
 
 #ifndef __LINE_HH__
 #define __LINE_HH__
-
-#include "Array_t.hh"
 
 typedef unsigned char  uint8_t;
 
@@ -10,22 +32,28 @@ class Line
 {
 public:
   Line();
-  Line( const char* _FILE_, const unsigned _LINE_, unsigned size=0 );
-  Line( const char* _FILE_, const unsigned _LINE_, unsigned size, uint8_t fill );
+  Line( const char*     _FILE_
+      , const unsigned  _LINE_
+      , const  unsigned cap=0 );
+  Line( const char*    _FILE_
+      , const unsigned _LINE_
+      , const unsigned len
+      , const uint8_t  fill );
+
+  Line( const Line& a );
+
+  ~Line();
 
   void clear();
 
-  bool set_len( const char* _FILE_, const unsigned _LINE_, unsigned new_len )
-  {
-    return m_data.set_len( _FILE_, _LINE_, new_len );
-  }
-  unsigned len() const { return m_data.len(); }
-  unsigned sz () const { return m_data.sz(); }
+  unsigned len() const;
+  unsigned cap() const;
 
-  bool inc_size( const char* _FILE_, const unsigned _LINE_, unsigned new_size )
-  {
-    return m_data.inc_size( _FILE_, _LINE_, new_size );
-  }
+  bool set_len( const char* _FILE_, const unsigned _LINE_, unsigned new_len );
+
+  bool inc_cap( const char*    _FILE_
+              , const unsigned _LINE_
+              ,       unsigned new_cap );
   bool copy( const Line& a );
 
   uint8_t get( const unsigned i ) const;
@@ -33,7 +61,10 @@ public:
 
   const char* c_str( unsigned i ) const;
 
-  bool insert( const char* _FILE_, const unsigned _LINE_, unsigned i, uint8_t t );
+  bool insert( const char*    _FILE_
+             , const unsigned _LINE_
+             , const unsigned i
+             , const uint8_t  t );
 
   bool push( const char* _FILE_, const unsigned _LINE_, uint8_t t );
 
@@ -49,18 +80,10 @@ public:
 
   unsigned chksum();
 
+  struct Data;
+
 private:
-  int calc_chksum() const;
-  int skip_white_beg( int start ) const;
-  int skip_white_end( const int start, int finish ) const;
-
-  Array_t<uint8_t> m_data;
-
-  bool     m_chksum_valid;
-  unsigned m_chksum;
-
-  static const unsigned m_primes[];
-  static const unsigned m_num_primes;
+  Data& m;
 };
 
 #endif
