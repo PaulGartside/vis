@@ -230,8 +230,8 @@ SameArea Find_Max_Same( Diff::Data& m
     SameArea cur_same = { 0, 0, 0, 0 };
     for( unsigned ln_l = ca.ln_l; ln_s<ca.fnl_s() && ln_l<ca.fnl_l(); ln_l++ )
     {
-      Line* ls = m.pfS->GetLineP( ln_s );
-      Line* ll = m.pfL->GetLineP( ln_l );
+      const Line* ls = m.pfS->GetLineP( ln_s );
+      const Line* ll = m.pfL->GetLineP( ln_l );
 
       if( ls->chksum() != ll->chksum() ) { cur_same.Clear(); ln_s = _ln_s; }
       else {
@@ -563,14 +563,14 @@ LineInfo* Borrow_LineInfo( Diff::Data& m
 
 // Returns number of bytes that are the same between the two lines
 // and fills in li_s and li_l
-unsigned Compare_Lines( Line* ls, LineInfo* li_s
-                      , Line* ll, LineInfo* li_l )
+unsigned Compare_Lines( const Line* ls, LineInfo* li_s
+                      , const Line* ll, LineInfo* li_l )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   if( 0==ls->len() && 0==ll->len() ) { return 1; }
   li_s->clear(); li_l->clear();
-  Line* pls = ls; LineInfo* pli_s = li_s;
-  Line* pll = ll; LineInfo* pli_l = li_l;
+  const Line* pls = ls; LineInfo* pli_s = li_s;
+  const Line* pll = ll; LineInfo* pli_l = li_l;
   if( ll->len() < ls->len() ) { pls = ll; pli_s = li_l;
                                 pll = ls; pli_l = li_s; }
   const unsigned SLL = pls->len();
@@ -628,8 +628,8 @@ SimLines Find_Lines_Most_Same( Diff::Data& m
 
     for( unsigned ln_l = ST_L; ln_l<ca.fnl_l() && ln_l<ST_L+LD+1; ln_l++ )
     {
-      Line* ls = pfs->GetLineP( ln_s ); // Line from short area
-      Line* ll = pfl->GetLineP( ln_l ); // Line from long  area
+      const Line* ls = pfs->GetLineP( ln_s ); // Line from short area
+      const Line* ll = pfl->GetLineP( ln_l ); // Line from long  area
 
       LineInfo* li_s = Borrow_LineInfo( m, __FILE__,__LINE__);
       LineInfo* li_l = Borrow_LineInfo( m, __FILE__,__LINE__);
@@ -831,8 +831,8 @@ void Popu_DI_List_AddDiff( Diff::Data& m, const DiffArea da )
   {
     for( unsigned k=0; k<da.nlines_l; k++ )
     {
-      Line* ls = m.pfS->GetLineP( da.ln_s+k );
-      Line* ll = m.pfL->GetLineP( da.ln_l+k );
+      const Line* ls = m.pfS->GetLineP( da.ln_s+k );
+      const Line* ll = m.pfL->GetLineP( da.ln_l+k );
 
       LineInfo* li_s = Borrow_LineInfo( m, __FILE__,__LINE__);
       LineInfo* li_l = Borrow_LineInfo( m, __FILE__,__LINE__);
@@ -2726,8 +2726,8 @@ void Patch_Diff_Info_Inserted( Diff::Data& m
       Diff_Info& sDI = m.DI_List_S[ DPL ]; // Short   Diff_Info
       Diff_Info& lDI = m.DI_List_L[ DPL ]; // Long    Diff_Info
 
-      Line* ls = m.pfS->GetLineP( sDI.line_num ); // Line from short view
-      Line* ll = m.pfL->GetLineP( lDI.line_num ); // Line from long  view
+      const Line* ls = m.pfS->GetLineP( sDI.line_num ); // Line from short view
+      const Line* ll = m.pfL->GetLineP( lDI.line_num ); // Line from long  view
 
       if( ls->chksum() == ll->chksum() ) // Lines are now equal
       {
@@ -2826,8 +2826,8 @@ void Patch_Diff_Info_Changed( Diff::Data& m, View* pV, const unsigned DPL )
   Diff_Info& sDI = m.DI_List_S[ DPL ]; // Short   Diff_Info
   Diff_Info& lDI = m.DI_List_L[ DPL ]; // Long    Diff_Info
 
-  Line* ls = m.pfS->GetLineP( sDI.line_num ); // Line from short view
-  Line* ll = m.pfL->GetLineP( lDI.line_num ); // Line from long  view
+  const Line* ls = m.pfS->GetLineP( sDI.line_num ); // Line from short view
+  const Line* ll = m.pfL->GetLineP( lDI.line_num ); // Line from long  view
 
   if( DT_SAME == cDI.diff_type )
   {
@@ -4675,8 +4675,9 @@ void Diff::Update()
 
   // Update long view:
   m.pfL->Find_Styles( ViewLine( m, m.pvL, m.topLine ) + WorkingRows( m.pvL ) );
-  m.pfL->ClearStars();
-  m.pfL->Find_Stars();
+  m.pfL->Find_Regexs( ViewLine( m, m.pvL, m.topLine ), WorkingRows( m.pvL ) );
+//m.pfL->ClearStars();
+//m.pfL->Find_Stars();
 
   RepositionViews( m );
 
@@ -4688,8 +4689,9 @@ void Diff::Update()
 
   // Update short view:
   m.pfS->Find_Styles( ViewLine( m, m.pvS, m.topLine ) + WorkingRows( m.pvS ) );
-  m.pfS->ClearStars();
-  m.pfS->Find_Stars();
+  m.pfS->Find_Regexs( ViewLine( m, m.pvS, m.topLine ), WorkingRows( m.pvS ) );
+//m.pfS->ClearStars();
+//m.pfS->Find_Stars();
 
   m.pvS->Print_Borders();
   PrintWorkingView( m, m.pvS );
@@ -5113,16 +5115,16 @@ void Diff::Do_n()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( 0<m.vis.GetStarLen() ) Do_n_Pattern(m);
-  else                       Do_n_Diff(m);
+  if( 0<m.vis.GetRegexLen() ) Do_n_Pattern(m);
+  else                        Do_n_Diff(m);
 }
 
 void Diff::Do_N()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( m.vis.GetStarLen() ) Do_N_Pattern(m);
-  else                     Do_N_Diff(m);
+  if( m.vis.GetRegexLen() ) Do_N_Pattern(m);
+  else                      Do_N_Diff(m);
 }
 
 void Diff::Do_f( const char FAST_CHAR )
@@ -5840,18 +5842,18 @@ void Diff::Do_U()
 String Diff::Do_Star_GetNewPattern()
 {
   Trace trace( __PRETTY_FUNCTION__ );
-  String new_star;
+  String pattern;
   View* pV  = m.vis.CV();
   FileBuf* pfb = pV->GetFB();
 
-  if( pfb->NumLines() == 0 ) return new_star;
+  if( pfb->NumLines() == 0 ) return pattern;
 
   const unsigned CL = CrsLine(m);
   // Convert CL, which is diff line, to view line:
   const unsigned CLv = ViewLine( m, pV, CrsLine(m) );
   const unsigned LL = pfb->LineLen( CLv );
 
-  if( LL )
+  if( 0<LL )
   {
     MoveInBounds(m);
     const unsigned CC = CrsChar(m);
@@ -5860,28 +5862,33 @@ String Diff::Do_Star_GetNewPattern()
 
     if( isalnum( c ) || c=='_' )
     {
-      new_star.push( c );
+      pattern.push( c );
 
       // Search forward:
       for( unsigned k=CC+1; k<LL; k++ )
       {
         const int c = pfb->Get( CLv, k );
-        if( isalnum( c ) || c=='_' ) new_star.push( c );
+        if( isalnum( c ) || c=='_' ) pattern.push( c );
         else                         break;
       }
       // Search backward:
       for( int k=CC-1; 0<=k; k-- )
       {
         const int c = pfb->Get( CLv, k );
-        if( isalnum( c ) || c=='_' ) new_star.insert( 0, c );
+        if( isalnum( c ) || c=='_' ) pattern.insert( 0, c );
         else                         break;
       }
     }
     else {
-      if( isgraph( c ) ) new_star.push( c );
+      if( isgraph( c ) ) pattern.push( c );
+    }
+    if( 0<pattern.len() )
+    {
+      pattern.insert( 0, "\\b" );
+      pattern.append(    "\\b" );
     }
   }
-  return new_star;
+  return pattern;
 }
 
 void Diff::GoToFile()

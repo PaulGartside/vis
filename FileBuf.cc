@@ -28,6 +28,10 @@
 #include <stdio.h>     // printf, stderr, FILE, fopen, fclose
 #include <dirent.h>
 
+#ifdef USE_REGEX
+#include <regex>
+#endif
+
 #include "String.hh"
 #include "ChangeHist.hh"
 #include "Console.hh"
@@ -86,8 +90,11 @@ struct FileBuf::Data
   double          mod_time;
   ViewList        views;     // List of views that display this file
   LineView*       line_view;
-  bool            need_2_find_stars;
-  bool            need_2_clear_stars;
+#ifdef USE_REGEX
+  std::cmatch     cm;
+#endif
+  String          regex;
+  unsList         lineRegexsValid;
 
   bool       save_history;
   unsList    lineOffsets; // absolute byte offset of beginning of line in file
@@ -115,8 +122,11 @@ FileBuf::Data::Data( FileBuf& parent
   , mod_time( 0 )
   , views(__FILE__, __LINE__)
   , line_view( 0 )
-  , need_2_find_stars( true )
-  , need_2_clear_stars( false )
+#ifdef USE_REGEX
+  , cm()
+#endif
+  , regex()
+  , lineRegexsValid(__FILE__, __LINE__)
   , save_history( false )
   , lineOffsets(__FILE__, __LINE__)
   , lines()
@@ -150,8 +160,11 @@ FileBuf::Data::Data( FileBuf& parent
   , mod_time( rfb.m.mod_time )
   , views(__FILE__, __LINE__)
   , line_view( 0 )
-  , need_2_find_stars( true )
-  , need_2_clear_stars( false )
+#ifdef USE_REGEX
+  , cm()
+#endif
+  , regex()
+  , lineRegexsValid(__FILE__, __LINE__)
   , history( vis, parent )
   , save_history( is_dir ? false : true )
   , lineOffsets ( rfb.m.lineOffsets )
@@ -471,7 +484,7 @@ void Find_File_Type_FirstLine( FileBuf::Data& m )
 
   if( 0 < NUM_LINES )
   {
-    Line* lp0 = m.self.GetLineP( 0 );
+    const Line* lp0 = m.self.GetLineP( 0 );
 
     const unsigned LL0 = lp0->len();
     if( 0 < LL0 )
@@ -787,83 +800,6 @@ CrsPos Update_Styles_Find_St( FileBuf::Data& m, const unsigned first_line )
   return st;
 }
 
-// Leave syntax m.styles unchanged, and set star style
-void SetStarStyle( FileBuf::Data& m
-                 , const unsigned l_num
-                 , const unsigned c_num )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-  ASSERT( __LINE__, l_num < m.styles.len(), "l_num < m.styles.len()" );
-
-  Line* sp = m.styles[ l_num ];
-
-  ASSERT( __LINE__, c_num < sp->len(), "c_num < sp->len()" );
-
-  sp->set( c_num, sp->get( c_num ) | HI_STAR );
-}
-
-// Find stars starting at st up to but not including fn line number
-void Find_Stars_In_Range( FileBuf::Data& m, const CrsPos st, const int fn )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  const char*    star_str  = m.vis.GetStar();
-  const unsigned STAR_LEN  = m.vis.GetStarLen();
-  const bool     SLASH     = m.vis.GetSlash();
-  const unsigned NUM_LINES = m.self.NumLines();
-
-  for( unsigned l=st.crsLine; STAR_LEN && l<NUM_LINES && l<fn; l++ )
-  {
-    Line* lp = m.lines[l];
-    const unsigned LL = lp->len();
-    if( LL<STAR_LEN ) continue;
-
-    const unsigned st_pos = st.crsLine==l ? st.crsChar : 0;
-
-    for( unsigned p=st_pos; p<LL; p++ )
-    {
-      bool matches = SLASH || line_start_or_prev_C_non_ident( *lp, p );
-      for( unsigned k=0; matches && (p+k)<LL && k<STAR_LEN; k++ )
-      {
-        if( star_str[k] != lp->get(p+k) ) matches = false;
-        else {
-          if( k+1 == STAR_LEN ) // Found pattern
-          {
-            matches = SLASH || line_end_or_non_ident( *lp, LL, p+k );
-            if( matches ) {
-              for( unsigned n=p; n<p+STAR_LEN; n++ ) SetStarStyle( m, l, n );
-              // Increment p one less than STAR_LEN, because p
-              // will be incremented again by the for loop
-              p += STAR_LEN-1;
-            }
-          }
-        }
-      }
-    }
-  }
-}
-
-// Clear stars starting at st up to but not including fn line number
-void ClearStars_In_Range( FileBuf::Data& m, const CrsPos st, const int fn )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  const unsigned NUM_LINES = m.styles.len();
-
-  for( unsigned l=st.crsLine; l<NUM_LINES && l<fn; l++ )
-  {
-    Line* sp = m.styles[l];
-    const unsigned LL = sp->len();
-    const unsigned st_pos = st.crsLine==l ? st.crsChar : 0;
-
-    for( unsigned p=st_pos; p<LL; p++ )
-    {
-      const uint8_t old_S = sp->get( p );
-      sp->set( p, old_S & ~HI_STAR );
-    }
-  }
-}
-
 // Find m.styles starting at st up to but not including fn line number
 void Find_Styles_In_Range( FileBuf::Data& m, const CrsPos st, const int fn )
 {
@@ -877,9 +813,6 @@ void Find_Styles_In_Range( FileBuf::Data& m, const CrsPos st, const int fn )
     m.pHi = new(__FILE__,__LINE__) Highlight_Text( m.self );
   }
   m.pHi->Run_Range( st, fn );
-
-  ClearStars_In_Range( m, st, fn );
-  Find_Stars_In_Range( m, st, fn );
 }
 
 // Clear all m.styles includeing star and syntax
@@ -895,6 +828,21 @@ void ClearAllStyles( FileBuf::Data& m
   ASSERT( __LINE__, c_num < sp->len(), "c_num < sp->len()" );
 
   sp->set( c_num, 0 );
+}
+
+// Leave syntax m.styles unchanged, and set star style
+void Set__StarStyle( FileBuf::Data& m
+                   , const unsigned l_num
+                   , const unsigned c_num )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+  ASSERT( __LINE__, l_num < m.styles.len(), "l_num < m.styles.len()" );
+
+  Line* sp = m.styles[ l_num ];
+
+  ASSERT( __LINE__, c_num < sp->len(), "c_num < sp->len()" );
+
+  sp->set( c_num, sp->get( c_num ) | HI_STAR );
 }
 
 // Leave syntax m.styles unchanged, and clear star style
@@ -968,8 +916,6 @@ void FileBuf::SetModTime( const double mt ) { m.mod_time = mt; }
 const char* FileBuf::GetFileName() const { return m.file_name.c_str(); }
 const char* FileBuf::GetPathName() const { return m.path_name.c_str(); }
 const char* FileBuf::GetHeadName() const { return m.head_name.c_str(); }
-void FileBuf::NeedToFindStars() { m.need_2_find_stars = true; }
-void FileBuf::NeedToClearStars() { m.need_2_clear_stars = true; }
 
 void FileBuf::Set_File_Type( const char* syn )
 {
@@ -1076,11 +1022,6 @@ void FileBuf::Set_File_Type( const char* syn )
   }
 }
 
-//void FileBuf::Set_Save_History( const bool val )
-//{
-//  m.save_history = val;
-//}
-
 void FileBuf::AddView( View* v )
 {
   m.views.push(__FILE__,__LINE__, v );
@@ -1136,7 +1077,6 @@ void FileBuf::ReReadFile()
     pV->Check_Context();
   }
   m.save_history      = true;
-  m.need_2_find_stars = true;
   m.hi_touched_line   = 0;
 
   m.mod_time = ModificationTime( m.file_name.c_str() );
@@ -1373,7 +1313,7 @@ void FileBuf::GetLine( const unsigned l_num, Line& l ) const
   l.copy( *(m.lines[ l_num ]) );
 }
 
-Line* FileBuf::GetLineP( const unsigned l_num ) const
+const Line* FileBuf::GetLineP( const unsigned l_num ) const
 {
   Trace trace( __PRETTY_FUNCTION__ );
   ASSERT( __LINE__, l_num < m.lines.len(), "l_num < m.lines.len()" );
@@ -1393,7 +1333,9 @@ void FileBuf::InsertLine( const unsigned l_num, const Line& line )
   Line* sp = m.vis.BorrowLine( __FILE__,__LINE__, line.len(), 0 );
   ASSERT( __LINE__, lp->len() == sp->len(), "(lp->len()=%u) != (sp->len()=%u)", lp->len(), sp->len() );
 
-  bool ok = m.lines.insert( l_num, lp ) && m.styles.insert( l_num, sp );
+  bool ok = m.lines.insert( l_num, lp )
+         && m.styles.insert( l_num, sp )
+         && m.lineRegexsValid.insert( __FILE__,__LINE__, l_num, false );
 
   ASSERT( __LINE__, ok, "ok" );
 
@@ -1415,7 +1357,9 @@ void FileBuf::InsertLine( const unsigned l_num, Line* const pLine )
   Line* sp = m.vis.BorrowLine( __FILE__,__LINE__,  pLine->len(), 0 );
   ASSERT( __LINE__, pLine->len() == sp->len(), "(pLine->len()=%u) != (sp->len()=%u)", pLine->len(), sp->len() );
 
-  bool ok = m.lines.insert( l_num, pLine ) && m.styles.insert( l_num, sp );
+  bool ok = m.lines.insert( l_num, pLine )
+         && m.styles.insert( l_num, sp )
+         && m.lineRegexsValid.insert( __FILE__,__LINE__, l_num, false );
 
   ASSERT( __LINE__, ok, "ok" );
 
@@ -1438,7 +1382,9 @@ void FileBuf::InsertLine( const unsigned l_num )
   Line* sp = m.vis.BorrowLine( __FILE__,__LINE__ );
   ASSERT( __LINE__, lp->len() == sp->len(), "(lp->len()=%u) != (sp->len()=%u)", lp->len(), sp->len() );
 
-  bool ok = m.lines.insert( l_num, lp ) && m.styles.insert( l_num, sp );
+  bool ok = m.lines.insert( l_num, lp )
+         && m.styles.insert( l_num, sp )
+         && m.lineRegexsValid.insert( __FILE__,__LINE__, l_num, false );
 
   ASSERT( __LINE__, ok, "ok" );
 
@@ -1486,7 +1432,8 @@ void FileBuf::InsertChar( const unsigned l_num
   ASSERT( __LINE__, c_num <= sp->len(), "c_num < sp->len()" );
 
   bool ok = lp->insert(__FILE__,__LINE__, c_num, C )
-         && sp->insert(__FILE__,__LINE__, c_num, 0 );
+         && sp->insert(__FILE__,__LINE__, c_num, 0 )
+         && m.lineRegexsValid.set( l_num, false );
 
   ASSERT( __LINE__, ok, "ok" );
 
@@ -1505,7 +1452,9 @@ void FileBuf::PushLine( const Line& line )
   Line* sp = m.vis.BorrowLine( __FILE__,__LINE__, line.len(), 0 );
   ASSERT( __LINE__, lp->len() == sp->len(), "(lp->len()=%u) != (sp->len()=%u)", lp->len(), sp->len() );
 
-  bool ok = m.lines.push( lp ) && m.styles.push( sp );
+  bool ok = m.lines.push( lp )
+         && m.styles.push( sp )
+         && m.lineRegexsValid.push( __FILE__,__LINE__, false );
 
   ASSERT( __LINE__, ok, "ok" );
 
@@ -1523,7 +1472,8 @@ void FileBuf::PushLine( Line* const pLine )
   ASSERT( __LINE__, pLine->len() == sp->len(), "(pLine->len()=%u) != (sp->len()=%u)", pLine->len(), sp->len() );
 
   bool ok = m.lines.push( pLine )
-        && m.styles.push( sp );
+        && m.styles.push( sp )
+        && m.lineRegexsValid.push( __FILE__,__LINE__, false );
 
   ASSERT( __LINE__, ok, "ok" );
 
@@ -1540,7 +1490,9 @@ void FileBuf::PushLine()
   Line* sp = m.vis.BorrowLine( __FILE__,__LINE__ );
   ASSERT( __LINE__, lp->len() == sp->len(), "(lp->len()=%u) != (sp->len()=%u)", lp->len(), sp->len() );
 
-  bool ok = m.lines.push( lp ) && m.styles.push( sp );
+  bool ok = m.lines.push( lp )
+         && m.styles.push( sp )
+         && m.lineRegexsValid.push( __FILE__,__LINE__, false );
 
   ASSERT( __LINE__, ok, "ok" );
 
@@ -1559,7 +1511,8 @@ void FileBuf::PushChar( const unsigned l_num, const uint8_t C )
   Line* sp = m.styles[ l_num ];
 
   bool ok = lp->push(__FILE__,__LINE__, C )
-         && sp->push(__FILE__,__LINE__, 0 );
+         && sp->push(__FILE__,__LINE__, 0 )
+         && m.lineRegexsValid.set( l_num, false );
 
   ASSERT( __LINE__, ok, "ok" );
 
@@ -1593,7 +1546,9 @@ uint8_t FileBuf::PopChar( const unsigned l_num )
   Line* sp = m.styles[ l_num ];
 
   uint8_t C = 0;
-  bool ok = lp->pop( C ) && sp->pop();
+  bool ok = lp->pop( C )
+         && sp->pop()
+         && m.lineRegexsValid.set( l_num, false );
 
   ASSERT( __LINE__, ok, "ok" );
 
@@ -1617,7 +1572,9 @@ void FileBuf::RemoveLine( const unsigned l_num, Line& line )
 
   Line* lp = 0;
   Line* sp = 0;
-  bool ok = m.lines.remove( l_num, lp ) && m.styles.remove( l_num, sp );
+  bool ok = m.lines.remove( l_num, lp )
+         && m.styles.remove( l_num, sp )
+         && m.lineRegexsValid.remove( l_num );
 
   ASSERT( __LINE__, ok, "ok" );
 
@@ -1644,7 +1601,10 @@ Line* FileBuf::RemoveLineP( const unsigned l_num )
 
   Line* pLine = 0;
   Line* sp = 0;
-  bool ok = m.lines.remove( l_num, pLine ) && m.styles.remove( l_num, sp );
+  bool ok = m.lines.remove( l_num, pLine )
+         && m.styles.remove( l_num, sp )
+         && m.lineRegexsValid.remove( l_num );
+
   m.vis.ReturnLine( sp );
 
   ASSERT( __LINE__, ok, "ok" );
@@ -1669,7 +1629,9 @@ void FileBuf::RemoveLine( const unsigned l_num )
 
   Line* lp = 0;
   Line* sp = 0;
-  bool ok = m.lines.remove( l_num, lp ) && m.styles.remove( l_num, sp );
+  bool ok = m.lines.remove( l_num, lp )
+         && m.styles.remove( l_num, sp )
+         && m.lineRegexsValid.remove( l_num );
 
   ASSERT( __LINE__, ok, "ok" );
 
@@ -1698,7 +1660,9 @@ uint8_t FileBuf::RemoveChar( const unsigned l_num, const unsigned c_num )
   ASSERT( __LINE__, c_num < sp->len(), "c_num < sp->len()" );
 
   uint8_t C = 0;
-  bool ok = lp->remove( c_num, C ) && sp->remove( c_num );
+  bool ok = lp->remove( c_num, C )
+         && sp->remove( c_num )
+         && m.lineRegexsValid.set( l_num, false );
 
   ASSERT( __LINE__, ok, "ok" );
 
@@ -1714,7 +1678,9 @@ void FileBuf::PopLine( Line& line )
   Trace trace( __PRETTY_FUNCTION__ );
   Line* lp = 0;
   Line* sp = 0;
-  bool ok = m.lines.pop( lp ) && m.styles.pop( sp );
+  bool ok = m.lines.pop( lp )
+         && m.styles.pop( sp )
+         && m.lineRegexsValid.pop();
 
   ASSERT( __LINE__, ok, "ok" );
 
@@ -1738,7 +1704,9 @@ void FileBuf::PopLine()
   {
     Line* lp = 0;
     Line* sp = 0;
-    bool ok = m.lines.pop( lp ) && m.styles.pop( sp );
+    bool ok = m.lines.pop( lp )
+           && m.styles.pop( sp )
+           && m.lineRegexsValid.pop();
 
     ASSERT( __LINE__, ok, "ok" );
 
@@ -1761,10 +1729,11 @@ void FileBuf::AppendLineToLine( const unsigned l_num, const Line& line )
   ASSERT( __LINE__, l_num <  m.lines.len(), "l_num < m.lines.len()" );
   ASSERT( __LINE__, l_num < m.styles.len(), "l_num < m.styles.len()" );
 
-  Line* lp =  m.lines[ l_num ];
+  Line* lp = m.lines[ l_num ];
   Line* sp = m.styles[ l_num ];
 
-  bool ok = lp->append(__FILE__,__LINE__, line );
+  bool ok = lp->append(__FILE__,__LINE__, line )
+         && m.lineRegexsValid.set( l_num, false );
   ASSERT( __LINE__, ok, "ok" );
 
   // Simply need to increase sp's length to match lp's new length:
@@ -1781,7 +1750,6 @@ void FileBuf::AppendLineToLine( const unsigned l_num, const Line& line )
       m.history.Save_InsertChar( l_num, first_insert + k );
     }
   }
-//m.hi_touched_line = Min( m.hi_touched_line, l_num );
 }
 
 // Append pLine to end of line l_num, and delete pLine.
@@ -1795,7 +1763,8 @@ void FileBuf::AppendLineToLine( const unsigned l_num, const Line* pLine )
   Line* lp =  m.lines[ l_num ];
   Line* sp = m.styles[ l_num ];
 
-  bool ok = lp->append(__FILE__,__LINE__, *pLine );
+  bool ok = lp->append(__FILE__,__LINE__, *pLine )
+         && m.lineRegexsValid.set( l_num, false );
   ASSERT( __LINE__, ok, "ok" );
 
   // Simply need to increase sp's length to match lp's new length:
@@ -1812,8 +1781,6 @@ void FileBuf::AppendLineToLine( const unsigned l_num, const Line* pLine )
       m.history.Save_InsertChar( l_num, first_insert + k );
     }
   }
-//m.hi_touched_line = Min( m.hi_touched_line, l_num );
-
   m.vis.ReturnLine( const_cast<Line*>( pLine ) );
 }
 
@@ -1833,6 +1800,8 @@ void FileBuf::ClearLines()
     m.vis.ReturnLine( sp );
   }
   ChangedLine( m, 0 );
+
+  m.lineRegexsValid.clear();
 }
 
 void FileBuf::Undo( View_IF& rV )
@@ -1954,8 +1923,7 @@ void UpdateWinViews( FileBuf::Data& m, const bool PRINT_CMD_LINE )
       if( pV == m.vis.WinView( w2 ) )
       {
         m.self.Find_Styles( pV->GetTopLine() + pV->WorkingRows() );
-        m.self.ClearStars();
-        m.self.Find_Stars();
+        m.self.Find_Regexs( pV->GetTopLine(), pV->WorkingRows() );
 
         pV->RepositionView();
         pV->Print_Borders();
@@ -2030,9 +1998,9 @@ void FileBuf::Find_Styles( const unsigned up_to_line )
       // Find m.styles for some EXTRA_LINES beyond where we need to find
       // m.styles for the moment, so that when the user is scrolling down
       // through an area of a file that has not yet been syntax highlighed,
-      // Find_Styles() does not need to be called every time the user
-      // scrolls down another line.  Find_Styles() will only be called
-      // once for every EXTRA_LINES scrolled down.
+      // Find_Styles_In_Range() does not need to be called every time the
+      // user scrolls down another line.  Find_Styles_In_Range() will only
+      // be called once for every EXTRA_LINES scrolled down.
       const unsigned EXTRA_LINES = 10;
 
       CrsPos   st = Update_Styles_Find_St( m, m.hi_touched_line );
@@ -2045,68 +2013,151 @@ void FileBuf::Find_Styles( const unsigned up_to_line )
   }
 }
 
-void FileBuf::Find_Stars()
+void FileBuf::Find_Regexs( const unsigned start_line
+                         , const unsigned num_lines )
 {
   Trace trace( __PRETTY_FUNCTION__ );
-  if( !m.need_2_find_stars ) return;
 
-  const char*    star_str  = m.vis.GetStar();
-  const unsigned STAR_LEN  = m.vis.GetStarLen();
-  const bool     SLASH     = m.vis.GetSlash();
-  const unsigned NUM_LINES = NumLines();
-
-  for( unsigned l=0; STAR_LEN && l<NUM_LINES; l++ )
+  if( m.regex != m.vis.GetRegex() )
   {
-    Line* lp = m.lines[l];
-    const unsigned LL = lp->len();
-    if( LL<STAR_LEN ) continue;
-
-    for( unsigned p=0; p<LL; p++ )
+    // Invalidate all regexes
+    for( unsigned k=0; k<m.lineRegexsValid.len(); k++ )
     {
-      bool matches = SLASH || line_start_or_prev_C_non_ident( *lp, p );
-      for( unsigned k=0; matches && (p+k)<LL && k<STAR_LEN; k++ )
+      m.lineRegexsValid[k] = 0;
+    }
+    m.regex = m.vis.GetRegex();
+  }
+  const unsigned up_to_line = Min( start_line+num_lines, NumLines() );
+
+  for( unsigned k=start_line; k<up_to_line; k++ )
+  {
+    Find_Regexs_4_Line( k );
+  }
+}
+
+#ifdef USE_REGEX
+
+bool Regex_Search( FileBuf::Data& m
+                 , const char* search_string
+                 , const char* search_pattern
+               //, std::cmatch& cm
+                 , unsigned& match_pos
+                 , unsigned& match_len )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  bool found = false;
+  try {
+    found = std::regex_search( search_string
+                             , m.cm
+                             , std::regex( search_pattern ) );
+  }
+  catch( const std::regex_error& e )
+  {
+    found = false;
+  }
+  if( found )
+  {
+    match_pos = m.cm.position();
+    match_len = m.cm.length();
+  }
+  return found;
+}
+
+void FileBuf::Find_Regexs_4_Line( const unsigned line_num )
+                              //, std::cmatch& cm )
+{
+  if( line_num < m.lineRegexsValid.len() && !m.lineRegexsValid[line_num] )
+  {
+    Line* lp = m.lines[line_num];
+    const unsigned LL = lp->len();
+
+    // Clear the patterns for the line:
+    for( unsigned pos=0; pos<LL; pos++ )
+    {
+      ClearStarStyle( m, line_num, pos );
+    }
+
+    // Find the patterns for the line:
+    bool found = true;
+    for( unsigned p=0; found && p<LL; )
+    {
+      unsigned ma_pos = 0;
+      unsigned ma_len = 0;
+
+      found = Regex_Search( m, lp->c_str(p), m.regex.c_str(), ma_pos, ma_len )
+           && 0 < ma_len;
+
+      if( found )
       {
-        if( star_str[k] != lp->get(p+k) ) matches = false;
-        else {
-          if( k+1 == STAR_LEN ) // Found pattern
-          {
-            matches = SLASH || line_end_or_non_ident( *lp, LL, p+k );
-            if( matches ) {
-              for( unsigned n=p; n<p+STAR_LEN; n++ ) SetStarStyle( m, l, n );
-              // Increment p one less than STAR_LEN, because p
-              // will be incremented again by the for loop
-              p += STAR_LEN-1;
+        const unsigned ma_st = p + ma_pos;
+        const unsigned ma_fn = p + ma_pos + ma_len;
+
+        for( unsigned pos=ma_st; pos<LL && pos<ma_fn; pos++ )
+        {
+          Set__StarStyle( m, line_num, pos );
+        }
+        p = ma_fn;
+      }
+    }
+    m.lineRegexsValid[line_num] = true;
+  }
+}
+
+#else
+
+void FileBuf::Find_Regexs_4_Line( const unsigned line_num )
+{
+  if( line_num < m.lineRegexsValid.len() && !m.lineRegexsValid[line_num] )
+  {
+    Line* lp = m.lines[line_num];
+    const unsigned LL = lp->len();
+
+    // Clear the patterns for the line:
+    for( unsigned pos=0; pos<LL; pos++ )
+    {
+      ClearStarStyle( m, line_num, pos );
+    }
+    // Find the patterns for the line:
+          bool     slash     = true;
+          unsigned star_len = m.regex.len();
+    const char*    star_str = m.regex.c_str();
+    if( 4<m.regex.len()
+     && m.regex.has_at("\\b", 0)
+     && m.regex.ends_with("\\b") )
+    {
+      star_str += 2;
+      star_len -= 4;
+      slash     = false;
+    }
+    if( star_len<=LL )
+    {
+      for( unsigned p=0; p<LL; p++ )
+      {
+        bool matches = slash || line_start_or_prev_C_non_ident( *lp, p );
+        for( unsigned k=0; matches && (p+k)<LL && k<star_len; k++ )
+        {
+          if( star_str[k] != lp->get(p+k) ) matches = false;
+          else {
+            if( k+1 == star_len ) // Found pattern
+            {
+              matches = slash || line_end_or_non_ident( *lp, LL, p+k );
+              if( matches ) {
+                for( unsigned n=p; n<p+star_len; n++ ) Set__StarStyle( m, line_num, n );
+                // Increment p one less than star_len, because p
+                // will be incremented again by the for loop
+                p += star_len-1;
+              }
             }
           }
         }
       }
     }
-  }
-  m.need_2_find_stars = false;
-}
-
-void FileBuf::ClearStars()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  if( m.need_2_clear_stars )
-  {
-    const unsigned NUM_LINES = m.styles.len();
-
-    for( unsigned l=0; l<NUM_LINES; l++ )
-    {
-      Line* sp = m.styles[l];
-      const unsigned LL = sp->len();
-
-      for( unsigned p=0; p<LL; p++ )
-      {
-        const uint8_t old_S = sp->get( p );
-        sp->set( p, old_S & ~HI_STAR );
-      }
-    }
-    m.need_2_clear_stars = false;
+    m.lineRegexsValid[line_num] = true;
   }
 }
+
+#endif
 
 // Leave star style unchanged, and clear syntax m.styles
 void FileBuf::ClearSyntaxStyles( const unsigned l_num

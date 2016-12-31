@@ -1048,27 +1048,6 @@ void Do_a_vb( View::Data& m )
   Do_i_vb(m);
 }
 
-//void Do_s_v( View::Data& m )
-//{
-//  Trace trace( __PRETTY_FUNCTION__ );
-//
-//  // Need to know if cursor is at end of line before Do_x_v() is called:
-//  const unsigned LL = m.fb.LineLen( m.view.CrsLine() );
-//  const bool CURSOR_AT_END_OF_LINE = LL ? m.view.CrsChar() == LL-1 : false;
-//
-//  Do_x_v(m);
-//
-//  if( m.inVisualBlock )
-//  {
-//    if( CURSOR_AT_END_OF_LINE ) Do_a_vb(m);
-//    else                        Do_i_vb(m);
-//  }
-//  else {
-//    if( CURSOR_AT_END_OF_LINE ) m.view.Do_a();
-//    else                        m.view.Do_i();
-//  }
-//}
-
 bool Do_s_v_cursor_at_end_of_line( View::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -1847,6 +1826,7 @@ bool Do_n_FindNextPattern( View::Data& m, CrsPos& ncp )
   // Move past current star:
   const unsigned LL = m.fb.LineLen( OCL );
 
+  m.fb.Find_Regexs_4_Line( OCL );
   for( ; st_c<LL && m.view.InStar(OCL,st_c); st_c++ ) ;
 
   // Go down to next line
@@ -1855,11 +1835,11 @@ bool Do_n_FindNextPattern( View::Data& m, CrsPos& ncp )
   // Search for first star position past current position
   for( unsigned l=st_l; !found_next_star && l<NUM_LINES; l++ )
   {
+    m.fb.Find_Regexs_4_Line( l );
+
     const unsigned LL = m.fb.LineLen( l );
 
-    for( unsigned p=st_c
-       ; !found_next_star && p<LL
-       ; p++ )
+    for( unsigned p=st_c; !found_next_star && p<LL; p++ )
     {
       if( m.view.InStar(l,p) )
       {
@@ -1871,11 +1851,14 @@ bool Do_n_FindNextPattern( View::Data& m, CrsPos& ncp )
     // After first line, always start at beginning of line
     st_c = 0;
   }
-  // Near end of file and did not find any patterns, so go to first pattern in file
+  // Reached end of file and did not find any patterns,
+  // so go to first pattern in file
   if( !found_next_star )
   {
     for( unsigned l=0; !found_next_star && l<=OCL; l++ )
     {
+      m.fb.Find_Regexs_4_Line( l );
+
       const unsigned LL = m.fb.LineLen( l );
       const unsigned END_C = (OCL==l) ? Min( OCC, LL ) : LL;
 
@@ -1908,6 +1891,8 @@ bool Do_N_FindPrevPattern( View::Data& m, CrsPos& ncp )
   // Search for first star position before current position
   for( int l=OCL; !found_prev_star && 0<=l; l-- )
   {
+    m.fb.Find_Regexs_4_Line( l );
+
     const int LL = m.fb.LineLen( l );
 
     int p=LL-1;
@@ -1923,11 +1908,14 @@ bool Do_N_FindPrevPattern( View::Data& m, CrsPos& ncp )
       }
     }
   }
-  // Near beginning of file and did not find any patterns, so go to last pattern in file
+  // Reached beginning of file and did not find any patterns,
+  // so go to last pattern in file
   if( !found_prev_star )
   {
     for( int l=NUM_LINES-1; !found_prev_star && OCL<l; l-- )
     {
+      m.fb.Find_Regexs_4_Line( l );
+
       const unsigned LL = m.fb.LineLen( l );
 
       int p=LL-1;
@@ -2022,7 +2010,7 @@ void Do_dd_BufferEditor( View::Data& m, const unsigned ONL )
   // Can only delete one of the user files out of buffer editor
   if( USER_FILE <= OCL )
   {
-    Line* lp = m.fb.GetLineP( OCL );
+    const Line* lp = m.fb.GetLineP( OCL );
 
     const char* fname = lp->c_str( 0 );
 
@@ -2427,23 +2415,24 @@ void View::PageDown()
   Trace trace( __PRETTY_FUNCTION__ );
 
   const unsigned NUM_LINES = m.fb.NumLines();
-  if( !NUM_LINES ) return;
-
-  const unsigned newTopLine = m.topLine + WorkingRows() - 1;
-  // Subtracting 1 above leaves one line in common between the 2 pages.
-
-  if( newTopLine < NUM_LINES )
+  if( 0<NUM_LINES )
   {
-    m.crsCol = 0;
-    m.topLine = newTopLine;
+    const unsigned newTopLine = m.topLine + WorkingRows() - 1;
+    // Subtracting 1 above leaves one line in common between the 2 pages.
 
-    // Dont let cursor go past the end of the file:
-    if( NUM_LINES <= CrsLine() )
+    if( newTopLine < NUM_LINES )
     {
-      // This line places the cursor at the top of the screen, which I prefer:
-      m.crsRow = 0;
+      m.crsCol = 0;
+      m.topLine = newTopLine;
+
+      // Dont let cursor go past the end of the file:
+      if( NUM_LINES <= CrsLine() )
+      {
+        // This line places the cursor at the top of the screen, which I prefer:
+        m.crsRow = 0;
+      }
+      Update();
     }
-    Update();
   }
 }
 
@@ -3602,8 +3591,7 @@ void View::Update( const bool PRINT_CURSOR )
   Trace trace( __PRETTY_FUNCTION__ );
 
   m.fb.Find_Styles( m.topLine + WorkingRows() );
-  m.fb.ClearStars();
-  m.fb.Find_Stars();
+  m.fb.Find_Regexs( m.topLine, WorkingRows() );
 
   RepositionView();
   Print_Borders();
@@ -3871,80 +3859,49 @@ void View::SetUnSavedChangeSts( const bool val )
 String View::Do_Star_GetNewPattern()
 {
   Trace trace( __PRETTY_FUNCTION__ );
-  String new_star;
+  String pattern;
 
-  if( m.fb.NumLines() == 0 ) return new_star;
+  if( m.fb.NumLines() == 0 ) return pattern;
 
   const unsigned CL = CrsLine();
   const unsigned LL = m.fb.LineLen( CL );
 
-  if( LL )
+  if( 0<LL )
   {
     MoveInBounds();
     const unsigned CC = CrsChar();
 
-    const int c = m.fb.Get( CL,  CC );
+    const int C = m.fb.Get( CL,  CC );
 
-    if( isalnum( c ) || c=='_' )
+    if( isalnum( C ) || C=='_' )
     {
-      new_star.push( c );
+      pattern.push( C );
 
       // Search forward:
       for( unsigned k=CC+1; k<LL; k++ )
       {
-        const int c = m.fb.Get( CL, k );
-        if( isalnum( c ) || c=='_' ) new_star.push( c );
+        const int C = m.fb.Get( CL, k );
+        if( isalnum( C ) || C=='_' ) pattern.push( C );
         else                         break;
       }
       // Search backward:
       for( int k=CC-1; 0<=k; k-- )
       {
-        const int c = m.fb.Get( CL, k );
-        if( isalnum( c ) || c=='_' ) new_star.insert( 0, c );
+        const int C = m.fb.Get( CL, k );
+        if( isalnum( C ) || C=='_' ) pattern.insert( 0, C );
         else                         break;
       }
     }
     else {
-      if( isgraph( c ) ) new_star.push( c );
+      if( isgraph( C ) ) pattern.push( C );
     }
-  }
-  return new_star;
-}
-
-void View::PrintPatterns( const bool HIGHLIGHT )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  const unsigned NUM_LINES = m.fb.NumLines();
-  const unsigned END_LINE  = Min( m.topLine+WorkingRows(), NUM_LINES );
-
-  for( unsigned l=m.topLine; l<END_LINE; l++ )
-  {
-    const unsigned LL      = m.fb.LineLen( l );
-    const unsigned END_POS = Min( m.leftChar+WorkingCols(), LL );
-
-    for( unsigned p=m.leftChar; p<END_POS; p++ )
+    if( 0<pattern.len() )
     {
-      if( InStar( l, p ) )
-      {
-        Style s = S_STAR;
-
-        if( !HIGHLIGHT )
-        {
-          s = S_NORMAL;
-          if     ( InVisualArea(l,p) ) s = S_VISUAL;
-          else if( InDefine    (l,p) ) s = S_DEFINE;
-          else if( InConst     (l,p) ) s = S_CONST;
-          else if( InControl   (l,p) ) s = S_CONTROL;
-          else if( InVarType   (l,p) ) s = S_VARTYPE;
-          else if( InComment   (l,p) ) s = S_COMMENT;
-          else if( InNonAscii  (l,p) ) s = S_NONASCII;
-        }
-        int byte = m.fb.Get( l, p );
-        Console::Set( Line_2_GL( l ), Char_2_GL( p ), byte, s );
-      }
+      pattern.insert( 0, "\\b" );
+      pattern.append(    "\\b" );
     }
   }
+  return pattern;
 }
 
 bool View::Has_Context()

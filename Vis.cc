@@ -109,8 +109,7 @@ struct Vis::Data
   bool       diff_mode; // true if displaying diff
   bool       colon_mode;// true if cursor is on vis colon line
   bool       slash_mode;// true if cursor is on vis slash line
-  String     star;      // current text highlighted by '*' command
-  bool       slash;     // indicated whether star pattern is slash type or * type
+  String     regex;     // current regular expression pattern to highlight
   int        fast_char; // Char on line to goto when ';' is entered
 
   typedef void (*CmdFunc) ( Data& m );
@@ -139,8 +138,7 @@ Vis::Data::Data( Vis& vis )
   , diff_mode( false )
   , colon_mode( false )
   , slash_mode( false )
-  , star()
-  , slash( false )
+  , regex()
   , fast_char( -1 )
 {
 }
@@ -2434,8 +2432,6 @@ void Handle_i( Vis::Data& m )
   }
 }
 
-//void Handle_Colon_Cmd( Vis::Data& m );
-
 void L_Handle_i( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -2447,8 +2443,6 @@ void L_Handle_i( Vis::Data& m )
     if( end_of_line_delim )
     {
       m.colon_mode = false;
-    //m.colon_file->Set_Save_History( false );
-    //m.colon_file->ClearChanged();
 
       Handle_Colon_Cmd( m );
     }
@@ -2460,8 +2454,6 @@ void L_Handle_i( Vis::Data& m )
     if( end_of_line_delim )
     {
       m.slash_mode = false;
-    //m.slash_file->Set_Save_History( false );
-    //m.slash_file->ClearChanged();
 
       String slash_pattern( m.cbuf );
 
@@ -2557,8 +2549,6 @@ void L_Handle_a( Vis::Data& m )
     if( end_of_line_delim )
     {
       m.colon_mode = false;
-    //m.colon_file->Set_Save_History( false );
-    //m.colon_file->ClearChanged();
 
       Handle_Colon_Cmd( m );
     }
@@ -2570,8 +2560,6 @@ void L_Handle_a( Vis::Data& m )
     if( end_of_line_delim )
     {
       m.slash_mode = false;
-    //m.slash_file->Set_Save_History( false );
-    //m.slash_file->ClearChanged();
 
       String slash_pattern( m.cbuf );
 
@@ -2611,8 +2599,6 @@ void L_Handle_A( Vis::Data& m )
     if( end_of_line_delim )
     {
       m.colon_mode = false;
-    //m.colon_file->Set_Save_History( false );
-    //m.colon_file->ClearChanged();
 
       Handle_Colon_Cmd( m );
     }
@@ -2624,8 +2610,6 @@ void L_Handle_A( Vis::Data& m )
     if( end_of_line_delim )
     {
       m.slash_mode = false;
-    //m.slash_file->Set_Save_History( false );
-    //m.slash_file->ClearChanged();
 
       String slash_pattern( m.cbuf );
 
@@ -2665,8 +2649,6 @@ void L_Handle_o( Vis::Data& m )
     if( end_of_line_delim )
     {
       m.colon_mode = false;
-    //m.colon_file->Set_Save_History( false );
-    //m.colon_file->ClearChanged();
 
       Handle_Colon_Cmd( m );
     }
@@ -2678,8 +2660,6 @@ void L_Handle_o( Vis::Data& m )
     if( end_of_line_delim )
     {
       m.slash_mode = false;
-    //m.slash_file->Set_Save_History( false );
-    //m.slash_file->ClearChanged();
 
       String slash_pattern( m.cbuf );
 
@@ -3341,14 +3321,12 @@ void Handle_Colon( Vis::Data& m )
     m.colon_file->PushLine();
   }
   View* cv = CV(m);
-//const unsigned NUM_LINES = m.colon_file->NumLines();
   const unsigned NUM_COLS = cv->WinCols();
   const unsigned X        = cv->X();
   const unsigned Y        = cv->Cmd__Line_Row();
 
   m.colon_view->SetContext( NUM_COLS, X, Y );
   m.colon_mode = true;
-//m.colon_file->Set_Save_History( true );
 
   const unsigned CL = m.colon_view->CrsLine();
   const unsigned LL = m.colon_file->LineLen( CL );
@@ -3369,8 +3347,6 @@ void L_Handle_Colon( Vis::Data& m )
   Trace trace( __PRETTY_FUNCTION__ );
 
   m.colon_mode = false;
-//m.colon_file->Set_Save_History( false );
-//m.colon_file->ClearChanged();
 
   if( m.diff_mode ) m.diff.PrintCursor( CV(m) );
   else              CV(m)->PrintCursor();
@@ -3383,8 +3359,6 @@ void L_Handle_Return( Vis::Data& m )
   if( m.colon_mode )
   {
     m.colon_mode = false;
-  //m.colon_file->Set_Save_History( false );
-  //m.colon_file->ClearChanged();
 
     m.colon_view->HandleReturn();
 
@@ -3393,8 +3367,6 @@ void L_Handle_Return( Vis::Data& m )
   else if( m.slash_mode )
   {
     m.slash_mode = false;
-  //m.slash_file->Set_Save_History( false );
-  //m.slash_file->ClearChanged();
 
     m.slash_view->HandleReturn();
 
@@ -3413,14 +3385,12 @@ void Handle_Slash( Vis::Data& m )
     m.slash_file->PushLine();
   }
   View* cv = CV(m);
-//const unsigned NUM_LINES = m.slash_file->NumLines();
   const unsigned NUM_COLS = cv->WinCols();
   const unsigned X        = cv->X();
   const unsigned Y        = cv->Cmd__Line_Row();
 
   m.slash_view->SetContext( NUM_COLS, X, Y );
   m.slash_mode = true;
-//m.slash_file->Set_Save_History( true );
 
   const unsigned CL = m.slash_view->CrsLine();
   const unsigned LL = m.slash_file->LineLen( CL );
@@ -3441,8 +3411,6 @@ void L_Handle_Slash( Vis::Data& m )
   Trace trace( __PRETTY_FUNCTION__ );
 
   m.slash_mode = false;
-//m.slash_file->Set_Save_History( false );
-//m.slash_file->ClearChanged();
 
   if( m.diff_mode ) m.diff.PrintCursor( CV(m) );
   else              CV(m)->PrintCursor();
@@ -3526,32 +3494,6 @@ void Handle_U( Vis::Data& m )
 //  else if( m.slash_mode ) m.slash_view->Do_U();
 //}
 
-void Do_Star_PrintPatterns( Vis::Data& m, const bool HIGHLIGHT )
-{
-  for( unsigned w=0; w<m.num_wins; w++ )
-  {
-    m.views[w][ m.file_hist[w][0] ]->PrintPatterns( HIGHLIGHT );
-  }
-}
-
-void Do_Star_ClearPatterns( Vis::Data& m )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  // Tell every FileBuf that it needs to clear the old pattern:
-  for( unsigned w=0; w<m.views[0].len(); w++ )
-  {
-    m.views[0][w]->GetFB()->NeedToClearStars();
-  }
-  // Remove star patterns from displayed FileBuf's only:
-  for( unsigned w=0; w<m.num_wins; w++ )
-  {
-    View* pV = m.views[w][ m.file_hist[w][0] ];
-
-    if( pV ) pV->GetFB()->ClearStars();
-  }
-}
-
 // 1. Search for star pattern in search editor.
 // 2. If star pattern is found in search editor,
 //         move pattern to end of search editor
@@ -3571,7 +3513,7 @@ void Do_Star_Update_Search_Editor( Vis::Data& m )
     pfb->RemoveLine( NUM_SE_LINES-1 );
     NUM_SE_LINES = pfb->NumLines();
   }
-  // 1. Search for star pattern in search editor.
+  // 1. Search for regex pattern in search editor.
   bool found_pattern_in_search_editor = false;
   unsigned line_in_search_editor = 0;
 
@@ -3586,15 +3528,15 @@ void Do_Star_Update_Search_Editor( Vis::Data& m )
       c = pfb->Get( ln, k );
       m.sbuf.push( c );
     }
-    if( m.sbuf == m.star )
+    if( m.sbuf == m.regex )
     {
       found_pattern_in_search_editor = true;
       line_in_search_editor = ln;
     }
   }
-  // 2. If star pattern is found in search editor,
+  // 2. If regex pattern is found in search editor,
   //         move pattern to end of search editor
-  //    else add star pattern to end of search editor
+  //    else add regex pattern to end of search editor
   if( found_pattern_in_search_editor )
   {
     // Move pattern to end of search editor, so newest searches are at bottom of file
@@ -3605,9 +3547,9 @@ void Do_Star_Update_Search_Editor( Vis::Data& m )
     }
   }
   else {
-    // Push star onto search editor buffer
+    // Push regex onto search editor buffer
     Line line(__FILE__,__LINE__);
-    for( const char* p=m.star.c_str(); *p; p++ ) line.push(__FILE__,__LINE__, *p );
+    for( const char* p=m.regex.c_str(); *p; p++ ) line.push(__FILE__,__LINE__, *p );
     pfb->PushLine( line );
   }
   // Push an emtpy line onto slash buffer to leave empty / prompt:
@@ -3620,59 +3562,33 @@ void Do_Star_Update_Search_Editor( Vis::Data& m )
   pfb->Update();
 }
 
-void Do_Star_FindPatterns( Vis::Data& m )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  // Tell every FileBuf that it needs to find the new pattern:
-  for( unsigned w=0; w<m.views[0].len(); w++ )
-  {
-    m.views[0][w]->GetFB()->NeedToFindStars();
-  }
-  // Only find new pattern now for FileBuf's that are displayed:
-  for( unsigned w=0; w<m.num_wins; w++ )
-  {
-    View* pV = m.views[w][ m.file_hist[w][0] ];
-
-    if( pV ) pV->GetFB()->Find_Stars();
-  }
-}
-
 void Handle_Star( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  String new_star = m.diff_mode ?  m.diff.Do_Star_GetNewPattern()
-                                :  CV(m)->Do_Star_GetNewPattern();
-
-  if( !m.slash && new_star == m.star ) return;
-
-  // Un-highlight old star patterns for windows displayed:
-  if( m.star.len() )
-  { // Since m.diff_mode does Console::Update(),
-    // no need to print patterns here if in m.diff_mode
-    if( !m.diff_mode ) Do_Star_PrintPatterns( m, false );
-  }
-  Do_Star_ClearPatterns(m);
-
-  m.star = new_star;
-
-  if( m.star.len() )
+  String pattern = m.diff_mode ?  m.diff.Do_Star_GetNewPattern()
+                               :  CV(m)->Do_Star_GetNewPattern();
+  if( pattern != m.regex )
   {
-    m.slash = false;
+    m.regex = pattern;
 
-    Do_Star_Update_Search_Editor(m);
-    Do_Star_FindPatterns(m);
+    if( 0<m.regex.len() )
+    {
+      Do_Star_Update_Search_Editor(m);
+    }
+    if( m.diff_mode ) m.diff.Update();
+    else {
+      // Show new star patterns for all windows currently displayed,
+      // but update current window last, so that the cursor ends up
+      // in the current window.
+      for( unsigned w=0; w<m.num_wins; w++ )
+      {
+        View* const pV = m.views[w][ m.file_hist[w][0] ];
 
-    // Highlight new star patterns for windows displayed:
-    if( !m.diff_mode ) Do_Star_PrintPatterns( m, true );
-  }
-  if( m.diff_mode ) m.diff.Update();
-  else {
-    // Print out all the changes:
-    Console::Update();
-    // Put cursor back where it was
-    CV(m)->PrintCursor();
+        if( pV != m.vis.CV() ) pV->Update();
+      }
+      m.vis.CV()->Update();
+    }
   }
 }
 
@@ -3769,8 +3685,6 @@ void L_Handle_R( Vis::Data& m )
     if( end_of_line_delim )
     {
       m.colon_mode = false;
-    //m.colon_file->Set_Save_History( false );
-    //m.colon_file->ClearChanged();
 
       Handle_Colon_Cmd( m );
     }
@@ -3782,8 +3696,6 @@ void L_Handle_R( Vis::Data& m )
     if( end_of_line_delim )
     {
       m.slash_mode = false;
-    //m.slash_file->Set_Save_History( false );
-    //m.slash_file->ClearChanged();
 
       String slash_pattern( m.cbuf );
 
@@ -4265,19 +4177,14 @@ FileBuf* Vis::GetFileBuf( const unsigned index ) const
   return m.files[ index ];
 }
 
-unsigned Vis::GetStarLen() const
+unsigned Vis::GetRegexLen() const
 {
-  return m.star.len();
+  return m.regex.len();
 }
 
-const char* Vis::GetStar() const
+String Vis::GetRegex() const
 {
-  return m.star.c_str();
-}
-
-bool Vis::GetSlash() const
-{
-  return m.slash;
+  return m.regex;
 }
 
 // If window has resized, update window
@@ -4608,38 +4515,32 @@ void Vis::Handle_Slash_GotPattern( const String& pattern
                                  , const bool MOVE_TO_FIRST_PATTERN )
 {
   Trace trace( __PRETTY_FUNCTION__ );
-  if( m.slash && pattern == m.star )
+
+  if( pattern != m.regex )
   {
-    CV()->PrintCursor();
-    return;
-  }
-  // Un-highlight old star patterns for windows displayed:
-  if( 0 < m.star.len()  )
-  { // Since m.diff_mode does Console::Update(),
-    // no need to print patterns here if in m.diff_mode
-    if( !m.diff_mode ) Do_Star_PrintPatterns( m, false );
-  }
-  Do_Star_ClearPatterns(m);
+    m.regex = pattern;
 
-  m.star = pattern;
-
-  if( !m.star.len() ) CV()->PrintCursor();
-  else {
-    m.slash = true;
-
-    Do_Star_Update_Search_Editor(m);
-    Do_Star_FindPatterns(m);
-
-    // Highlight new star patterns for windows displayed:
-    if( m.diff_mode )
+    if( 0<m.regex.len() )
     {
-      if( MOVE_TO_FIRST_PATTERN ) m.diff.Do_n(); // Move to first pattern
-      m.diff.Update();
+      Do_Star_Update_Search_Editor(m);
     }
+    if( MOVE_TO_FIRST_PATTERN )
+    {
+      if( m.diff_mode ) m.diff.Do_n();
+      else               CV()->Do_n();
+    }
+    if( m.diff_mode ) m.diff.Update();
     else {
-      Do_Star_PrintPatterns( m, true );
-      if( MOVE_TO_FIRST_PATTERN ) CV()->Do_n(); // Move to first pattern
-      else                        Console::Update();
+      // Show new slash patterns for all windows currently displayed,
+      // but update current window last, so that the cursor ends up
+      // in the current window.
+      for( unsigned w=0; w<m.num_wins; w++ )
+      {
+        View* const pV = m.views[w][ m.file_hist[w][0] ];
+
+        if( pV != CV() ) pV->Update();
+      }
+      CV()->Update();
     }
   }
 }
@@ -4660,7 +4561,6 @@ Line* Vis::BorrowLine( const char*    _FILE_
     ASSERT( __LINE__, ok, "ok" );
 
     ok = lp->inc_cap( __FILE__, __LINE__, SIZE );
-  //ok = lp->inc_size( __FILE__, __LINE__, SIZE );
     ASSERT( __LINE__, ok, "ok" );
 
     lp->clear();

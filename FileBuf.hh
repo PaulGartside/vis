@@ -51,15 +51,13 @@ public:
   const char* GetFileName() const;
   const char* GetPathName() const;
   const char* GetHeadName() const;
-  void NeedToFindStars();
-  void NeedToClearStars();
 
   unsigned NumLines() const;
   unsigned LineLen( const unsigned line_num ) const;
   Line     GetLine( const unsigned l_num ) const;
   Line     GetStyle( const unsigned l_num ) const;
   void     GetLine( const unsigned l_num, Line& l ) const;
-  Line*    GetLineP( const unsigned l_num ) const;
+  const Line* GetLineP( const unsigned l_num ) const;
   void     InsertLine( const unsigned l_num, const Line& line );
   void     InsertLine( const unsigned l_num, Line* const pLine );
   void     InsertLine( const unsigned l_num );
@@ -90,7 +88,6 @@ public:
   void     Update();
   void     UpdateCmd();
   void Set_File_Type( const char* syn );
-//void Set_Save_History( const bool val );
 
   void AddView( View* v );
   void AddView( LineView* v );
@@ -109,8 +106,8 @@ public:
   bool     Has_LF_at_EOF();
   void ClearStyles();
   void Find_Styles( const unsigned up_to_line );
-  void Find_Stars();
-  void ClearStars();
+  void Find_Regexs( const unsigned start_line, const unsigned num_lines );
+  void Find_Regexs_4_Line( const unsigned line_num );
   void ClearSyntaxStyles( const unsigned l_num, const unsigned c_num );
   void SetSyntaxStyle( const unsigned l_num, const unsigned c_num
                      , const unsigned style );

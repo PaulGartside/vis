@@ -341,7 +341,7 @@ bool Line::ends_with( const uint8_t C )
   return false;
 }
 
-unsigned Line::chksum()
+unsigned Line::chksum() const
 {
   if( !m.chksum_valid )
   {

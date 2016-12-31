@@ -51,9 +51,8 @@ public:
   bool        Shell_Running() const;
   void        Update_Shell();
   FileBuf*    GetFileBuf( const unsigned index ) const;
-  unsigned    GetStarLen() const;
-  const char* GetStar() const;
-  bool        GetSlash() const;
+  unsigned    GetRegexLen() const;
+  String      GetRegex() const;
 
   void CheckWindowSize();
   void CheckFileModTime();

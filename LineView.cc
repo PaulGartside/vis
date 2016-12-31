@@ -308,10 +308,8 @@ bool Find_File_Name_Completion_Variables( LineView::Data& m )
 {
   bool found_tab_fname = false;
 
-  Line* lp = m.fb.GetLineP( m.view.CrsLine() );
-//m.sbuf.clear();
-  // Cant copy lp->c_str() to m.sbuf here because lp is not null terminated:
-//for( unsigned i=0; i<lp->len(); i++ ) m.sbuf.push( lp->get(i) );
+  const Line* lp = m.fb.GetLineP( m.view.CrsLine() );
+
   m.sbuf = lp->c_str(0);
   m.sbuf.trim(); // Remove leading and trailing white space
 
@@ -340,7 +338,6 @@ bool Find_File_Name_Completion_Variables( LineView::Data& m )
             m.sbuf.push('/'); // Dont append '/' if no m.partial_path
           }
           // Cant copy l.c_str() to m.sbuf here because l is not null terminated:
-        //for( unsigned i=0; i<l.len(); i++ ) m.sbuf.push( l.get(i) );
           m.sbuf.append( fname );
         }
       }
@@ -351,15 +348,15 @@ bool Find_File_Name_Completion_Variables( LineView::Data& m )
       if( ColonOp::e == m.colon_op ) m.sbuf.insert( 0, "e ");
       else                           m.sbuf.insert( 0, "w ");
 
-      lp = m.fb.RemoveLineP( m.view.CrsLine() );
-      lp->clear();
+      Line* lp2 = m.fb.RemoveLineP( m.view.CrsLine() );
+      lp2->clear();
       for( unsigned k=0; k<m.sbuf.len(); k++ )
       {
-        lp->push(__FILE__, __LINE__, m.sbuf.get(k) );
+        lp2->push(__FILE__, __LINE__, m.sbuf.get(k) );
       }
-      m.fb.InsertLine( m.view.CrsLine(), lp );
+      m.fb.InsertLine( m.view.CrsLine(), lp2 );
 
-      m.view.GoToCrsPos_NoWrite( m.view.CrsLine(), lp->len() );
+      m.view.GoToCrsPos_NoWrite( m.view.CrsLine(), lp2->len() );
     }
   }
   return found_tab_fname;
@@ -498,7 +495,6 @@ void DisplayBanner_PrintCursor( LineView::Data& m )
 {
   DisplayBanner( m );
 
-//m.view.GoToCrsPos_Write( m.view.CrsLine(), m.view.CrsChar() );
   m.view.PrintCursor();
 }
 
@@ -1546,7 +1542,7 @@ void Do_dd_BufferEditor( LineView::Data& m, const unsigned ONL )
   // Can only delete one of the user files out of buffer editor
   if( USER_FILE <= OCL )
   {
-    Line* lp = m.fb.GetLineP( OCL );
+    const Line* lp = m.fb.GetLineP( OCL );
 
     const char* fname = lp->c_str( 0 );
 
@@ -1557,6 +1553,24 @@ void Do_dd_BufferEditor( LineView::Data& m, const unsigned ONL )
       Do_dd_Normal( m, ONL );
     }
   }
+}
+
+void Do_p_line( LineView::Data& m )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  const unsigned OCL = m.view.CrsLine();  // Old cursor line
+
+  const unsigned NUM_LINES = m.reg.len();
+
+  for( unsigned k=0; k<NUM_LINES; k++ )
+  {
+    // Put reg on line below:
+    m.fb.InsertLine( OCL+k+1, *(m.reg[k]) );
+  }
+  // Update current view after other views,
+  // so that the cursor will be put back in place
+  m.fb.UpdateCmd();
 }
 
 void Do_p_or_P_st_fn( LineView::Data& m, Paste_Pos paste_pos )
@@ -1666,14 +1680,14 @@ unsigned LineView::GetLeftChar() const { return m.leftChar; }
 unsigned LineView::GetCrsRow  () const { return 0; }
 unsigned LineView::GetCrsCol  () const { return m.crsCol  ; }
 
-Line* LineView::GetCrsLine()
+const Line* LineView::GetCrsLine()
 {
   return m.fb.GetLineP( m.topLine );
 }
 
-void LineView::SetTopLine ( const unsigned val )
+void LineView::SetTopLine( const unsigned val )
 {
-  m.topLine  = val;
+  m.topLine = val;
 }
 
 void LineView::SetLeftChar( const unsigned val )
@@ -1685,14 +1699,14 @@ void LineView::SetCrsRow( unsigned val )
 {
 }
 
-void LineView::SetCrsCol  ( const unsigned val )
+void LineView::SetCrsCol( const unsigned val )
 {
-  m.crsCol   = val;
+  m.crsCol = val;
 }
 
 unsigned LineView::WorkingCols() const
 {
-  return m.nCols-  left__border-right_border - m.prefix_len;
+  return m.nCols - left__border - right_border - m.prefix_len;
 }
 
 unsigned LineView::CrsLine() const
@@ -1734,7 +1748,6 @@ void LineView::SetContext( const unsigned num_cols
   m.nCols    = num_cols;
   m.x        = x;
   m.y        = y;
-//m.topLine  = LLM1( m.fb.NumLines() );
   m.leftChar = 0;
 }
 
@@ -2484,14 +2497,20 @@ void LineView::Do_p()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  Do_p_or_P_st_fn( m, PP_After );
+  const Paste_Mode PM = m.vis.GetPasteMode();
+
+  if     ( PM_ST_FN == PM ) Do_p_or_P_st_fn( m, PP_After );
+  else /*( PM_LINE  == PM*/ Do_p_line(m);
 }
 
 void LineView::Do_P()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  Do_p_or_P_st_fn( m, PP_Before );
+  const Paste_Mode PM = m.vis.GetPasteMode();
+
+  if     ( PM_ST_FN == PM ) Do_p_or_P_st_fn( m, PP_Before );
+  else /*( PM_LINE  == PM*/ Do_P_line(m);
 }
 
 // Returns true if end of line delimiter was entered, else false
@@ -2504,7 +2523,6 @@ bool LineView::Do_R()
   m.inReplaceMode = true;
   DisplayBanner_PrintCursor(m);
 
-//unsigned count = 0;
   for( char C=m.key.In(); C != ESC; C=m.key.In() )
   {
     if( IsEndOfLineDelim( C ) )
@@ -2515,12 +2533,8 @@ bool LineView::Do_R()
     else if( BS == C || DEL == C )
     {
       m.fb.Undo( m.view );
-    //if( count ) InsertBackspace(m);
     }
     else ReplaceAddChars( m, C );
-
-  //if( BS == C || DEL == C ) { if( count ) count--; }
-  //else count++;
   }
   // Move cursor back one space:
   if( 0 < m.crsCol ) m.crsCol--;
@@ -2709,8 +2723,7 @@ void LineView::Update()
   Trace trace( __PRETTY_FUNCTION__ );
 
   m.fb.Find_Styles( m.topLine + WORKING_ROWS );
-  m.fb.ClearStars();
-  m.fb.Find_Stars();
+  m.fb.Find_Regexs( m.topLine, WORKING_ROWS );
 
   RepositionView();
   DisplayBanner( m );
@@ -2865,7 +2878,7 @@ bool LineView::HandleReturn()
   // 3. Remove any other lines in colon file that match current colon command:
   for( int ln=0; ln<NL; ln++ )
   {
-    Line* t_lp = m.fb.GetLineP( ln );
+    const Line* t_lp = m.fb.GetLineP( ln );
     const unsigned t_ln_L = m.fb.LineLen( ln ); // Current line length
     // Lines are not NULL terminated, so use strncmp with line length:
     if( 0==strncmp( m.cbuf, t_lp->c_str(0), t_ln_L ) )

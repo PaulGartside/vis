@@ -78,7 +78,7 @@ public:
 
   bool ends_with( const uint8_t C );
 
-  unsigned chksum();
+  unsigned chksum() const;
 
   struct Data;
 

@@ -131,7 +131,6 @@ public:
   void Do_yw();
 
   String Do_Star_GetNewPattern();
-  void   PrintPatterns( const bool HIGHLIGHT );
 
   void GoToCrsPos_NoWrite( const unsigned ncp_crsLine
                          , const unsigned ncp_crsChar );

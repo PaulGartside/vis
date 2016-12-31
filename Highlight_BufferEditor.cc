@@ -32,7 +32,6 @@ extern MemLog<MEM_LOG_BUF_SIZE> Log;
 
 extern const char* EDIT_BUF_NAME;
 extern const char* HELP_BUF_NAME;
-//extern const char* SRCH_BUF_NAME;
 extern const char* MSG__BUF_NAME;
 extern const char* SHELL_BUF_NAME;
 extern const char* COLON_BUF_NAME;
