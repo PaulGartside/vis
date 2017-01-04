@@ -53,6 +53,7 @@
 #include "Highlight_Make.hh"
 #include "Highlight_CMake.hh"
 #include "Highlight_ODB.hh"
+#include "Highlight_Python.hh"
 #include "Highlight_SQL.hh"
 #include "Highlight_STL.hh"
 #include "Highlight_Swift.hh"
@@ -370,6 +371,21 @@ bool Find_File_Type_CMake( FileBuf::Data& m )
   return false;
 }
 
+bool Find_File_Type_Python( FileBuf::Data& m )
+{
+  const unsigned LEN = m.file_name.len();
+
+  if( m.file_name.ends_with(".py"    )
+   || m.file_name.ends_with(".py.new")
+   || m.file_name.ends_with(".py.old") )
+  {
+    m.file_type = FT_PY;
+    m.pHi = new(__FILE__,__LINE__) Highlight_Python( m.self );
+    return true;
+  }
+  return false;
+}
+
 bool Find_File_Type_SQL( FileBuf::Data& m )
 {
   const unsigned LEN = m.file_name.len();
@@ -455,20 +471,21 @@ void Find_File_Type_Suffix( FileBuf::Data& m )
     m.file_type = FT_DIR;
     m.pHi = new(__FILE__,__LINE__) Highlight_Dir( m.self );
   }
-  else if( Find_File_Type_Bash ( m )
-        || Find_File_Type_CPP  ( m )
-        || Find_File_Type_IDL  ( m )
-        || Find_File_Type_Java ( m )
-        || Find_File_Type_HTML ( m )
-        || Find_File_Type_XML  ( m )
-        || Find_File_Type_JS   ( m )
-        || Find_File_Type_Make ( m )
-        || Find_File_Type_CMake( m )
-        || Find_File_Type_ODB  ( m )
-        || Find_File_Type_SQL  ( m )
-        || Find_File_Type_STL  ( m )
-        || Find_File_Type_Swift( m )
-        || Find_File_Type_TCL  ( m ) )
+  else if( Find_File_Type_Bash  ( m )
+        || Find_File_Type_CPP   ( m )
+        || Find_File_Type_IDL   ( m )
+        || Find_File_Type_Java  ( m )
+        || Find_File_Type_HTML  ( m )
+        || Find_File_Type_XML   ( m )
+        || Find_File_Type_JS    ( m )
+        || Find_File_Type_Make  ( m )
+        || Find_File_Type_CMake ( m )
+        || Find_File_Type_ODB   ( m )
+        || Find_File_Type_Python( m )
+        || Find_File_Type_SQL   ( m )
+        || Find_File_Type_STL   ( m )
+        || Find_File_Type_Swift ( m )
+        || Find_File_Type_TCL   ( m ) )
   {
     // File type found
   }
@@ -971,6 +988,11 @@ void FileBuf::Set_File_Type( const char* syn )
     {
       m.file_type = FT_ODB;
       p_new_Hi = new(__FILE__,__LINE__) Highlight_ODB( *this );
+    }
+    else if( 0==strcmp( syn, "py") )
+    {
+      m.file_type = FT_PY;
+      p_new_Hi = new(__FILE__,__LINE__) Highlight_Python( *this );
     }
     else if( 0==strcmp( syn, "sql") )
     {

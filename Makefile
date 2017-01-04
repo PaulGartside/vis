@@ -35,6 +35,7 @@ SOURCES = ChangeHist \
           Highlight_Make \
           Highlight_CMake \
           Highlight_ODB \
+          Highlight_Python \
           Highlight_SQL \
           Highlight_STL \
           Highlight_Swift \

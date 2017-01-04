@@ -150,6 +150,7 @@ enum File_Type
   FT_MAKE,
   FT_CMAKE,
   FT_ODB,
+  FT_PY,
   FT_SQL,
   FT_STL,
   FT_SWIFT,
