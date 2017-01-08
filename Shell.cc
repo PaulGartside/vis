@@ -362,6 +362,11 @@ Shell::Shell( Vis& vis )
 {
 }
 
+Shell::~Shell()
+{
+  MemMark(__FILE__,__LINE__); delete &m;
+}
+
 void Shell::Run()
 {
   Trace trace( __PRETTY_FUNCTION__ );

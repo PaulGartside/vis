@@ -35,8 +35,11 @@
 
 void String::destruct()
 {
-  MemMark(__FILE__,__LINE__);
-  if( size ) delete[] data;
+  if( size )
+  {
+    MemMark(__FILE__,__LINE__);
+    delete[] data;
+  }
   data   = 0;
   size   = 0;
   length = 0;

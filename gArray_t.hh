@@ -70,25 +70,25 @@ public:
     {
       return &data[i];
     }
-    return 0;
+    return false;
   }
   bool get( unsigned i, T& t ) const
   {
     if( 0 <= i && i < length )
     {
       t = data[i];
-      return 1;
+      return true;
     }
-    return 0;
+    return false;
   }
   bool set( unsigned i, T t )
   {
     if( 0 <= i && i < length )
     {
       data[i] = t;
-      return 1;
+      return true;
     }
-    return 0;
+    return false;
   }
   void set_all( T t )
   {
@@ -117,7 +117,7 @@ bool gArray_t<T>::inc_size( unsigned new_size )
     if( new_size < my_new_size ) new_size = my_new_size ;
 
     T* new_data = new(__FILE__,__LINE__) T[new_size];
-    if( !new_data ) return 0;
+    if( !new_data ) return false;
 
     for( unsigned k=0; k<length; k++ ) new_data[k] = data[k];
 
@@ -126,40 +126,40 @@ bool gArray_t<T>::inc_size( unsigned new_size )
     data = new_data;
     size = new_size;
   }
-  return 1;
+  return true;
 }
 
 template <class T>
 bool gArray_t<T>::copy( const gArray_t& a )
 {
-  if( this == &a ) return 1;
+  if( this == &a ) return true;
 
   const unsigned a_len = a.len();
 
   if( a_len )
   {
-    if( size < a_len ) { if( !inc_size( a_len ) ) return 0; }
+    if( size < a_len ) { if( !inc_size( a_len ) ) return false; }
 
     // Copy constructor of T called here to properly copy data:
     for( unsigned k=0; k<a_len; k++ ) data[k] = a[k];
   }
   length = a_len;
-  return 1;
+  return true;
 }
 
 template <class T>
 bool gArray_t<T>::append( const gArray_t& a )
 {
-  if( this == &a ) return 0;
+  if( this == &a ) return false;
 
   unsigned a_len = a.len();
 
   if( a_len ) {
-    if( size < length + a_len ) { if( !inc_size( length + a_len ) ) return 0; }
+    if( size < length + a_len ) { if( !inc_size( length + a_len ) ) return false; }
     for( unsigned k=0; k<a_len; k++ ) data[ length + k ] = a[k];
   }
   length += a_len;
-  return 1;
+  return true;
 }
 
 template <class T>
@@ -225,10 +225,10 @@ bool gArray_t<T>::insert( unsigned i, T t )
       for( unsigned k=length; i<k; k-- ) data[k] = data[k-1];
       data[ i ] = t;
       length += 1;
-      return 1;
+      return true;
     }
   }
-  return 0;
+  return false;
 }
 
 template <class T>
@@ -242,9 +242,9 @@ bool gArray_t<T>::remove( unsigned i )
 
     length -= 1;
     for( unsigned k=i; k<length; k++ ) data[k] = data[k+1];
-    return 1;
+    return true;
   }
-  return 0;
+  return false;
 }
 
 // Caller of remove() owns t
@@ -257,9 +257,9 @@ bool gArray_t<T>::remove( unsigned i, T& t )
 
     length -= 1;
     for( unsigned k=i; k<length; k++ ) data[k] = data[k+1];
-    return 1;
+    return true;
   }
-  return 0;
+  return false;
 }
 
 template <class T>
@@ -271,9 +271,9 @@ bool gArray_t<T>::swap( unsigned i, unsigned j )
     T t = data[i];
     data[i] = data[j];
     data[j] = t;
-    return 1;
+    return true;
   }
-  return 0;
+  return false;
 }
 
 #endif // __GARRAY_HH__

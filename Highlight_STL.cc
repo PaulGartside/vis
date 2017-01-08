@@ -27,6 +27,7 @@
 
 static HiKeyVal HiPairs[] =
 {
+  { "break"       , HI_CONTROL },
   { "if"          , HI_CONTROL },
   { "else"        , HI_CONTROL },
   { "for"         , HI_CONTROL },

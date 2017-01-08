@@ -155,15 +155,6 @@ public:
                            , const Style    s );
   void DisplayMapping();
 
-  bool GetUnSavedChangeSts() const;
-  void SetUnSavedChangeSts( const bool val );
-
-  bool Has_Context();
-  void Clear_Context();
-  void Check_Context();
-
-  const char* GetPathName();
-
   bool HandleReturn();
 
   void Cover();

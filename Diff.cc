@@ -462,105 +462,6 @@ LineInfo* Borrow_LineInfo( Diff::Data& m
   return lip;
 }
 
-//void Fill_In_LineInfo( const unsigned SLL
-//                     , const unsigned LLL
-//                     , LineInfo* const pli_s
-//                     , LineInfo* const pli_l
-//                     , SameLineSec& max_same
-//                     , Line* pls
-//                     , Line* pll )
-//{
-//  Trace trace( __PRETTY_FUNCTION__ );
-//
-//  pli_l->set_len(__FILE__,__LINE__, LLL );
-//  pli_s->set_len(__FILE__,__LINE__, LLL );
-//
-//  for( unsigned k=0; k<SLL; k++ )
-//  {
-//    (*pli_s)[k] = DT_CHANGED;
-//    (*pli_l)[k] = DT_CHANGED;
-//  }
-//  for( unsigned k=SLL; k<LLL; k++ )
-//  {
-//    (*pli_s)[k] = DT_DELETED;
-//    (*pli_l)[k] = DT_INSERTED;
-//  }
-//  for( unsigned k=0; k<max_same.nbytes; k++ )
-//  {
-//    (*pli_s)[k+max_same.ch_s] = DT_SAME;
-//    (*pli_l)[k+max_same.ch_l] = DT_SAME;
-//  }
-//  const unsigned SAME_ST = Min( max_same.ch_s, max_same.ch_l );
-//  const unsigned SAME_FN = Max( max_same.ch_s+max_same.nbytes
-//                              , max_same.ch_l+max_same.nbytes );
-//  for( unsigned k=0; k<SAME_ST; k++ )
-//  {
-//    if( pls->get(k) == pll->get(k) )
-//    {
-//      pli_s->set( k, DT_SAME );
-//      pli_l->set( k, DT_SAME );
-//    }
-//  }
-//  for( unsigned k=SAME_FN; k<SLL; k++ )
-//  {
-//    if( pls->get(k) == pll->get(k) )
-//    {
-//      pli_s->set( k, DT_SAME );
-//      pli_l->set( k, DT_SAME );
-//    }
-//  }
-//}
-
-// Returns number of bytes that are the same between the two lines
-// and fills in li_s and li_l
-//unsigned Compare_Lines( Line* ls, LineInfo* li_s
-//                      , Line* ll, LineInfo* li_l )
-//{
-//  Trace trace( __PRETTY_FUNCTION__ );
-//  if( 0==ls->len() && 0==ll->len() ) { return 1; }
-//  li_s->clear(); li_l->clear();
-//  SameLineSec max_same = { 0, 0, 0 };
-//  Line* pls = ls; LineInfo* pli_s = li_s;
-//  Line* pll = ll; LineInfo* pli_l = li_l;
-//  if( ll->len() < ls->len() ) { pls = ll; pli_s = li_l;
-//                                pll = ls; pli_l = li_s; }
-//  const unsigned SLL = pls->len();
-//  const unsigned LLL = pll->len();
-//  const unsigned DIFF_LEN = LLL - SLL;
-//
-//  for( unsigned k=0; k<DIFF_LEN; k++ )
-//  {
-//    SameLineSec cur_same = { 0, 0, 0 };
-//
-//    for( unsigned i_s = 0; i_s<SLL; i_s++ )
-//    {
-//      const unsigned i_l = i_s + k;
-//      const uint8_t cs = pls->get( i_s );
-//      const uint8_t cl = pll->get( i_l );
-//
-//      if( cs != cl ) cur_same.nbytes = 0;
-//      else {
-//        if( 0 == max_same.nbytes ) // First char match
-//        {
-//          max_same.Init( i_s, i_l );
-//          cur_same.Init( i_s, i_l );
-//        }
-//        else if( 0 == cur_same.nbytes ) // First char match this outer loop
-//        {
-//          cur_same.Init( i_s, i_l );
-//        }
-//        else { // Continuation of cur_same
-//          cur_same.nbytes++;
-//          if( max_same.nbytes < cur_same.nbytes ) max_same.Set( cur_same );
-//        }
-//      }
-//    }
-//  }
-//  Fill_In_LineInfo( SLL, LLL, pli_s, pli_l, max_same, pls, pll );
-//
-//  return max_same.nbytes;
-//}
-
 // Returns number of bytes that are the same between the two lines
 // and fills in li_s and li_l
 unsigned Compare_Lines( const Line* ls, LineInfo* li_s
@@ -2245,6 +2146,8 @@ bool Do_n_FindNextPattern( Diff::Data& m, CrsPos& ncp )
   // Move past current star:
   const unsigned LL = pfb->LineLen( OCLv );
 
+  pfb->Check_4_New_Regex();
+  pfb->Find_Regexs_4_Line( OCL );
   for( ; st_c<LL && pV->InStar(OCLv,st_c); st_c++ ) ;
 
   // Go down to next line
@@ -2253,6 +2156,8 @@ bool Do_n_FindNextPattern( Diff::Data& m, CrsPos& ncp )
   // Search for first star position past current position
   for( unsigned l=st_l; !found_next_star && l<NUM_LINES; l++ )
   {
+    pfb->Find_Regexs_4_Line( l );
+
     const unsigned LL = pfb->LineLen( l );
 
     for( unsigned p=st_c
@@ -2276,6 +2181,8 @@ bool Do_n_FindNextPattern( Diff::Data& m, CrsPos& ncp )
   {
     for( unsigned l=0; !found_next_star && l<=OCLv; l++ )
     {
+      pfb->Find_Regexs_4_Line( l );
+
       const unsigned LL = pfb->LineLen( l );
       const unsigned END_C = (OCLv==l) ? Min( OCC, LL ) : LL;
 
@@ -2472,11 +2379,15 @@ bool Do_N_FindPrevPattern( Diff::Data& m, CrsPos& ncp )
 
   const unsigned OCLv = ViewLine( m, pV, OCL ); // View line
 
+  pfb->Check_4_New_Regex();
+
   bool found_prev_star = false;
 
   // Search for first star position before current position
   for( int l=OCLv; !found_prev_star && 0<=l; l-- )
   {
+    pfb->Find_Regexs_4_Line( l );
+
     const int LL = pfb->LineLen( l );
 
     int p=LL-1;
@@ -2499,6 +2410,8 @@ bool Do_N_FindPrevPattern( Diff::Data& m, CrsPos& ncp )
   {
     for( int l=NUM_LINES-1; !found_prev_star && OCLv<l; l-- )
     {
+      pfb->Find_Regexs_4_Line( l );
+
       const unsigned LL = pfb->LineLen( l );
 
       int p=LL-1;

@@ -106,6 +106,7 @@ public:
   bool     Has_LF_at_EOF();
   void ClearStyles();
   void Find_Styles( const unsigned up_to_line );
+  void Check_4_New_Regex();
   void Find_Regexs( const unsigned start_line, const unsigned num_lines );
   void Find_Regexs_4_Line( const unsigned line_num );
   void ClearSyntaxStyles( const unsigned l_num, const unsigned c_num );

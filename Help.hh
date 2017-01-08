@@ -144,6 +144,7 @@ const char* const HELP_STR =
 "  :sp  = Split window horizonally into 2 editing windows\n"
 "  :vsp = Split window vertically into 2 editing windows\n"
 "  :w   = Write current file\n"
+"  :wq  = Write and quit current file\n"
 "  :w filename = Write current file to filename\n"
 "\n"
 "Alphabetic list of commands:\n"

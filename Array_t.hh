@@ -139,8 +139,11 @@ bool Array_t<T>::inc_size( const char* _FILE_, const unsigned _LINE_
 
     for( unsigned k=0; k<length; k++ ) new_data[k] = data[k];
 
-    MemMark(__FILE__,__LINE__);
-    if( size ) delete[] data;
+    if( size )
+    {
+      MemMark(__FILE__,__LINE__);
+      delete[] data;
+    }
     data = new_data;
     size = new_size;
   }
@@ -245,8 +248,11 @@ Array_t<T>::~Array_t()
 template <class T>
 void Array_t<T>::Cleanup( const char* _FILE_, const unsigned _LINE_ )
 {
-  MemMark(_FILE_,_LINE_);
-  if( size ) delete[] data;
+  if( size )
+  {
+    MemMark(_FILE_,_LINE_);
+    delete[] data;
+  }
   data = 0;
   size = length = 0;
 }

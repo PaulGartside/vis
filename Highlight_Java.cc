@@ -59,6 +59,7 @@ static HiKeyVal HiPairs[] =
   { "instanceof"         , HI_VARTYPE },
   { "int"                , HI_VARTYPE },
   { "Integer"            , HI_VARTYPE },
+  { "interface"          , HI_VARTYPE },
   { "Iterator"           , HI_VARTYPE },
   { "long"               , HI_VARTYPE },
   { "Long"               , HI_VARTYPE },

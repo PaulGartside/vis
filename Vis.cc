@@ -334,6 +334,8 @@ void InitSlashBuffer( Vis::Data& m )
                                                , SLASH_BUF_NAME
                                                , true
                                                , FT_TEXT );
+  // Add an empty line
+  m.slash_file->PushLine();
 
   m.slash_view = new(__FILE__,__LINE__) LineView( m.vis
                                                 , m.key
@@ -2307,11 +2309,12 @@ void HandleColon_w( Vis::Data& m )
 
   View* pV = CV(m);
 
-  if( 0 == m.cbuf[1] ) // :w
+  if(   0 == m.cbuf[1] // :w
+   || ('q'== m.cbuf[1] && 0 == m.cbuf[2]) ) // :wq
   {
     if( pV == m.views[m.win][ SHELL_FILE ] )
     {
-      // Dont allow SHELL_BUFFER to be save with :w.
+      // Dont allow SHELL_BUFFER to be saved with :w.
       // Require :w filename.
       pV->PrintCursor();
     }
@@ -2321,8 +2324,13 @@ void HandleColon_w( Vis::Data& m )
       // If Write fails, current view will be message buffer, in which case
       // we dont want to PrintCursor with the original view, because that
       // would put the cursor in the wrong position:
-      if( CV(m) == pV ) pV->PrintCursor();
+      if( CV(m) == pV )
+      {
+        if( m.diff_mode ) m.diff.PrintCursor( pV );
+        else              pV->PrintCursor();
+      }
     }
+    if( 'q'== m.cbuf[1] ) Quit(m);
   }
   else // :w file_name
   {
@@ -2338,7 +2346,8 @@ void HandleColon_w( Vis::Data& m )
       }
       else if( fname.get_end() != DIR_DELIM )
       {
-        FileBuf* p_fb = new(__FILE__,__LINE__) FileBuf( m.vis, fname.c_str(), *pV->GetFB() );
+        FileBuf* p_fb = new(__FILE__,__LINE__)
+                        FileBuf( m.vis, fname.c_str(), *pV->GetFB() );
         p_fb->Write();
       }
     }
@@ -3494,10 +3503,10 @@ void Handle_U( Vis::Data& m )
 //  else if( m.slash_mode ) m.slash_view->Do_U();
 //}
 
-// 1. Search for star pattern in search editor.
-// 2. If star pattern is found in search editor,
+// 1. Search for regex pattern in search editor.
+// 2. If regex pattern is found in search editor,
 //         move pattern to end of search editor
-//    else add star pattern to end of search editor
+//    else add regex pattern to end of search editor
 // 3. If search editor is displayed, update search editor window
 //
 void Do_Star_Update_Search_Editor( Vis::Data& m )
@@ -4074,6 +4083,9 @@ Vis::~Vis()
     MemMark(__FILE__,__LINE__);
     delete m.files[k];
   }
+  MemMark(__FILE__,__LINE__); delete m.colon_view;
+  MemMark(__FILE__,__LINE__); delete m.slash_view;
+
   delete &m;
 }
 
@@ -4516,32 +4528,29 @@ void Vis::Handle_Slash_GotPattern( const String& pattern
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( pattern != m.regex )
+  m.regex = pattern;
+
+  if( 0<m.regex.len() )
   {
-    m.regex = pattern;
-
-    if( 0<m.regex.len() )
+    Do_Star_Update_Search_Editor(m);
+  }
+  if( MOVE_TO_FIRST_PATTERN )
+  {
+    if( m.diff_mode ) m.diff.Do_n();
+    else               CV()->Do_n();
+  }
+  if( m.diff_mode ) m.diff.Update();
+  else {
+    // Show new slash patterns for all windows currently displayed,
+    // but update current window last, so that the cursor ends up
+    // in the current window.
+    for( unsigned w=0; w<m.num_wins; w++ )
     {
-      Do_Star_Update_Search_Editor(m);
-    }
-    if( MOVE_TO_FIRST_PATTERN )
-    {
-      if( m.diff_mode ) m.diff.Do_n();
-      else               CV()->Do_n();
-    }
-    if( m.diff_mode ) m.diff.Update();
-    else {
-      // Show new slash patterns for all windows currently displayed,
-      // but update current window last, so that the cursor ends up
-      // in the current window.
-      for( unsigned w=0; w<m.num_wins; w++ )
-      {
-        View* const pV = m.views[w][ m.file_hist[w][0] ];
+      View* const pV = m.views[w][ m.file_hist[w][0] ];
 
-        if( pV != CV() ) pV->Update();
-      }
-      CV()->Update();
+      if( pV != CV() ) pV->Update();
     }
+    CV()->Update();
   }
 }
 

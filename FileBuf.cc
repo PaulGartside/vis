@@ -95,7 +95,7 @@ struct FileBuf::Data
   std::cmatch     cm;
 #endif
   String          regex;
-  unsList         lineRegexsValid;
+  boolList        lineRegexsValid;
 
   bool       save_history;
   unsList    lineOffsets; // absolute byte offset of beginning of line in file
@@ -908,13 +908,25 @@ FileBuf::FileBuf( Vis& vis
 {
   Find_File_Type_Suffix( m );
 
-  for( unsigned k=0; k<rfb.m.lines.len(); k++ )
+  const unsigned NUM_LINES = rfb.m.lines.len();
+
+  // Reserve space:
+  m.lines.inc_size( NUM_LINES );
+  m.styles.inc_size( NUM_LINES );
+  m.lineRegexsValid.inc_size(__FILE__,__LINE__, NUM_LINES );
+
+  // Add elements:
+  for( unsigned k=0; k<NUM_LINES; k++ )
   {
-    m.lines.push( new(__FILE__,__LINE__) Line( *(rfb.m.lines[k]) ) );
+    m.lines.push( m.vis.BorrowLine(__FILE__,__LINE__, *(rfb.m.lines[k]) ) );
   }
-  for( unsigned k=0; k<rfb.m.styles.len(); k++ )
+  for( unsigned k=0; k<NUM_LINES; k++ )
   {
-    m.styles.push( new(__FILE__,__LINE__) Line( *(rfb.m.styles[k]) ) );
+    m.styles.push( m.vis.BorrowLine(__FILE__,__LINE__, *(rfb.m.styles[k]) ) );
+  }
+  for( unsigned k=0; k<NUM_LINES; k++ )
+  {
+    m.lineRegexsValid.push(__FILE__,__LINE__, false );
   }
   m.mod_time = ModificationTime( m.file_name.c_str() );
 
@@ -923,6 +935,17 @@ FileBuf::FileBuf( Vis& vis
 
 FileBuf::~FileBuf()
 {
+  Line* p_line = 0;
+  while( 0<m.lines.len() )
+  {
+    m.lines.pop( p_line );
+    m.vis.ReturnLine( p_line );
+  }
+  while( 0<m.styles.len() )
+  {
+    m.styles.pop( p_line );
+    m.vis.ReturnLine( p_line );
+  }
   MemMark(__FILE__,__LINE__); delete m.pHi;
   MemMark(__FILE__,__LINE__); delete &m;
 }
@@ -1293,6 +1316,7 @@ void FileBuf::Set( const unsigned l_num
     }
     // Did not call ChangedLine(), so need to set m.hi_touched_line here:
     m.hi_touched_line = Min( m.hi_touched_line, l_num );
+    m.lineRegexsValid.set( l_num, false );
   }
 }
 
@@ -2040,6 +2064,18 @@ void FileBuf::Find_Regexs( const unsigned start_line
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
+  Check_4_New_Regex();
+
+  const unsigned up_to_line = Min( start_line+num_lines, NumLines() );
+
+  for( unsigned k=start_line; k<up_to_line; k++ )
+  {
+    Find_Regexs_4_Line( k );
+  }
+}
+
+void FileBuf::Check_4_New_Regex()
+{
   if( m.regex != m.vis.GetRegex() )
   {
     // Invalidate all regexes
@@ -2049,20 +2085,16 @@ void FileBuf::Find_Regexs( const unsigned start_line
     }
     m.regex = m.vis.GetRegex();
   }
-  const unsigned up_to_line = Min( start_line+num_lines, NumLines() );
-
-  for( unsigned k=start_line; k<up_to_line; k++ )
-  {
-    Find_Regexs_4_Line( k );
-  }
 }
 
 #ifdef USE_REGEX
 
+// Return true if found search_pattern in search_string, else false.
+// If returning true, fills in match_pos and match_len in search_string.
+//
 bool Regex_Search( FileBuf::Data& m
                  , const char* search_string
                  , const char* search_pattern
-               //, std::cmatch& cm
                  , unsigned& match_pos
                  , unsigned& match_len )
 {
@@ -2087,7 +2119,6 @@ bool Regex_Search( FileBuf::Data& m
 }
 
 void FileBuf::Find_Regexs_4_Line( const unsigned line_num )
-                              //, std::cmatch& cm )
 {
   if( line_num < m.lineRegexsValid.len() && !m.lineRegexsValid[line_num] )
   {

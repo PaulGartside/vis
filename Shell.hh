@@ -30,6 +30,7 @@ class Shell
 {
 public:
   Shell( Vis& vis );
+  ~Shell();
 
   void Run();
   bool Running() const;

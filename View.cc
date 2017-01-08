@@ -1062,13 +1062,38 @@ bool Do_s_v_cursor_at_end_of_line( View::Data& m )
   return 0<LL ? m.view.CrsChar() == LL-1 : false;
 }
 
+//void Do_s_v( View::Data& m )
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//
+//  const unsigned LL = m.fb.LineLen( m.view.CrsLine() );
+//  const bool
+//  CURSOR_AT_END_OF_LINE = 0<m.v_st_char
+//                       && 0<LL ? m.view.CrsChar() == LL-1 : false;
+//  Do_x_v(m);
+//
+//  if( m.inVisualBlock )
+//  {
+//    if( CURSOR_AT_END_OF_LINE ) Do_a_vb(m);
+//    else                        Do_i_vb(m);
+//  }
+//  else {
+//    if( CURSOR_AT_END_OF_LINE ) m.view.Do_a();
+//    else                        m.view.Do_i();
+//  }
+//}
+
 void Do_s_v( View::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  // Need to know if cursor is at end of line before Do_x_v() is called:
-  const bool CURSOR_AT_END_OF_LINE = Do_s_v_cursor_at_end_of_line(m);
-
+  const unsigned LL = m.fb.LineLen( m.view.CrsLine() );
+  const bool
+  CURSOR_AT_END_OF_LINE = 0<m.v_st_char
+                       && 0<m.v_fn_char
+                       && 0<LL ? (LL-1 <= m.v_st_char
+                               || LL-1 <= m.v_fn_char)
+                               : false;
   Do_x_v(m);
 
   if( m.inVisualBlock )
@@ -1815,24 +1840,22 @@ bool Do_n_FindNextPattern( View::Data& m, CrsPos& ncp )
 
   const unsigned NUM_LINES = m.fb.NumLines();
 
-  const unsigned OCL = m.view.CrsLine();
-  const unsigned OCC = m.view.CrsChar();
-
-  unsigned st_l = OCL;
-  unsigned st_c = OCC;
+  const unsigned OCL = m.view.CrsLine(); unsigned st_l = OCL;
+  const unsigned OCC = m.view.CrsChar(); unsigned st_c = OCC;
 
   bool found_next_star = false;
 
-  // Move past current star:
+  // Move past current pattern:
   const unsigned LL = m.fb.LineLen( OCL );
 
+  m.fb.Check_4_New_Regex();
   m.fb.Find_Regexs_4_Line( OCL );
   for( ; st_c<LL && m.view.InStar(OCL,st_c); st_c++ ) ;
 
-  // Go down to next line
+  // If at end of current line, go down to next line:
   if( LL <= st_c ) { st_c=0; st_l++; }
 
-  // Search for first star position past current position
+  // Search for first pattern position past current position
   for( unsigned l=st_l; !found_next_star && l<NUM_LINES; l++ )
   {
     m.fb.Find_Regexs_4_Line( l );
@@ -1885,6 +1908,8 @@ bool Do_N_FindPrevPattern( View::Data& m, CrsPos& ncp )
 
   const unsigned OCL = m.view.CrsLine();
   const unsigned OCC = m.view.CrsChar();
+
+  m.fb.Check_4_New_Regex();
 
   bool found_prev_star = false;
 
@@ -2350,63 +2375,58 @@ void View::SetReplaceMode( const bool val ) { m.inReplaceMode = val; }
 void View::GoUp()
 {
   Trace trace( __PRETTY_FUNCTION__ );
+
   const unsigned NUM_LINES = m.fb.NumLines();
-  if( 0==NUM_LINES ) return;
+  const unsigned OCL       = CrsLine(); // Old cursor line
 
-  const unsigned OCL = CrsLine(); // Old cursor line
-  if( OCL == 0 ) return;
+  if( 0<NUM_LINES && 0<OCL )
+  {
+    const unsigned NCL = OCL-1; // New cursor line
 
-  const unsigned NCL = OCL-1; // New cursor line
-
-  const unsigned OCP = CrsChar(); // Old cursor position
-        unsigned NCP = OCP;
-
-  GoToCrsPos_Write( NCL, NCP );
+    GoToCrsPos_Write( NCL, CrsChar() );
+  }
 }
 
 void View::GoDown()
 {
   Trace trace( __PRETTY_FUNCTION__ );
+
   const unsigned NUM_LINES = m.fb.NumLines();
-  if( 0==NUM_LINES ) return;
+  const unsigned NCL       = CrsLine()+1; // New cursor line
 
-  const unsigned OCL = CrsLine(); // Old cursor line
-  if( OCL == NUM_LINES-1 ) return;
-
-  const unsigned NCL = OCL+1; // New cursor line
-
-  const unsigned OCP = CrsChar(); // Old cursor position
-        unsigned NCP = OCP;
-
-  GoToCrsPos_Write( NCL, NCP );
+  if( 0<NUM_LINES && NCL<NUM_LINES )
+  {
+    GoToCrsPos_Write( NCL, CrsChar() );
+  }
 }
 
 void View::GoLeft()
 {
   Trace trace( __PRETTY_FUNCTION__ );
-  if( 0==m.fb.NumLines() ) return;
 
-  const unsigned CL = CrsLine(); // Cursor line
   const unsigned CP = CrsChar(); // Cursor position
 
-  if( CP == 0 ) return;
-
-  GoToCrsPos_Write( CL, CP-1 );
+  if( 0<m.fb.NumLines() && 0<CP )
+  {
+    GoToCrsPos_Write( CrsLine(), CP-1 );
+  }
 }
 
 void View::GoRight()
 {
   Trace trace( __PRETTY_FUNCTION__ );
-  if( 0==m.fb.NumLines() ) return;
 
-  const unsigned CL = CrsLine(); // Cursor line
-  const unsigned LL = m.fb.LineLen( CL );
-  if( 0==LL ) return;
+  if( 0<m.fb.NumLines() )
+  {
+    const unsigned CL = CrsLine(); // Cursor line
+    const unsigned LL = m.fb.LineLen( CL );
+    const unsigned CP = CrsChar(); // Cursor position
 
-  const unsigned CP = CrsChar(); // Cursor position
-  if( LL-1 <= CP ) return;
-
-  GoToCrsPos_Write( CL, CP+1 );
+    if( 0<LL && CP < LL-1 )
+    {
+      GoToCrsPos_Write( CL, CP+1 );
+    }
+  }
 }
 
 // This one works better when NOT in visual mode:
@@ -2464,50 +2484,57 @@ void View::GoToBegOfLine()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( 0==m.fb.NumLines() ) return;
+  if( 0<m.fb.NumLines() )
+  {
+    const unsigned OCL = CrsLine(); // Old cursor line
 
-  const unsigned OCL = CrsLine(); // Old cursor line
-
-  GoToCrsPos_Write( OCL, 0 );
+    GoToCrsPos_Write( OCL, 0 );
+  }
 }
 
 void View::GoToEndOfLine()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( 0==m.fb.NumLines() ) return;
-
-  const unsigned LL = m.fb.LineLen( CrsLine() );
-
-  const unsigned OCL = CrsLine(); // Old cursor line
-
-  if( m.inVisualMode && m.inVisualBlock )
+  if( 0<m.fb.NumLines() )
   {
-    // In Visual Block, $ puts cursor at the position
-    // of the end of the longest line in the block
-    unsigned max_LL = LL;
+    const unsigned LL  = m.fb.LineLen( CrsLine() );
+    const unsigned OCL = CrsLine(); // Old cursor line
 
-    for( unsigned L=m.v_st_line; L<=m.v_fn_line; L++ )
+    if( m.inVisualMode && m.inVisualBlock )
     {
-      max_LL = Max( max_LL, m.fb.LineLen( L ) );
+      // In Visual Block, $ puts cursor at the position
+      // of the end of the longest line in the block
+      unsigned max_LL = LL;
+
+      for( unsigned L=m.v_st_line; L<=m.v_fn_line; L++ )
+      {
+        max_LL = Max( max_LL, m.fb.LineLen( L ) );
+      }
+      GoToCrsPos_Write( OCL, max_LL ? max_LL-1 : 0 );
     }
-    GoToCrsPos_Write( OCL, max_LL ? max_LL-1 : 0 );
-  }
-  else {
-    GoToCrsPos_Write( OCL, LL ? LL-1 : 0 );
+    else {
+      GoToCrsPos_Write( OCL, LL ? LL-1 : 0 );
+    }
   }
 }
 
 void View::GoToBegOfNextLine()
 {
   Trace trace( __PRETTY_FUNCTION__ );
+
   const unsigned NUM_LINES = m.fb.NumLines();
-  if( 0==NUM_LINES ) return;
 
-  const unsigned OCL = CrsLine(); // Old cursor line
-  if( (NUM_LINES-1) <= OCL ) return; // On last line, so cant go down
+  if( 0<NUM_LINES )
+  {
+    const unsigned OCL = CrsLine(); // Old cursor line
 
-  GoToCrsPos_Write( OCL+1, 0 );
+    if( OCL < (NUM_LINES-1) )
+    {
+      // Before last line, so can go down
+      GoToCrsPos_Write( OCL+1, 0 );
+    }
+  }
 }
 
 void View::GoToTopLineInView()
@@ -2576,7 +2603,10 @@ void View::GoToEndOfFile()
 
   const unsigned NUM_LINES = m.fb.NumLines();
 
-  GoToCrsPos_Write( NUM_LINES-1, 0 );
+  if( 0<NUM_LINES )
+  {
+    GoToCrsPos_Write( NUM_LINES-1, 0 );
+  }
 }
 
 void View::GoToNextWord()
@@ -2618,27 +2648,30 @@ void View::GoToStartOfRow()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( 0==m.fb.NumLines() ) return;
+  if( 0<m.fb.NumLines() )
+  {
+    const unsigned OCL = CrsLine(); // Old cursor line
 
-  const unsigned OCL = CrsLine(); // Old cursor line
-
-  GoToCrsPos_Write( OCL, m.leftChar );
+    GoToCrsPos_Write( OCL, m.leftChar );
+  }
 }
 
 void View::GoToEndOfRow()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( 0==m.fb.NumLines() ) return;
+  if( 0<m.fb.NumLines() )
+  {
+    const unsigned OCL = CrsLine(); // Old cursor line
 
-  const unsigned OCL = CrsLine(); // Old cursor line
+    const unsigned LL = m.fb.LineLen( OCL );
+    if( 0<LL )
+    {
+      const unsigned NCP = Min( LL-1, m.leftChar + WorkingCols() - 1 );
 
-  const unsigned LL = m.fb.LineLen( OCL );
-  if( 0==LL ) return;
-
-  const unsigned NCP = Min( LL-1, m.leftChar + WorkingCols() - 1 );
-
-  GoToCrsPos_Write( OCL, NCP );
+      GoToCrsPos_Write( OCL, NCP );
+    }
+  }
 }
 
 void View::GoToOppositeBracket()
@@ -2956,10 +2989,15 @@ void View::Do_i()
   unsigned count = 0;
   for( char c=m.key.In(); c != ESC; c=m.key.In() )
   {
-    if     ( IsEndOfLineDelim( c ) ) InsertAddReturn(m);
-    else if( BS  == c
-          || DEL == c ) { if( count ) InsertBackspace(m); }
-    else                InsertAddChar( m, c );
+    if( IsEndOfLineDelim( c ) )
+    {
+      InsertAddReturn(m);
+    }
+    else if( BS  == c || DEL == c )
+    {
+      if( count ) InsertBackspace(m);
+    }
+    else InsertAddChar( m, c );
 
     if( BS == c || DEL == c ) { if( count ) count--; }
     else count++;
@@ -2979,31 +3017,23 @@ void View::Do_a()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( m.fb.NumLines()==0 ) { Do_i(); return; }
-
-  const unsigned CL = CrsLine();
-  const unsigned LL = m.fb.LineLen( CL );
-  if( 0==LL ) { Do_i(); return; }
-
-  const bool CURSOR_AT_EOL = ( CrsChar() == LL-1 );
-  if( CURSOR_AT_EOL )
+  if( 0<m.fb.NumLines() )
   {
-    GoToCrsPos_NoWrite( CL, LL );
-  }
-  const bool CURSOR_AT_RIGHT_COL = ( m.crsCol == WorkingCols()-1 );
+    const unsigned CL = CrsLine();
+    const unsigned CC = CrsChar();
+    const unsigned LL = m.fb.LineLen( CL );
 
-  if( CURSOR_AT_RIGHT_COL )
-  {
-    // Only need to scroll window right, and then enter insert i:
-    m.leftChar++; //< This increments CrsChar()
+    if( LL < CC )
+    {
+      GoToCrsPos_NoWrite( CL, LL );
+      m.fb.Update();
+    }
+    else if( CC < LL )
+    {
+      GoToCrsPos_NoWrite( CL, CC+1 );
+      m.fb.Update();
+    }
   }
-  else if( !CURSOR_AT_EOL ) // If cursor was at EOL, already moved cursor forward
-  {
-    // Only need to move cursor right, and then enter insert i:
-    m.crsCol += 1; //< This increments CrsChar()
-  }
-  m.fb.Update();
-
   Do_i();
 }
 
@@ -3026,15 +3056,9 @@ void View::Do_o()
   // Add the new line:
   const unsigned NCL = ( 0 != ONL ) ? OCL+1 : 0;
   m.fb.InsertLine( NCL );
-  m.crsCol = 0;
-  m.leftChar = 0;
-  if     ( 0==ONL ) ; // Do nothing
-  else if( OCL < BotLine() ) m.crsRow++;
-  else {
-    // If we were on the bottom working line, scroll screen down
-    // one line so that the cursor line is not below the screen.
-    m.topLine++;
-  }
+
+  GoToCrsPos_NoWrite( NCL, 0 );
+
   m.fb.Update();
 
   Do_i();
@@ -3189,23 +3213,24 @@ void View::Do_D()
   const unsigned OLL = m.fb.LineLen( OCL );  // Old line length
 
   // If there is nothing to 'D', just return:
-  if( !NUM_LINES || !OLL || OLL-1 < OCP ) return;
-
-  Line* lpd = m.vis.BorrowLine( __FILE__,__LINE__ );
-
-  for( unsigned k=OCP; k<OLL; k++ )
+  if( 0<NUM_LINES && 0<OLL && OCP<OLL )
   {
-    uint8_t c = m.fb.RemoveChar( OCL, OCP );
-    lpd->push(__FILE__,__LINE__, c );
+    Line* lpd = m.vis.BorrowLine( __FILE__,__LINE__ );
+
+    for( unsigned k=OCP; k<OLL; k++ )
+    {
+      uint8_t c = m.fb.RemoveChar( OCL, OCP );
+      lpd->push(__FILE__,__LINE__, c );
+    }
+    m.reg.clear();
+    m.reg.push( lpd );
+    m.vis.SetPasteMode( PM_ST_FN );
+
+    // If cursor is not at beginning of line, move it back one space.
+    if( m.crsCol ) m.crsCol--;
+
+    m.fb.Update();
   }
-  m.reg.clear();
-  m.reg.push( lpd );
-  m.vis.SetPasteMode( PM_ST_FN );
-
-  // If cursor is not at beginning of line, move it back one space.
-  if( m.crsCol ) m.crsCol--;
-
-  m.fb.Update();
 }
 
 void View::Do_f( const char FAST_CHAR )
@@ -3590,21 +3615,24 @@ void View::Update( const bool PRINT_CURSOR )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  m.fb.Find_Styles( m.topLine + WorkingRows() );
-  m.fb.Find_Regexs( m.topLine, WorkingRows() );
+  if( !m.key.get_from_dot_buf )
+  {
+    m.fb.Find_Styles( m.topLine + WorkingRows() );
+    m.fb.Find_Regexs( m.topLine, WorkingRows() );
 
-  RepositionView();
-  Print_Borders();
-  PrintWorkingView();
-  PrintStsLine();
-  PrintFileLine();
-  PrintCmdLine();
+    RepositionView();
+    Print_Borders();
+    PrintWorkingView();
+    PrintStsLine();
+    PrintFileLine();
+    PrintCmdLine();
 
-  Console::Update();
+    Console::Update();
 
-  if( PRINT_CURSOR && m.vis.CV() == &m.view ) PrintCursor();
+    if( PRINT_CURSOR && m.vis.CV() == &m.view ) PrintCursor();
 
-  Console::Flush();
+    Console::Flush();
+  }
 }
 
 void View::RepositionView()

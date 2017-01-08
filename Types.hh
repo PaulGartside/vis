@@ -119,6 +119,7 @@ typedef  Array_t<View*>       ViewList;
 typedef  Array_t<FileBuf*>    FileList;
 typedef  Array_t<const char*> ConstCharList;
 typedef  Array_t<unsigned>    unsList;
+typedef  Array_t<bool>        boolList;
 typedef gArray_t<Line*>       LinesList;
 typedef  Array_t<CrsPos>      PosList;
 typedef  Array_t<CmntPos>     CmntList;
