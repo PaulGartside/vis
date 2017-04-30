@@ -105,8 +105,8 @@ enum Color
 
 struct CrsPos // CursorPosition
 {
-  unsigned  crsLine;  // absolute cursor line in file.
-  unsigned  crsChar;  // absolute cursor char position on current line.
+  unsigned crsLine; // absolute cursor line in file.
+  unsigned crsChar; // absolute cursor char position on current line.
 };
 
 struct CmntPos

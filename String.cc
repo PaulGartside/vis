@@ -162,7 +162,7 @@ char String::get_end( unsigned i ) const
 {
   const int index = length-1-i;
   if( 0 <= index && index < length ) return data[index];
-  return false;
+  return 0;
 }
 
 bool String::append( const char* cp )

@@ -347,27 +347,39 @@ void InitSlashBuffer( Vis::Data& m )
   m.slash_file->AddView( m.slash_view );
 }
 
+void InitUserFiles_AddFile( Vis::Data& m, const char* relative_name )
+{
+  String file_name( relative_name );
+
+  if( FindFullFileNameRel2CWD( file_name ) )
+  {
+    if( !m.vis.HaveFile( file_name.c_str() ) )
+    {
+      FileBuf* pfb = new(__FILE__,__LINE__)
+                     FileBuf( m.vis, file_name.c_str(), true, FT_UNKNOWN );
+      pfb->ReadFile();
+    }
+  }
+}
 bool InitUserFiles( Vis::Data& m, const int ARGC, const char* const ARGV[] )
 {
   bool run_diff = false;
 
-  // User file buffers, 6, 7, ...
-  for( int k=1; k<ARGC; k++ )
+  if( ARGC<2 )
   {
-    if( strcmp( "-d", ARGV[k] ) == 0 )
+    // If user does not supply arguments, open current directory:
+    InitUserFiles_AddFile( m, "." );
+  }
+  else {
+    // User file buffers, 6, 7, ...
+    for( int k=1; k<ARGC; k++ )
     {
-      run_diff = true;
-    }
-    else {
-      String file_name = ARGV[k];
-      if( FindFullFileNameRel2CWD( file_name ) )
+      if( strcmp( "-d", ARGV[k] ) == 0 )
       {
-        if( !m.vis.HaveFile( file_name.c_str() ) )
-        {
-          FileBuf* pfb = new(__FILE__,__LINE__)
-                         FileBuf( m.vis, file_name.c_str(), true, FT_UNKNOWN );
-          pfb->ReadFile();
-        }
+        run_diff = true;
+      }
+      else {
+        InitUserFiles_AddFile( m, ARGV[k] );
       }
     }
   }
@@ -2037,6 +2049,59 @@ View* DoDiff_FindRegFileView( Vis::Data& m
   return pv;
 }
 
+//void DoDiff( Vis::Data& m )
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//
+//  // Must be exactly 2 buffers to do diff:
+//  if( 2 == m.num_wins )
+//  {
+//    View* pv0 = m.views[0][ m.file_hist[0][0] ];
+//    View* pv1 = m.views[1][ m.file_hist[1][0] ];
+//    FileBuf* pfb0 = pv0->GetFB();
+//    FileBuf* pfb1 = pv1->GetFB();
+//
+//    // New code in progress:
+//    bool ok = true;
+//    if( !pfb0->IsDir() && pfb1->IsDir() )
+//    {
+//      pv1 = DoDiff_FindRegFileView( m, pfb0, pfb1, 1, pv1 );
+//    }
+//    else if( pfb0->IsDir() && !pfb1->IsDir() )
+//    {
+//      pv0 = DoDiff_FindRegFileView( m, pfb1, pfb0, 0, pv0 );
+//    }
+//    else {
+//      if( ( strcmp( SHELL_BUF_NAME, pfb0->GetHeadName() )
+//         && !FileExists( pfb0->GetFileName() ) )
+//       || ( strcmp( SHELL_BUF_NAME, pfb1->GetHeadName() )
+//         && !FileExists( pfb1->GetFileName() ) ) )
+//      {
+//        ok = false;
+//      }
+//    }
+//    if( !ok ) m.running = false;
+//    else {
+//#ifndef WIN32
+//      timeval tv1; gettimeofday( &tv1, 0 );
+//#endif
+//      bool ok = m.diff.Run( pv0, pv1 );
+//      if( ok ) {
+//        m.diff_mode = true;
+//
+//#ifndef WIN32
+//        timeval tv2; gettimeofday( &tv2, 0 );
+//
+//        double secs = (tv2.tv_sec-tv1.tv_sec)
+//                    + double(tv2.tv_usec)/1e6
+//                    - double(tv1.tv_usec)/1e6;
+//        m.vis.CmdLineMessage( "Diff took: %g seconds", secs );
+//#endif
+//      }
+//    }
+//  }
+//}
+
 void DoDiff( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -2060,14 +2125,20 @@ void DoDiff( Vis::Data& m )
       pv0 = DoDiff_FindRegFileView( m, pfb1, pfb0, 0, pv0 );
     }
     else {
-      if( !FileExists( pfb0->GetFileName() )
-       || !FileExists( pfb1->GetFileName() ) )
+      if( ( strcmp( SHELL_BUF_NAME, pfb0->GetHeadName() )
+         && !FileExists( pfb0->GetFileName() ) ) )
       {
         ok = false;
+        m.vis.Window_Message("\n%s does not exist\n\n", pfb0->GetHeadName());
+      }
+      if( ( strcmp( SHELL_BUF_NAME, pfb1->GetHeadName() )
+         && !FileExists( pfb1->GetFileName() ) ) )
+      {
+        ok = false;
+        m.vis.Window_Message("\n%s does not exist\n\n", pfb1->GetHeadName());
       }
     }
-    if( !ok ) m.running = false;
-    else {
+    if( ok ) {
 #ifndef WIN32
       timeval tv1; gettimeofday( &tv1, 0 );
 #endif
@@ -2263,6 +2334,31 @@ void RunCommand( Vis::Data& m )
   }
 }
 
+void HandleColon_detab( Vis::Data& m )
+{
+  if( 6 < strlen( m.cbuf ) )
+  {
+    const unsigned tab_sz = atol( m.cbuf + 6 );
+    if( 0 < tab_sz && tab_sz <= 32 )
+    {
+      CV(m)->GetFB()->RemoveTabs_SpacesAtEOLs( tab_sz );
+    }
+  }
+}
+
+void HandleColon_dos2unix( Vis::Data& m )
+{
+//View* pV = CV(m);
+//FileBuf* pfb = pV->GetFB();
+//pfbj->
+  CV(m)->GetFB()->dos2unix();
+}
+
+void HandleColon_unix2dos( Vis::Data& m )
+{
+  CV(m)->GetFB()->unix2dos();
+}
+
 void HandleColon_e( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -2405,6 +2501,9 @@ void Handle_Colon_Cmd( Vis::Data& m )
   else if( strcmp( m.cbuf,"showmap")==0)  MapShow(m);
   else if( strcmp( m.cbuf,"cover")==0)    m.colon_view->Cover();
   else if( strcmp( m.cbuf,"coverkey")==0) m.colon_view->CoverKey();
+  else if( strncmp(m.cbuf,"detab=",6)==0) HandleColon_detab(m);
+  else if( strcmp( m.cbuf,"dos2unix")==0) HandleColon_dos2unix(m);
+  else if( strcmp( m.cbuf,"unix2dos")==0) HandleColon_unix2dos(m);
   else if( 'e' == m.cbuf[0] )             HandleColon_e(m);
   else if( 'w' == m.cbuf[0] )             HandleColon_w(m);
   else if( 'b' == m.cbuf[0] )             HandleColon_b(m);

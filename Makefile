@@ -6,7 +6,7 @@ OS = OSX
 #OS = SUNOS
 
 NAME      = vis
-DEFINES   = -DUSE_REGEX
+DEFINES   = #-DUSE_REGEX
 CXX       = g++
 DEBUG     = #-g
 CXXFLAGS  = -c -O $(DEBUG) -D$(OS) $(DEFINES)

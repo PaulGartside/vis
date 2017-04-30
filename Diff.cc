@@ -5176,7 +5176,7 @@ void Diff::Do_i()
         count--;
       }
     }
-    if( IsEndOfLineDelim( c ) )
+    else if( IsEndOfLineDelim( c ) )
     {
       InsertAddReturn( m );
       count++;

@@ -1909,8 +1909,8 @@ unsigned FileBuf::GetSize()
     for( unsigned k=OLOL; k<NUM_LINES; k++ )
     {
       m.lineOffsets[ k ] = m.lineOffsets[ k-1 ]
-                       + m.lines[ k-1 ]->len()
-                       + 1; //< Add 1 for '\n'
+                         + m.lines[ k-1 ]->len()
+                         + 1; //< Add 1 for '\n'
     }
     size = m.lineOffsets[ NUM_LINES-1 ] + m.lines[ NUM_LINES-1 ]->len();
     if( m.LF_at_EOF ) size++;
@@ -1947,8 +1947,8 @@ unsigned FileBuf::GetCursorByte( unsigned CL, unsigned CC )
       for( unsigned k=HVLO+1; k<=CL; k++ )
       {
         m.lineOffsets[ k ] = m.lineOffsets[ k-1 ]
-                         + LineLen( k-1 )
-                         + 1;
+                           + LineLen( k-1 )
+                           + 1;
       }
     }
     crsByte = m.lineOffsets[ CL ] + CC;
@@ -2081,7 +2081,7 @@ void FileBuf::Check_4_New_Regex()
     // Invalidate all regexes
     for( unsigned k=0; k<m.lineRegexsValid.len(); k++ )
     {
-      m.lineRegexsValid[k] = 0;
+      m.lineRegexsValid[k] = false;
     }
     m.regex = m.vis.GetRegex();
   }
@@ -2263,4 +2263,163 @@ bool FileBuf::HasStyle( const unsigned l_num
   return S & style;
 }
 
+// Returns number of tabs removed
+unsigned RemoveTabs_from_line( FileBuf::Data& m
+                             , const unsigned l
+                             , const unsigned tab_sz )
+{
+  unsigned tabs_removed = 0;
+
+  Line* l_c = m.lines[l];
+  const unsigned LL = l_c->len();
+  unsigned cnum_t = 0; // char number with respect to tabs
+
+  for( unsigned p=0; p<LL; p++ )
+  {
+    const uint8_t C = l_c->get(p);
+
+    if( C != '\t' ) cnum_t += 1;
+    else {
+      tabs_removed++;
+      const unsigned num_spaces = tab_sz-(cnum_t%tab_sz);
+      m.self.Set( l, p, ' ', false );
+      for( unsigned i=1; i<num_spaces; i++ )
+      {
+        p++;
+        m.self.InsertChar( l, p, ' ');
+      }
+      cnum_t = 0;
+    }
+  }
+  return tabs_removed;
+}
+
+// Returns number of spaces removed
+unsigned RemoveSpcs_from_EOL( FileBuf::Data& m, const unsigned l )
+{
+  unsigned spaces_removed = 0;
+
+  Line* l_c = m.lines[l];
+  const unsigned LL = l_c->len();
+
+  if( 0 < LL )
+  {
+    const unsigned end_C = l_c->get(LL-1);
+    const unsigned logical_EOL = end_C == '\r'
+                               ? LL-2  // Windows line ending
+                               : LL-1; // Unix line ending
+    bool done = false;
+    for( int p=logical_EOL; !done && -1<p; p-- )
+    {
+      if( ' ' == l_c->get( p ) )
+      {
+        m.self.RemoveChar( l, p );
+        spaces_removed++;
+      }
+      else done = true;
+    }
+  }
+  return spaces_removed;
+}
+
+void FileBuf::RemoveTabs_SpacesAtEOLs( const unsigned tab_sz )
+{
+  unsigned num_tabs_removed = 0;
+  unsigned num_spcs_removed = 0;
+
+  const unsigned NUM_LINES = m.lines.len();
+
+  for( unsigned l=0; l<NUM_LINES; l++ )
+  {
+    num_tabs_removed += RemoveTabs_from_line( m, l, tab_sz );
+    num_spcs_removed += RemoveSpcs_from_EOL( m, l );
+  }
+  if( 0 < num_tabs_removed && 0 < num_spcs_removed )
+  {
+    Update();
+    m.vis.CmdLineMessage("Removed %u tabs, %u spaces"
+                        , num_tabs_removed, num_spcs_removed );
+  }
+  else if( 0 < num_tabs_removed )
+  {
+    Update();
+    m.vis.CmdLineMessage("Removed %u tabs", num_tabs_removed );
+  }
+  else if( 0 < num_spcs_removed ) 
+  {
+    Update();
+    m.vis.CmdLineMessage("Removed %u spaces", num_spcs_removed );
+  }
+  else {
+    m.vis.CmdLineMessage("No tabs or spaces removed");
+  }
+}
+
+void FileBuf::dos2unix()
+{
+  unsigned num_CRs_removed = 0;
+
+  const unsigned NUM_LINES = m.lines.len();
+
+  for( unsigned l=0; l<NUM_LINES; l++ )
+  {
+    Line* l_c = m.lines[l];
+    const unsigned LL = l_c->len();
+
+    if( 0 < LL )
+    {
+      const unsigned C = l_c->get( LL-1 );
+
+      if( C == '\r' )
+      {
+        RemoveChar( l, LL-1 );
+        num_CRs_removed++;
+      }
+    }
+  }
+  if( 0 < num_CRs_removed )
+  {
+    Update();
+    m.vis.CmdLineMessage("Removed %u CRs", num_CRs_removed);
+  }
+  else {
+    m.vis.CmdLineMessage("No CRs removed");
+  }
+}
+
+void FileBuf::unix2dos()
+{
+  unsigned num_CRs_added = 0;
+
+  const unsigned NUM_LINES = m.lines.len();
+
+  for( unsigned l=0; l<NUM_LINES; l++ )
+  {
+    Line* l_c = m.lines[l];
+    const unsigned LL = l_c->len();
+
+    if( 0 < LL )
+    {
+      const unsigned C = l_c->get( LL-1 );
+
+      if( C != '\r' )
+      {
+        PushChar( l, '\r' );
+        num_CRs_added++;
+      }
+    }
+    else {
+      PushChar( l, '\r' );
+      num_CRs_added++;
+    }
+  }
+  if( 0 < num_CRs_added )
+  {
+    Update();
+    m.vis.CmdLineMessage("Added %u CRs", num_CRs_added);
+  }
+  else {
+    m.vis.CmdLineMessage("No CRs added");
+  }
+}
 

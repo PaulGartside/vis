@@ -31,580 +31,1292 @@
 
 extern MemLog<MEM_LOG_BUF_SIZE> Log;
 
-static HiKeyVal HiPairs[] =
+// JavaScript or CSS edges
+struct Edges
 {
-  // Keywords:
-  { "break"              , HI_CONTROL },
-  { "break"              , HI_CONTROL },
-  { "catch"              , HI_CONTROL },
-  { "continue"           , HI_CONTROL },
-  { "debugger"           , HI_CONTROL },
-  { "default"            , HI_CONTROL },
-  { "delete"             , HI_CONTROL },
-  { "do"                 , HI_CONTROL },
-  { "else"               , HI_CONTROL },
-  { "finally"            , HI_CONTROL },
-  { "for"                , HI_CONTROL },
-  { "function"           , HI_CONTROL },
-  { "if"                 , HI_CONTROL },
-  { "in"                 , HI_CONTROL },
-  { "instanceof"         , HI_CONTROL },
-  { "new"                , HI_VARTYPE },
-  { "return"             , HI_CONTROL },
-  { "switch"             , HI_CONTROL },
-  { "throw"              , HI_CONTROL },
-  { "try"                , HI_CONTROL },
-  { "typeof"             , HI_VARTYPE },
-  { "var"                , HI_VARTYPE },
-  { "void"               , HI_VARTYPE },
-  { "while"              , HI_CONTROL },
-  { "with"               , HI_CONTROL },
+  Edges()
+  {}
+  Edges( const unsigned l, const unsigned p )
+  {
+    beg.crsLine = l;
+    beg.crsChar = p;
+    end.crsLine = 0;
+    end.crsChar = 0;
+  } 
+  // cp is between beg and end
+  bool contains( CrsPos cp )
+  {
+    bool cp_past_beg_edge = beg.crsLine < cp.crsLine
+                         || ( beg.crsLine == cp.crsLine
+                           && beg.crsChar < cp.crsChar );
 
-  // Keywords in strict mode:
-  { "implements"         , HI_CONTROL },
-  { "interface"          , HI_CONTROL },
-  { "let"                , HI_VARTYPE },
-  { "package"            , HI_DEFINE },
-  { "private"            , HI_CONTROL },
-  { "protected"          , HI_CONTROL },
-  { "public"             , HI_CONTROL },
-  { "static"             , HI_VARTYPE },
-  { "yield"              , HI_CONTROL },
+    // end == 0 means end edge is somewhere ahead of cp
+    bool cp_before_end_edge = ( 0 == end.crsLine && 0 == end.crsChar )
+                           || ( cp.crsLine < end.crsLine
+                             || ( cp.crsLine == end.crsLine
+                               && cp.crsChar < end.crsChar ) );
 
-  // Constants:
-  { "false"              , HI_CONST   },
-  { "null"               , HI_CONST   },
-  { "true"               , HI_CONST   },
-
-  // Global variables and functions:
-  { "arguments"          , HI_VARTYPE   },
-  { "Array"              , HI_VARTYPE   },
-  { "Boolean"            , HI_VARTYPE   },
-  { "Date"               , HI_CONTROL   },
-  { "decodeURI"          , HI_CONTROL   },
-  { "decodeURIComponent" , HI_CONTROL   },
-  { "encodeURI"          , HI_CONTROL   },
-  { "encodeURIComponent" , HI_CONTROL   },
-  { "Error"              , HI_VARTYPE   },
-  { "eval"               , HI_CONTROL   },
-  { "EvalError"          , HI_CONTROL   },
-  { "Function"           , HI_CONTROL   },
-  { "Infinity"           , HI_CONST     },
-  { "isFinite"           , HI_CONTROL   },
-  { "isNaN"              , HI_CONTROL   },
-  { "JSON"               , HI_CONTROL   },
-  { "Math"               , HI_CONTROL   },
-  { "NaN"                , HI_CONST     },
-  { "Number"             , HI_VARTYPE   },
-  { "Object"             , HI_VARTYPE   },
-  { "parseFloat"         , HI_CONTROL   },
-  { "parseInt"           , HI_CONTROL   },
-  { "RangeError"         , HI_VARTYPE   },
-  { "ReferenceError"     , HI_VARTYPE   },
-  { "RegExp"             , HI_CONTROL   },
-  { "String"             , HI_VARTYPE   },
-  { "SyntaxError"        , HI_VARTYPE   },
-  { "TypeError"          , HI_VARTYPE   },
-  { "undefined"          , HI_CONST     },
-  { "URIError"           , HI_VARTYPE   },
-  { 0 }
+    return cp_past_beg_edge && cp_before_end_edge;
+  }
+  // cp is less than beg, or
+  // beg is greater then or equal to cp
+  bool ge( CrsPos cp )
+  {
+    // beg == null means beg edge is somewhere ahead of cp
+    bool cp_before_beg_edge = cp.crsLine < beg.crsLine
+                           || ( cp.crsLine == beg.crsLine
+                             && cp.crsChar < beg.crsChar );
+    return cp_before_beg_edge;
+  }
+  void Print(const char* label)
+  {
+    Log.Log("%s: beg=(%u,%u), end=(%u,%u)\n"
+           , label
+           , beg.crsLine+1, beg.crsChar+1
+           , end.crsLine+1, end.crsChar+1 );
+  }
+  CrsPos beg;
+  CrsPos end;
 };
 
-static HiKeyVal TagPairs[] =
+const char* Highlight_HTML::m_HTML_Tags[] =
 {
-  // HTML tags:
-//{ "DOCTYPE", HI_DEFINE  },
-  { "a"       , HI_VARTYPE },
-  { "b"       , HI_VARTYPE },
-  { "body"    , HI_VARTYPE },
-  { "br"      , HI_VARTYPE },
-  { "button"  , HI_VARTYPE },
-  { "canvas"  , HI_VARTYPE },
-  { "circle"  , HI_VARTYPE },
-  { "defs"    , HI_VARTYPE },
-  { "div"     , HI_VARTYPE },
-  { "fieldset", HI_VARTYPE },
-  { "figure"  , HI_VARTYPE },
-  { "filter"  , HI_VARTYPE },
-  { "font"    , HI_VARTYPE },
-  { "form"    , HI_VARTYPE },
-  { "g"       , HI_VARTYPE },
-  { "head"    , HI_VARTYPE },
-  { "html"    , HI_VARTYPE },
-  { "h1"      , HI_VARTYPE },
-  { "h2"      , HI_VARTYPE },
-  { "h3"      , HI_VARTYPE },
-  { "h4"      , HI_VARTYPE },
-  { "h5"      , HI_VARTYPE },
-  { "h6"      , HI_VARTYPE },
-  { "i"       , HI_VARTYPE },
-  { "input"   , HI_VARTYPE },
-  { "li"      , HI_VARTYPE },
-  { "line"    , HI_VARTYPE },
-  { "meta"    , HI_VARTYPE },
-  { "ol"      , HI_VARTYPE },
-  { "output"  , HI_VARTYPE },
-  { "p"       , HI_VARTYPE },
-  { "pre"     , HI_VARTYPE },
-  { "span"    , HI_VARTYPE },
-  { "strong"  , HI_VARTYPE },
-  { "style"   , HI_VARTYPE },
-  { "script"  , HI_VARTYPE },
-  { "svg"     , HI_VARTYPE },
-  { "table"   , HI_VARTYPE },
-  { "td"      , HI_VARTYPE },
-  { "text"    , HI_VARTYPE },
-  { "textarea", HI_VARTYPE },
-  { "title"   , HI_VARTYPE },
-  { "th"      , HI_VARTYPE },
-  { "tr"      , HI_VARTYPE },
-  { "tt"      , HI_VARTYPE },
-  { "ul"      , HI_VARTYPE },
-  { 0 }
+  "DOCTYPE",
+  "abbr"    , "address"   , "area"      , "article" ,
+  "aside"   , "audio"     , "a"         , "base"    ,
+  "bdi"     , "bdo"       , "blockquote", "body"    ,
+  "br"      , "button"    , "b"         , "canvas"  ,
+  "caption" , "cite"      , "code"      , "col"     ,
+  "colgroup", "datalist"  , "dd"        , "del"     ,
+  "details" , "dfn"       , "dialog"    , "div"     ,
+  "dl"      , "dt"        , "em"        , "embed"   ,
+  "fieldset", "figcaption", "figure"    , "footer"  ,
+  "form"    , "h1"        , "h2"        , "h3"      ,
+  "h4"      , "h5"        , "h6"        , "head"    ,
+  "header"  , "hr"        , "html"      , "ifname"  ,
+  "img"     , "input"     , "ins"       , "i"       ,
+  "kbd"     , "keygen"    , "label"     , "legend"  ,
+  "link"    , "li"        , "main"      , "map"     ,
+  "mark"    , "menu"      , "menuitem"  , "meta"    ,
+  "meter"   , "nav"       , "noscript"  , "object"  ,
+  "ol"      , "optgroup"  , "option"    , "p"       ,
+  "param"   , "picture"   , "pre"       , "progress",
+  "q"       , "rp"        , "rt"        , "ruby"    ,
+  "samp"    , "script"    , "section"   , "select"  ,
+  "small"   , "source"    , "span"      , "strong"  ,
+  "style"   , "sub"       , "summary"   , "sup"     ,
+  "s"       , "table"     , "tbody"     , "td"      ,
+  "textarea", "tfoot"     , "thread"    , "th"      ,
+  "time"    , "title"     , "tr"        , "track"   ,
+  "ul"      , "u"         , "var"       , "video"   ,
+  "wbr"     ,
 };
 
 Highlight_HTML::Highlight_HTML( FileBuf& rfb )
   : Highlight_Base( rfb )
-  , m_state( &ME::Hi_In_None )
+  , m_state( St_In_None )
+  , m_qtXSt( St_In_None )
+  , m_ccXSt( St_JS_None )
+  , m_numXSt( St_In_None )
+  , m_l(0)
+  , m_p(0)
+  , m_OpenTag_was_script(false)
+  , m_OpenTag_was_style(false)
+  , m_JS_edges()
+  , m_CS_edges()
 {
 }
 
 void Highlight_HTML::Run_Range( const CrsPos st, const unsigned fn )
 {
-  m_state = &ME::Hi_In_None;
+  m_state = Run_Range_Get_Initial_State( st );
 
-  unsigned l=st.crsLine;
-  unsigned p=st.crsChar;
+  m_l = st.crsLine;
+  m_p = st.crsChar;
 
-  while( m_state && l<fn )
+  while( St_Done != m_state && m_l<fn )
   {
-    (this->*m_state)( l, p );
-  }
-  Find_Styles_Keys_In_Range( st, fn );
-}
+    const bool state_was_JS = JS_State( m_state );
+    const unsigned st_l = m_l;
+    const unsigned st_p = m_p;
 
-void Highlight_HTML::Hi_In_None( unsigned& l, unsigned& p )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
+    Run_State();
 
-  for( ; l<m_fb.NumLines(); l++ )
-  {
-    const unsigned LL = m_fb.LineLen( l );
-    const Line&    lr = m_fb.GetLine( l );
-
-    for( ; p<LL; p++ )
+    if( state_was_JS )
     {
-      m_fb.ClearSyntaxStyles( l, p );
+      CrsPos st = { st_l, st_p };
 
-      const char* s = lr.c_str( p );
-
-      if     ( p<LL-3 && 0==strncmp( s, "<!--", 4 ) ) m_state = &ME::Hi_Comment;
-      else if( p<LL-1 && 0==strncmp( s, "</"  , 2 ) ) m_state = &ME::Hi_Tag_Close;
-      else if(           0==strncmp( s, "<"   , 1 ) ) m_state = &ME::Hi_Tag_Open;
-
-      if( &ME::Hi_In_None != m_state ) return;
+      Find_Styles_Keys_In_Range( st, m_l+1 );
     }
-    p = 0;
   }
-  m_state = 0;
 }
 
-void Highlight_HTML::Hi_Comment( unsigned& l, unsigned& p )
+// Find keys starting from st up to but not including fn line
+void Highlight_HTML::
+     Find_Styles_Keys_In_Range( const CrsPos   st
+                              , const unsigned fn )
 {
-  Trace trace( __PRETTY_FUNCTION__ );
+  Hi_FindKey_In_Range( m_JS_HiPairs, st, fn );
+}
 
-  m_fb.SetSyntaxStyle( l, p, HI_COMMENT ); p++;
-  m_fb.SetSyntaxStyle( l, p, HI_COMMENT ); p++;
-  m_fb.SetSyntaxStyle( l, p, HI_COMMENT ); p++;
-  m_fb.SetSyntaxStyle( l, p, HI_COMMENT ); p++;
+Highlight_HTML::Hi_State
+Highlight_HTML::Run_Range_Get_Initial_State( const CrsPos st )
+{
+  Hi_State initial = St_In_None;
 
-  for( ; l<m_fb.NumLines(); l++ )
+  if( Get_Initial_State( st, m_JS_edges, m_CS_edges ) )
   {
-    const unsigned LL = m_fb.LineLen( l );
-    const Line&    lr = m_fb.GetLine( l );
+    initial = St_JS_None;
+  }
+  else if( Get_Initial_State( st, m_CS_edges, m_JS_edges ) )
+  {
+    initial = St_CS_None;
+  }
+  return initial;
+}
 
-    for( ; p<LL; p++ )
+bool Highlight_HTML::Get_Initial_State( const CrsPos st
+                                      , Array_t<Edges> edges_1
+                                      , Array_t<Edges> edges_2 )
+{
+  bool found_containing_edges = false;
+
+  for( unsigned k=0; k<edges_1.len(); k++ )
+  {
+    if( !found_containing_edges )
     {
-      const char* s = lr.c_str( p );
-
-      if( 0==strncmp( s, "-->", 3 ) )
+      Edges edges = edges_1[k];
+      if( edges.contains( st ) )
       {
-        m_fb.SetSyntaxStyle( l, p, HI_COMMENT ); p++;
-        m_fb.SetSyntaxStyle( l, p, HI_COMMENT ); p++;
-        m_fb.SetSyntaxStyle( l, p, HI_COMMENT ); p++;
-
-        m_state = &ME::Hi_In_None;
+        found_containing_edges = true;
       }
-      else m_fb.SetSyntaxStyle( l, p, HI_COMMENT );
-
-      if( &ME::Hi_Comment != m_state ) return;
     }
-    p = 0;
+    else {
+      // Since a change was made at st, all the following edges
+      // have been invalidated, so remove all following elements
+      edges_1.remove( k );
+      k--; //< Since the current element was just removed, stay on k
+    }
   }
-  m_state = 0;
+  if( found_containing_edges )
+  {
+    // Remove all CS_edges past st:
+    for( unsigned k=0; k<edges_2.len(); k++ )
+    {
+      Edges edges = edges_2[k];
+      if( edges.ge( st ) )
+      {
+        edges_2.remove( k );
+        k--; //< Since the current element was just removed, stay on k
+      }
+    }
+  }
+  return found_containing_edges;
 }
 
-void Highlight_HTML::Hi_Tag_Open( unsigned& l, unsigned& p )
+bool Highlight_HTML::JS_State( const Hi_State state )
+{
+  return state == St_JS_None
+      || state == St_JS_Define
+      || state == St_JS_SingleQuote
+      || state == St_JS_DoubleQuote
+      || state == St_JS_C_Comment
+      || state == St_JS_CPP_Comment
+      || state == St_JS_NumberBeg
+      || state == St_JS_NumberDec
+      || state == St_JS_NumberHex
+      || state == St_JS_NumberFraction
+      || state == St_JS_NumberExponent
+      || state == St_JS_NumberTypeSpec;
+}
+
+void Highlight_HTML::Run_State()
+{
+  switch( m_state )
+  {
+  case St_In_None         : Hi_In_None         (); break;
+  case St_XML_Comment     : Hi_XML_Comment     (); break;
+  case St_CloseTag        : Hi_CloseTag        (); break;
+  case St_NumberBeg       : Hi_NumberBeg       (); break;
+  case St_NumberHex       : Hi_NumberHex       (); break;
+  case St_NumberDec       : Hi_NumberDec       (); break;
+  case St_NumberExponent  : Hi_NumberExponent  (); break;
+  case St_NumberFraction  : Hi_NumberFraction  (); break;
+  case St_NumberTypeSpec  : Hi_NumberTypeSpec  (); break;
+  case St_OpenTag_ElemName: Hi_OpenTag_ElemName(); break;
+  case St_OpenTag_AttrName: Hi_OpenTag_AttrName(); break;
+  case St_OpenTag_AttrVal : Hi_OpenTag_AttrVal (); break;
+  case St_SingleQuote     : Hi_SingleQuote     (); break;
+  case St_DoubleQuote     : Hi_DoubleQuote     (); break;
+
+  case St_JS_None          : Hi_JS_None       (); break;
+  case St_JS_Define        : Hi_JS_Define     (); break;
+  case St_JS_SingleQuote   : Hi_SingleQuote   (); break;
+  case St_JS_DoubleQuote   : Hi_DoubleQuote   (); break;
+  case St_JS_C_Comment     : Hi_C_Comment     (); break;
+  case St_JS_CPP_Comment   : Hi_JS_CPP_Comment(); break;
+  case St_JS_NumberBeg     : Hi_NumberBeg     (); break;
+  case St_JS_NumberDec     : Hi_NumberDec     (); break;
+  case St_JS_NumberHex     : Hi_NumberHex     (); break;
+  case St_JS_NumberFraction: Hi_NumberFraction(); break;
+  case St_JS_NumberExponent: Hi_NumberExponent(); break;
+  case St_JS_NumberTypeSpec: Hi_NumberTypeSpec(); break;
+
+  case St_CS_None          : Hi_CS_None       (); break;
+  case St_CS_C_Comment     : Hi_C_Comment     (); break;
+  case St_CS_SingleQuote   : Hi_SingleQuote   (); break;
+  case St_CS_DoubleQuote   : Hi_DoubleQuote   (); break;
+
+  default:
+    m_state = St_In_None;
+  }
+}
+
+void Highlight_HTML::Hi_In_None()
 {
   Trace trace( __PRETTY_FUNCTION__ );
-  m_fb.SetSyntaxStyle( l, p, HI_DEFINE ); p++; // Set '<' to HI_DEFINE
 
-  const unsigned LL = m_fb.LineLen( l );
-  const Line&    lr = m_fb.GetLine( l );
-
-  for( unsigned h=0; TagPairs[h].key; h++ )
+  for( ; m_l<m_fb.NumLines(); m_l++ )
   {
-    bool matches = true;
-    const char*    tag     = TagPairs[h].key;
-    const uint8_t  HI_TYPE = TagPairs[h].val;
-    const unsigned TAG_LEN = strlen( tag );
+    const unsigned LL = m_fb.LineLen( m_l );
+    const Line&    lr = m_fb.GetLine( m_l );
 
-    for( unsigned k=0; matches && (p+TAG_LEN)<LL && k<TAG_LEN; k++ )
+    for( ; m_p<LL; m_p++ )
     {
-      if( tag[k] != tolower( lr.get(p+k) ) ) matches = false;
-      else {
-        if( k+1 == TAG_LEN ) // Found tag
-        {
-          const uint8_t NC = lr.get(p+k+1); // NC = next char
-          matches = ( NC == '>' || NC == ' ' );
-          if( matches )
-          {
-            for( unsigned m=p; m<p+TAG_LEN; m++ ) m_fb.SetSyntaxStyle( l, m, HI_TYPE );
-            p += TAG_LEN;
+      m_fb.ClearSyntaxStyles( m_l, m_p );
 
-            if( NC == '>' )
-            {
-              m_fb.SetSyntaxStyle( l, p, HI_DEFINE ); // Set '>' to HI_DEFINE
-              m_state = &ME::Hi_In_None;
-            }
-            else {
-              m_state = &ME::Hi_Tag_In;
-            }
-            p++;
-            return;
+      // c0 is ahead of c1 is ahead of c2: (c3,c2,c1,c0)
+      const char c3 = (2<m_p) ? m_fb.Get( m_l, m_p-3 ) : 0;
+      const char c2 = (1<m_p) ? m_fb.Get( m_l, m_p-2 ) : 0;
+      const char c1 = (0<m_p) ? m_fb.Get( m_l, m_p-1 ) : 0;
+      const char c0 =           m_fb.Get( m_l, m_p );
+
+      if( c1=='<' && c0!='!' && c0!='/')
+      {
+        m_fb.SetSyntaxStyle( m_l, m_p-1, HI_DEFINE );
+        m_state = St_OpenTag_ElemName;
+      }
+      else if( c1=='<' && c0=='/')
+      {
+        m_fb.SetSyntaxStyle( m_l, m_p-1, HI_DEFINE ); //< '<'
+        m_fb.SetSyntaxStyle( m_l, m_p  , HI_DEFINE ); //< '/'
+        m_p++; // Move past '/'
+        m_state = St_CloseTag;
+      }
+      else if( c3=='<' && c2=='!' && c1=='-' && c0=='-')
+      {
+        m_fb.SetSyntaxStyle( m_l, m_p-3, HI_COMMENT ); //< '<'
+        m_fb.SetSyntaxStyle( m_l, m_p-2, HI_COMMENT ); //< '!'
+        m_fb.SetSyntaxStyle( m_l, m_p-1, HI_COMMENT ); //< '-'
+        m_fb.SetSyntaxStyle( m_l, m_p  , HI_COMMENT ); //< '-'
+        m_p++; // Move past '-'
+        m_state = St_XML_Comment;
+      }
+      else if( c3=='<' && c2=='!' && c1=='D' && c0=='O')
+      {
+        // <!DOCTYPE html>   
+        m_fb.SetSyntaxStyle( m_l, m_p-3, HI_DEFINE ); //< '<'
+        m_fb.SetSyntaxStyle( m_l, m_p-2, HI_DEFINE ); //< '!'
+        m_p--; // Move back to 'D'
+        m_state = St_OpenTag_ElemName;
+      }
+      else if( !IsIdent( c1 )
+            && isdigit( c0 ) )
+      {
+        m_state = St_NumberBeg;
+        m_numXSt = St_In_None;
+      }
+      else {
+        ; //< No syntax highlighting on content outside of <>tags
+      }
+      if( St_In_None != m_state ) return;
+    }
+    m_p = 0;
+  }
+  m_state = St_Done;
+}
+
+void Highlight_HTML::Hi_XML_Comment()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  for( ; m_l<m_fb.NumLines(); m_l++ )
+  {
+    const unsigned LL = m_fb.LineLen( m_l );
+    for( ; m_p<LL; m_p++ )
+    {
+      m_fb.SetSyntaxStyle( m_l, m_p, HI_COMMENT );
+
+      // c0 is ahead of c1 is ahead of c2: (c2,c1,c0)
+      const char c2 = (1<m_p) ? m_fb.Get( m_l, m_p-2 ) : 0;
+      const char c1 = (0<m_p) ? m_fb.Get( m_l, m_p-1 ) : 0;
+      const char c0 =           m_fb.Get( m_l, m_p );
+
+      if( c2=='-' && c1=='-' && c0=='>' )
+      {
+        m_p++; // Move past '>'
+        m_state = St_In_None;
+      }
+      if( St_XML_Comment != m_state ) return;
+    }
+    m_p = 0;
+  }
+  m_state = St_Done;
+}
+
+void Highlight_HTML::Hi_CloseTag()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  bool found_elem_name = false;
+
+  for( ; m_l<m_fb.NumLines(); m_l++ )
+  {
+    const Line* lp = m_fb.GetLineP( m_l );
+    const unsigned LL = m_fb.LineLen( m_l );
+    for( ; m_p<LL; m_p++ )
+    {
+      const char c0 = m_fb.Get( m_l, m_p );
+
+      if( c0=='>' )
+      {
+        m_fb.SetSyntaxStyle( m_l, m_p, HI_DEFINE );
+        m_p++; // Move past '>'
+        m_state = St_In_None;
+      }
+      else if( c0=='/' || c0=='?' )
+      {
+        m_fb.SetSyntaxStyle( m_l, m_p, HI_DEFINE );
+      }
+      else if( !found_elem_name )
+      {
+        // Returns non-zero if lp has HTTP tag at m_p:
+        const unsigned tag_len = Has_HTTP_Tag_At( lp, m_p );
+        if( 0<tag_len )
+        {
+          found_elem_name = true;
+          for( unsigned k=0; k<tag_len; k++, m_p++ )
+          {
+            m_fb.SetSyntaxStyle( m_l, m_p, HI_CONTROL );
           }
+          m_p--;
+        }
+        else if( c0==' ' || c0=='\t' )
+        {
+          m_fb.SetSyntaxStyle( m_l, m_p, HI_DEFINE );
+        }
+        else {
+          m_fb.SetSyntaxStyle( m_l, m_p, HI_NONASCII );
         }
       }
-    }
-  }
-  // Did not find tag, to go back to none state:
-  m_state = &ME::Hi_In_None;
-}
-
-// <tag_name Hi_Tag_In> or
-// <tag_name Hi_Tag_In/>
-void Highlight_HTML::Hi_Tag_In( unsigned& l, unsigned& p )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  for( ; l<m_fb.NumLines(); l++ )
-  {
-    const unsigned LL = m_fb.LineLen( l );
-    const Line&    lr = m_fb.GetLine( l );
-
-    for( ; p<LL; p++ )
-    {
-      const char* s = lr.c_str( p );
-
-      if( 0==strncmp( s, "/>", 2 ) )
+      else //( found_elem_name )
       {
-        m_fb.SetSyntaxStyle( l, p, HI_DEFINE ); p++; // Set '/' to HI_DEFINE
-        m_fb.SetSyntaxStyle( l, p, HI_DEFINE ); p++; // Set '>' to HI_DEFINE
-        m_state = &ME::Hi_In_None;
-        return;
-      }
-      else if( 0==strncmp( s, ">", 1 ) )
-      {
-        m_fb.SetSyntaxStyle( l, p, HI_DEFINE ); p++; // Set '>' to HI_DEFINE
-        m_state = &ME::Hi_In_None;
-        return;
-      }
-    }
-    p = 0;
-  }
-  m_state = 0;
-}
-
-void Highlight_HTML::Hi_Tag_Close( unsigned& l, unsigned& p )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  m_fb.SetSyntaxStyle( l, p, HI_DEFINE ); p++; // Set '<' to HI_DEFINE
-  m_fb.SetSyntaxStyle( l, p, HI_DEFINE ); p++; // Set '/' to HI_DEFINE
-
-  const unsigned LL = m_fb.LineLen( l );
-  const Line&    lr = m_fb.GetLine( l );
-
-  for( unsigned h=0; TagPairs[h].key; h++ )
-  {
-    bool matches = true;
-    const char*    tag     = TagPairs[h].key;
-    const uint8_t  HI_TYPE = TagPairs[h].val;
-    const unsigned TAG_LEN = strlen( tag );
-
-    for( unsigned k=0; matches && (p+TAG_LEN)<LL && k<TAG_LEN; k++ )
-    {
-      if( tag[k] != tolower( lr.get(p+k) ) ) matches = false;
-      else {
-        if( k+1 == TAG_LEN ) // Found tag
+        if( c0==' ' || c0=='\t' )
         {
-          const uint8_t NC = lr.get(p+k+1); // NC = next char
-          matches = ( NC == '>' );
-          if( matches )
-          {
-            for( unsigned m=p; m<p+TAG_LEN; m++ ) m_fb.SetSyntaxStyle( l, m, HI_TYPE );
-            p += TAG_LEN;
-
-            m_fb.SetSyntaxStyle( l, p, HI_DEFINE ); // Set '>' to HI_DEFINE
-            m_state = &ME::Hi_In_None;
-            p++;
-            return;
-          }
+          m_fb.SetSyntaxStyle( m_l, m_p, HI_CONTROL );
+        }
+        else {
+          m_fb.SetSyntaxStyle( m_l, m_p, HI_NONASCII );
         }
       }
+      if( St_CloseTag != m_state ) return;
     }
+    m_p = 0;
   }
-  // Did not find tag, to go back to none state:
-  m_state = &ME::Hi_In_None;
+  m_state = St_Done;
 }
 
-void Highlight_HTML::Hi_BegSingleQuote( unsigned& l, unsigned& p )
+void Highlight_HTML::Hi_NumberBeg()
 {
-  Trace trace( __PRETTY_FUNCTION__ );
+  m_fb.SetSyntaxStyle( m_l, m_p, HI_CONST );
 
-  m_fb.SetSyntaxStyle( l, p, HI_CONST );
-  p++;
-  m_state = &ME::Hi_In_SingleQuote;
-}
+  const char c1 = m_fb.Get( m_l, m_p );
+  m_p++; //< Move past first digit
+  m_state = St_JS_NumberBeg == m_state
+          ? St_JS_NumberDec
+          : St_NumberDec;
 
-void Highlight_HTML::Hi_In_SingleQuote( unsigned& l, unsigned& p )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  for( ; l<m_fb.NumLines(); l++ )
+  const unsigned LL = m_fb.LineLen( m_l );
+  if( '0' == c1 && (m_p+1)<LL )
   {
-    const unsigned LL = m_fb.LineLen( l );
-
-    bool slash_escaped = false;
-    for( ; p<LL; p++ )
-    {
-      const char c1 = p ? m_fb.Get( l, p-1 ) : m_fb.Get( l, p );
-      const char c2 = p ? m_fb.Get( l, p   ) : 0;
-
-      if( (c1!='\\' && c2=='\'')
-       || (c1=='\\' && c2=='\'' && slash_escaped) )
-      {
-        m_state = &ME::Hi_EndSingleQuote;
-      }
-      else {
-        if( c1=='\\' && c2=='\\' ) slash_escaped = true;
-        else                       slash_escaped = false;
-
-        m_fb.SetSyntaxStyle( l, p, HI_CONST );
-      }
-      if( &ME::Hi_In_SingleQuote != m_state ) return;
-    }
-    p = 0;
-  }
-  m_state = 0;
-}
-
-void Highlight_HTML::Hi_EndSingleQuote( unsigned& l, unsigned& p )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  m_fb.SetSyntaxStyle( l, p, HI_CONST );
-  p++; //p++;
-  m_state = &ME::Hi_In_None;
-}
-
-void Highlight_HTML::Hi_BegDoubleQuote( unsigned& l, unsigned& p )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-//Log.Log("%s\n", __FUNCTION__);
-  m_fb.SetSyntaxStyle( l, p, HI_CONST );
-  p++;
-  m_state = &ME::Hi_In_DoubleQuote;
-}
-
-void Highlight_HTML::Hi_In_DoubleQuote( unsigned& l, unsigned& p )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  for( ; l<m_fb.NumLines(); l++ )
-  {
-    const unsigned LL = m_fb.LineLen( l );
-
-    bool slash_escaped = false;
-    for( ; p<LL; p++ )
-    {
-      const char c1 = p ? m_fb.Get( l, p-1 ) : m_fb.Get( l, p );
-      const char c2 = p ? m_fb.Get( l, p   ) : 0;
-
-      if( (c1!='\\' && c2=='\"')
-       || (c1=='\\' && c2=='\"' && slash_escaped) )
-      {
-        m_state = &ME::Hi_EndDoubleQuote;
-      }
-      else {
-        if( c1=='\\' && c2=='\\' ) slash_escaped = true;
-        else                       slash_escaped = false;
-
-        m_fb.SetSyntaxStyle( l, p, HI_CONST );
-      }
-      if( &ME::Hi_In_DoubleQuote != m_state ) return;
-    }
-    p = 0;
-  }
-  m_state = 0;
-}
-
-void Highlight_HTML::Hi_EndDoubleQuote( unsigned& l, unsigned& p )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  m_fb.SetSyntaxStyle( l, p, HI_CONST );
-  p++; //p++;
-  m_state = &ME::Hi_In_None;
-}
-
-void Highlight_HTML::Hi_NumberBeg( unsigned& l, unsigned& p )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  m_fb.SetSyntaxStyle( l, p, HI_CONST );
-
-  const char c1 = m_fb.Get( l, p );
-  p++;
-  m_state = &ME::Hi_NumberIn;
-
-  const unsigned LL = m_fb.LineLen( l );
-  if( '0' == c1 && (p+1)<LL )
-  {
-    const char c2 = m_fb.Get( l, p );
-    if( 'x' == c2 ) {
-      m_fb.SetSyntaxStyle( l, p, HI_CONST );
-      m_state = &ME::Hi_NumberHex;
-      p++;
+    const char c0 = m_fb.Get( m_l, m_p );
+    if( 'x' == c0 ) {
+      m_fb.SetSyntaxStyle( m_l, m_p, HI_CONST );
+      m_state = St_JS_NumberBeg == m_state
+              ? St_JS_NumberHex
+              : St_NumberHex;
+      m_p++; //< Move past 'x'
     }
   }
 }
 
-void Highlight_HTML::Hi_NumberIn( unsigned& l, unsigned& p )
+void Highlight_HTML::Hi_NumberHex()
 {
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  const unsigned LL = m_fb.LineLen( l );
-  if( LL <= p ) m_state = &ME::Hi_In_None;
+  const unsigned LL = m_fb.LineLen( m_l );
+  if( LL <= m_p ) m_state = m_numXSt;
   else {
-    const char c1 = m_fb.Get( l, p );
+    const char c1 = m_fb.Get( m_l, m_p );
+    if( isxdigit(c1) )
+    {
+      m_fb.SetSyntaxStyle( m_l, m_p, HI_CONST );
+      m_p++;
+    }
+    else {
+      m_state = m_numXSt;
+    }
+  }
+}
+
+void Highlight_HTML::Hi_NumberDec()
+{
+  const unsigned LL = m_fb.LineLen( m_l );
+  if( LL <= m_p ) m_state = m_numXSt;
+  else {
+    const char c1 = m_fb.Get( m_l, m_p );
 
     if( '.'==c1 )
     {
-      m_fb.SetSyntaxStyle( l, p, HI_CONST );
-      m_state = &ME::Hi_NumberFraction;
-      p++;
+      m_fb.SetSyntaxStyle( m_l, m_p, HI_CONST );
+      m_state = St_JS_NumberDec == m_state
+              ? St_JS_NumberFraction
+              : St_NumberFraction;
+      m_p++;
     }
     else if( 'e'==c1 || 'E'==c1 )
     {
-      m_fb.SetSyntaxStyle( l, p, HI_CONST );
-      m_state = &ME::Hi_NumberExponent;
-      p++;
-      if( p<LL )
+      m_fb.SetSyntaxStyle( m_l, m_p, HI_CONST );
+      m_state = St_JS_NumberDec == m_state
+              ? St_JS_NumberExponent
+              : St_NumberExponent;
+      m_p++;
+      if( m_p<LL )
       {
-        const char c2 = m_fb.Get( l, p );
-        if( '+' == c2 || '-' == c2 ) {
-          m_fb.SetSyntaxStyle( l, p, HI_CONST );
-          p++;
+        const char c0 = m_fb.Get( m_l, m_p );
+        if( '+' == c0 || '-' == c0 ) {
+          m_fb.SetSyntaxStyle( m_l, m_p, HI_CONST );
+          m_p++;
         }
       }
     }
     else if( isdigit(c1) )
     {
-      m_fb.SetSyntaxStyle( l, p, HI_CONST );
-      p++;
+      m_fb.SetSyntaxStyle( m_l, m_p, HI_CONST );
+      m_p++;
     }
-    else {
-      m_state = &ME::Hi_In_None;
-    }
-  }
-}
-
-void Highlight_HTML::Hi_NumberHex( unsigned& l, unsigned& p )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  const unsigned LL = m_fb.LineLen( l );
-  if( LL <= p ) m_state = &ME::Hi_In_None;
-  else {
-    const char c1 = m_fb.Get( l, p );
-    if( isxdigit(c1) )
+    else if( c1=='L' || c1=='F' || c1=='U' )
     {
-      m_fb.SetSyntaxStyle( l, p, HI_CONST );
-      p++;
+      m_state = St_JS_NumberDec == m_state
+              ? St_JS_NumberTypeSpec
+              : St_NumberTypeSpec;
     }
     else {
-      m_state = &ME::Hi_In_None;
+      m_state = m_numXSt;
     }
   }
 }
 
-void Highlight_HTML::Hi_NumberFraction( unsigned& l, unsigned& p )
+void Highlight_HTML::Hi_NumberExponent()
 {
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  const unsigned LL = m_fb.LineLen( l );
-  if( LL <= p ) m_state = &ME::Hi_In_None;
+  const unsigned LL = m_fb.LineLen( m_l );
+  if( LL <= m_p ) m_state = m_numXSt;
   else {
-    const char c1 = m_fb.Get( l, p );
+    const char c1 = m_fb.Get( m_l, m_p );
     if( isdigit(c1) )
     {
-      m_fb.SetSyntaxStyle( l, p, HI_CONST );
-      p++;
+      m_fb.SetSyntaxStyle( m_l, m_p, HI_CONST );
+      m_p++;
+    }
+    else {
+      m_state = m_numXSt;
+    }
+  }
+}
+
+void Highlight_HTML::Hi_NumberFraction()
+{
+  const unsigned LL = m_fb.LineLen( m_l );
+  if( LL <= m_p ) m_state = m_numXSt;
+  else {
+    const char c1 = m_fb.Get( m_l, m_p );
+    if( isdigit(c1) )
+    {
+      m_fb.SetSyntaxStyle( m_l, m_p, HI_CONST );
+      m_p++;
     }
     else if( 'e'==c1 || 'E'==c1 )
     {
-      m_fb.SetSyntaxStyle( l, p, HI_CONST );
-      m_state = &ME::Hi_NumberExponent;
-      p++;
-      if( p<LL )
+      m_fb.SetSyntaxStyle( m_l, m_p, HI_CONST );
+      m_state = St_JS_NumberFraction == m_state
+              ? St_JS_NumberExponent
+              : St_NumberExponent;
+      m_p++;
+      if( m_p<LL )
       {
-        const char c2 = m_fb.Get( l, p );
-        if( '+' == c2 || '-' == c2 ) {
-          m_fb.SetSyntaxStyle( l, p, HI_CONST );
-          p++;
+        const char c0 = m_fb.Get( m_l, m_p );
+        if( '+' == c0 || '-' == c0 ) {
+          m_fb.SetSyntaxStyle( m_l, m_p, HI_CONST );
+          m_p++;
         }
       }
     }
     else {
-      m_state = &ME::Hi_In_None;
+      m_state = m_numXSt;
     }
   }
 }
 
-void Highlight_HTML::Hi_NumberExponent( unsigned& l, unsigned& p )
+void Highlight_HTML::Hi_NumberTypeSpec()
 {
-  Trace trace( __PRETTY_FUNCTION__ );
+  const unsigned LL = m_fb.LineLen( m_l );
 
-  const unsigned LL = m_fb.LineLen( l );
-  if( LL <= p ) m_state = &ME::Hi_In_None;
-  else {
-    const char c1 = m_fb.Get( l, p );
-    if( isdigit(c1) )
+  if( m_p < LL )
+  {
+    const char c0 = m_fb.Get( m_l, m_p );
+
+    if( c0=='L' )
     {
-      m_fb.SetSyntaxStyle( l, p, HI_CONST );
-      p++;
+      m_fb.SetSyntaxStyle( m_l, m_p, HI_VARTYPE );
+      m_p++;
+      m_state = m_numXSt;
+    }
+    else if( c0=='F' )
+    {
+      m_fb.SetSyntaxStyle( m_l, m_p, HI_VARTYPE );
+      m_p++;
+      m_state = m_numXSt;
+    }
+    else if( c0=='U' )
+    {
+      m_fb.SetSyntaxStyle( m_l, m_p, HI_VARTYPE ); m_p++;
+      if( m_p<LL ) {
+        const char c1 = m_fb.Get( m_l, m_p );
+        if( c1=='L' ) { // UL
+          m_fb.SetSyntaxStyle( m_l, m_p, HI_VARTYPE ); m_p++;
+          if( m_p<LL ) {
+            const char c2 = m_fb.Get( m_l, m_p );
+            if( c2=='L' ) { // ULL
+              m_fb.SetSyntaxStyle( m_l, m_p, HI_VARTYPE ); m_p++;
+            }
+          }
+        }
+      }
+      m_state = m_numXSt;
+    }
+  }
+}
+
+void Highlight_HTML::Hi_OpenTag_ElemName()
+{
+  m_OpenTag_was_script = false;
+  m_OpenTag_was_style  = false;
+  bool found_elem_name = false;
+
+  for( ; m_l<m_fb.NumLines(); m_l++ )
+  {
+    const Line* lp = m_fb.GetLineP( m_l );
+    const unsigned LL = m_fb.LineLen( m_l );
+    for( ; m_p<LL; m_p++ )
+    {
+      const char c0 = m_fb.Get( m_l, m_p );
+
+      if( c0=='>' )
+      {
+        m_fb.SetSyntaxStyle( m_l, m_p, HI_DEFINE );
+        m_p++; // Move past '>'
+        m_state = St_In_None;
+        if( m_OpenTag_was_script )
+        {
+          m_state = St_JS_None;
+          m_JS_edges.push(__FILE__, __LINE__, Edges( m_l, m_p ) );
+        }
+        else if( m_OpenTag_was_style )
+        {
+          m_state = St_CS_None;
+          m_CS_edges.push(__FILE__, __LINE__, Edges( m_l, m_p ) );
+        }
+      }
+      else if( c0=='/' || c0=='?' )
+      {
+        m_fb.SetSyntaxStyle( m_l, m_p, HI_DEFINE );
+      }
+      else if( !found_elem_name )
+      {
+        // Returns non-zero if lp has HTTP tag at m_p:
+        const unsigned tag_len = Has_HTTP_Tag_At( lp, m_p );
+        if( 0<tag_len )
+        {
+          if( 0==strncasecmp( lp->c_str(m_p), "script", 6 ) )
+          {
+            m_OpenTag_was_script = true;
+          }
+          else if( 0==strncasecmp( lp->c_str(m_p), "style", 5 ) )
+          {
+            m_OpenTag_was_style = true;
+          }
+          found_elem_name = true;
+          for( unsigned k=0; k<tag_len; k++, m_p++ )
+          {
+            m_fb.SetSyntaxStyle( m_l, m_p, HI_CONTROL );
+          }
+          m_p--;
+        }
+        else if( c0==' ' || c0=='\t' )
+        {
+          m_fb.SetSyntaxStyle( m_l, m_p, HI_DEFINE );
+        }
+        else {
+          m_fb.SetSyntaxStyle( m_l, m_p, HI_NONASCII );
+        }
+      }
+      else //( found_elem_name )
+      {
+        if( c0==' ' || c0=='\t' )
+        {
+          m_fb.SetSyntaxStyle( m_l, m_p, HI_CONTROL );
+          m_p++; //< Move past white space
+          m_state = St_OpenTag_AttrName;
+        }
+        else {
+          m_fb.SetSyntaxStyle( m_l, m_p, HI_NONASCII );
+        }
+      }
+      if( St_OpenTag_ElemName != m_state ) return;
+    }
+    m_p = 0;
+  }
+  m_state = St_Done;
+}
+
+void Highlight_HTML::Hi_OpenTag_AttrName()
+{
+  bool found_attr_name = false;
+  bool past__attr_name = false;
+
+  for( ; m_l<m_fb.NumLines(); m_l++ )
+  {
+    const unsigned LL = m_fb.LineLen( m_l );
+
+    for( ; m_p<LL; m_p++ )
+    {
+      // c0 is ahead of c1 is ahead of c2: (c2,c1,c0)
+      const char c0 = m_fb.Get( m_l, m_p );
+
+      if( c0=='>' )
+      {
+        m_fb.SetSyntaxStyle( m_l, m_p, HI_DEFINE );
+        m_p++; // Move past '>'
+        m_state = m_OpenTag_was_style
+                ? St_CS_None
+                : St_In_None;
+      }
+      else if( c0=='/' || c0=='?' )
+      {
+        m_fb.SetSyntaxStyle( m_l, m_p, HI_DEFINE );
+      }
+      else if( !found_attr_name )
+      {
+        if( IsXML_Ident( c0 ) )
+        {
+          found_attr_name = true;
+          m_fb.SetSyntaxStyle( m_l, m_p, HI_VARTYPE );
+        }
+        else if( c0==' ' || c0=='\t' )
+        {
+          m_fb.SetSyntaxStyle( m_l, m_p, HI_CONTROL );
+        }
+        else {
+          m_fb.SetSyntaxStyle( m_l, m_p, HI_NONASCII );
+        }
+      }
+      else if( found_attr_name && !past__attr_name )
+      {
+        if( IsXML_Ident( c0 ) )
+        {
+          m_fb.SetSyntaxStyle( m_l, m_p, HI_VARTYPE );
+        }
+        else if( c0==' ' || c0=='\t' )
+        {
+          past__attr_name = true;
+          m_fb.SetSyntaxStyle( m_l, m_p, HI_CONTROL );
+        }
+        else if( c0=='=' )
+        {
+          past__attr_name = true;
+          m_fb.SetSyntaxStyle( m_l, m_p, HI_DEFINE );
+          m_p++; //< Move past '='
+          m_state = St_OpenTag_AttrVal;
+        }
+        else {
+          m_fb.SetSyntaxStyle( m_l, m_p, HI_NONASCII );
+        }
+      }
+      else //( found_attr_name && past__attr_name )
+      {
+        if( c0=='=' )
+        {
+          m_fb.SetSyntaxStyle( m_l, m_p, HI_DEFINE );
+          m_p++; //< Move past '='
+          m_state = St_OpenTag_AttrVal;
+        }
+        else if( c0==' ' || c0=='\t' )
+        {
+          m_fb.SetSyntaxStyle( m_l, m_p, HI_VARTYPE );
+        }
+        else {
+          m_fb.SetSyntaxStyle( m_l, m_p, HI_NONASCII );
+        }
+      }
+      if( St_OpenTag_AttrName != m_state ) return;
+    }
+    m_p = 0;
+  }
+  m_state = St_Done;
+}
+
+void Highlight_HTML::Hi_OpenTag_AttrVal()
+{
+  for( ; m_l<m_fb.NumLines(); m_l++ )
+  {
+    const unsigned LL = m_fb.LineLen( m_l );
+
+    for( ; m_p<LL; m_p++ )
+    {
+      // c0 is ahead of c1 is ahead of c2: (c2,c1,c0)
+      const char c0 = m_fb.Get( m_l, m_p );
+
+      if( c0=='>' )
+      {
+        m_fb.SetSyntaxStyle( m_l, m_p, HI_DEFINE );
+        m_p++; // Move past '>'
+        m_state = St_In_None;
+        m_state = m_OpenTag_was_style
+                ? St_CS_None
+                : St_In_None;
+      }
+      else if( c0=='/' || c0=='?' )
+      {
+        m_fb.SetSyntaxStyle( m_l, m_p, HI_DEFINE );
+      }
+      else if( c0=='\'' )
+      {
+        m_fb.SetSyntaxStyle( m_l, m_p, HI_CONST );
+        m_p++; // Move past '\''
+        m_state = St_SingleQuote;
+        m_qtXSt = St_OpenTag_AttrName;
+      }
+      else if( c0=='\"' )
+      {
+        m_fb.SetSyntaxStyle( m_l, m_p, HI_CONST );
+        m_p++; //< Move past '\"'
+        m_state = St_DoubleQuote;
+        m_qtXSt = St_OpenTag_AttrName;
+      }
+      else if( isdigit( c0 ) )
+      {
+        m_state = St_NumberBeg;
+        m_numXSt = St_OpenTag_AttrName;
+      }
+      else if( c0==' ' || c0=='\t' )
+      {
+        m_fb.SetSyntaxStyle( m_l, m_p, HI_DEFINE );
+      }
+      else {
+        m_fb.SetSyntaxStyle( m_l, m_p, HI_NONASCII );
+      }
+      if( St_OpenTag_AttrVal != m_state ) return;
+    }
+    m_p = 0;
+  }
+  m_state = St_Done;
+}
+
+void Highlight_HTML::Hi_SingleQuote()
+{
+  bool exit = false;
+  for( ; m_l<m_fb.NumLines(); m_l++ )
+  {
+    const unsigned LL = m_fb.LineLen( m_l );
+
+    bool slash_escaped = false;
+    for( ; m_p<LL; m_p++ )
+    {
+      const char c1 = 0<m_p ? m_fb.Get( m_l, m_p-1 ) : m_fb.Get( m_l, m_p );
+      const char c0 = 0<m_p ? m_fb.Get( m_l, m_p   ) : 0;
+
+      if( (c1=='\'' && c0==0   )
+       || (c1!='\\' && c0=='\'')
+       || (c1=='\\' && c0=='\'' && slash_escaped) )
+      {
+        m_fb.SetSyntaxStyle( m_l, m_p, HI_CONST );
+        m_p++; // Move past '\''
+        m_state = m_qtXSt;
+        exit = true;
+      }
+      else {
+        if( c1=='\\' && c0=='\\' ) slash_escaped = true;
+        else                       slash_escaped = false;
+
+        m_fb.SetSyntaxStyle( m_l, m_p, HI_CONST );
+      }
+      if( exit ) return;
+    }
+    m_p = 0;
+  }
+  m_state = St_Done;
+}
+
+void Highlight_HTML::Hi_DoubleQuote()
+{
+  bool exit = false;
+  for( ; m_l<m_fb.NumLines(); m_l++ )
+  {
+    const unsigned LL = m_fb.LineLen( m_l );
+
+    bool slash_escaped = false;
+    for( ; m_p<LL; m_p++ )
+    {
+      const char c1 = 0<m_p ? m_fb.Get( m_l, m_p-1 ) : m_fb.Get( m_l, m_p );
+      const char c0 = 0<m_p ? m_fb.Get( m_l, m_p   ) : 0;
+
+      if( (c1=='\"' && c0==0   )
+       || (c1!='\\' && c0=='\"')
+       || (c1=='\\' && c0=='\"' && slash_escaped) )
+      {
+        m_fb.SetSyntaxStyle( m_l, m_p, HI_CONST );
+        m_p++; //< Move past '\"'
+        m_state = m_qtXSt;
+        exit = true;
+      }
+      else {
+        if( c1=='\\' && c0=='\\' ) slash_escaped = true;
+        else                       slash_escaped = false;
+
+        m_fb.SetSyntaxStyle( m_l, m_p, HI_CONST );
+      }
+      if( exit ) return;
+    }
+    m_p = 0;
+  }
+  m_state = St_Done;
+}
+
+bool JS_OneVarType( const char c0 )
+{
+  return c0=='&'
+      || c0=='.' || c0=='*'
+      || c0=='[' || c0==']';
+}
+bool JS_OneControl( const char c0 )
+{
+  return c0=='=' || c0=='^' || c0=='~'
+      || c0==':' || c0=='%'
+      || c0=='+' || c0=='-'
+      || c0=='<' || c0=='>'
+      || c0=='!' || c0=='?'
+      || c0=='(' || c0==')'
+      || c0=='{' || c0=='}'
+      || c0==',' || c0==';'
+      || c0=='/' || c0=='|';
+}
+bool JS_TwoControl( const char c1, const char c0 )
+{
+  return (c1=='=' && c0=='=')
+      || (c1=='&' && c0=='&')
+      || (c1=='|' && c0=='|')
+      || (c1=='|' && c0=='=')
+      || (c1=='&' && c0=='=')
+      || (c1=='!' && c0=='=')
+      || (c1=='+' && c0=='=')
+      || (c1=='-' && c0=='=');
+}
+
+void Highlight_HTML::Hi_JS_None()
+{
+  for( ; m_l<m_fb.NumLines(); m_l++ )
+  {
+    const Line* lp = m_fb.GetLineP( m_l );
+    const unsigned LL = m_fb.LineLen( m_l );
+
+    for( ; m_p<LL; m_p++ )
+    {
+      m_fb.ClearSyntaxStyles( m_l, m_p );
+
+      // c0 is ahead of c1 is ahead of c2: (c2,c1,c0)
+      const char c2 = (1<m_p) ? m_fb.Get( m_l, m_p-2 ) : 0;
+      const char c1 = (0<m_p) ? m_fb.Get( m_l, m_p-1 ) : 0;
+      const char c0 =           m_fb.Get( m_l, m_p );
+
+      if     ( c1=='/' && c0 == '/' ) { m_p--; m_state = St_JS_CPP_Comment; }
+      else if( c1=='/' && c0 == '*' )
+      {
+        m_p--;
+        m_state = St_JS_C_Comment;
+        m_ccXSt = St_JS_None;
+      }
+      else if( c0 == '#' ) { m_state = St_JS_Define; }
+      else if( c0 == '\'')
+      {
+        m_fb.SetSyntaxStyle( m_l, m_p, HI_CONST );
+        m_p++; //< Move past '\"'
+        m_state = St_JS_SingleQuote;
+        m_qtXSt = St_JS_None;
+      }
+      else if( c0 == '\"')
+      {
+        m_fb.SetSyntaxStyle( m_l, m_p, HI_CONST );
+        m_p++; //< Move past '\"'
+        m_state = St_JS_DoubleQuote;
+        m_qtXSt = St_JS_None;
+      }
+      else if( !IsIdent( c1 )
+             && isdigit(c0))
+      {
+        m_state = St_NumberBeg;
+        m_numXSt = St_JS_None;
+      }
+      else if( (c1==':' && c0==':')
+            || (c1=='-' && c0=='>') )
+      {
+        m_fb.SetSyntaxStyle( m_l, m_p-1, HI_VARTYPE );
+        m_fb.SetSyntaxStyle( m_l, m_p  , HI_VARTYPE );
+      }
+      else if( c1=='<' && c0=='/' && m_p+7<LL )
+      {
+        if( 0==strncasecmp( lp->c_str(m_p-1), "</script", 8 ) )
+        {
+          m_fb.SetSyntaxStyle( m_l, m_p-1, HI_DEFINE );
+          m_fb.SetSyntaxStyle( m_l, m_p  , HI_DEFINE );
+          m_p++; // Move past '/'
+          m_state = St_CloseTag;
+          if( 0<m_JS_edges.len() ) { //< Should always be true
+            Edges* edges = m_JS_edges.get( m_JS_edges.len()-1 );
+            edges->end.crsLine = m_l;
+            edges->end.crsChar = m_p-1;
+          }
+        }
+      }
+      else if( JS_TwoControl( c1, c0 ) )
+      {
+        m_fb.SetSyntaxStyle( m_l, m_p-1, HI_CONTROL );
+        m_fb.SetSyntaxStyle( m_l, m_p  , HI_CONTROL );
+      }
+      else if( JS_OneVarType( c0 ) )
+      {
+        m_fb.SetSyntaxStyle( m_l, m_p, HI_VARTYPE );
+      }
+      else if( JS_OneControl( c0 ) )
+      {
+        m_fb.SetSyntaxStyle( m_l, m_p, HI_CONTROL );
+      }
+      else if( c0 < 32 || 126 < c0 )
+      {
+        m_fb.SetSyntaxStyle( m_l, m_p, HI_NONASCII );
+      }
+      if( St_JS_None != m_state ) return;
+    }
+    m_p = 0;
+  }
+  m_state = St_Done;
+}
+
+void Highlight_HTML::Hi_JS_Define()
+{
+  const unsigned LL = m_fb.LineLen( m_l );
+
+  for( ; m_p<LL; m_p++ )
+  {
+    const char c1 = 0<m_p ? m_fb.Get( m_l, m_p-1 ) : m_fb.Get( m_l, m_p );
+    const char c0 = 0<m_p ? m_fb.Get( m_l, m_p   ) : 0;
+
+    if( c1=='/' && c0=='/' )
+    {
+      m_fb.SetSyntaxStyle( m_l, m_p-1, HI_COMMENT );
+      m_fb.SetSyntaxStyle( m_l, m_p  , HI_COMMENT );
+      m_p++;
+      m_state = St_JS_CPP_Comment;
+    }
+    else if( c1=='/' && c0=='*' )
+    {
+      m_fb.SetSyntaxStyle( m_l, m_p, HI_COMMENT );
+      m_fb.SetSyntaxStyle( m_l, m_p, HI_COMMENT );
+      m_p++;
+      m_state = St_JS_C_Comment;
+      m_ccXSt = St_JS_None;
     }
     else {
-      m_state = &ME::Hi_In_None;
+      m_fb.SetSyntaxStyle( m_l, m_p, HI_DEFINE );
     }
+    if( St_JS_Define != m_state ) return;
   }
+  m_p=0; m_l++;
+  m_state = St_JS_None;
+}
+void Highlight_HTML::Hi_C_Comment()
+{
+  bool exit = false;
+  for( ; m_l<m_fb.NumLines(); m_l++ )
+  {
+    const unsigned LL = m_fb.LineLen( m_l );
+
+    for( ; m_p<LL; m_p++ )
+    {
+      const char c1 = 0<m_p ? m_fb.Get( m_l, m_p-1 ) : m_fb.Get( m_l, m_p );
+      const char c0 = 0<m_p ? m_fb.Get( m_l, m_p   ) : 0;
+
+      m_fb.SetSyntaxStyle( m_l, m_p, HI_COMMENT );
+
+      if( c1=='*' && c0=='/' )
+      {
+        m_p++; //< Move past '/'
+        m_state = m_ccXSt;
+        exit = true;
+      }
+      if( exit ) return;
+    }
+    m_p = 0;
+  }
+  m_state = St_Done;
+}
+void Highlight_HTML::Hi_JS_CPP_Comment()
+{
+  const unsigned LL = m_fb.LineLen( m_l );
+
+  for( ; m_p<LL; m_p++ )
+  {
+    m_fb.SetSyntaxStyle( m_l, m_p, HI_COMMENT );
+  }
+  m_l++;
+  m_p=0;
+  m_state = St_JS_None;
 }
 
-void Highlight_HTML::
-     Find_Styles_Keys_In_Range( const CrsPos   st
-                              , const unsigned fn )
+bool CS_OneVarType( const char c0 )
 {
-  Hi_FindKey_In_Range( HiPairs, st, fn );
+  return c0=='*' || c0=='#';
 }
+bool CS_OneControl( const char c0 )
+{
+  return c0=='.' || c0=='-' || c0==','
+      || c0==':' || c0==';'
+      || c0=='{' || c0=='}';
+}
+
+void Highlight_HTML::Hi_CS_None()
+{
+  for( ; m_l<m_fb.NumLines(); m_l++ )
+  {
+    const Line* lp = m_fb.GetLineP( m_l );
+    const unsigned LL = m_fb.LineLen( m_l );
+
+    for( ; m_p<LL; m_p++ )
+    {
+      m_fb.ClearSyntaxStyles( m_l, m_p );
+
+      // c0 is ahead of c1 is ahead of c2: (c2,c1,c0)
+      const char c2 = (1<m_p) ? m_fb.Get( m_l, m_p-2 ) : 0;
+      const char c1 = (0<m_p) ? m_fb.Get( m_l, m_p-1 ) : 0;
+      const char c0 =           m_fb.Get( m_l, m_p );
+
+      if( c1=='/' && c0 == '*' )
+      {
+        m_p--;
+        m_state = St_CS_C_Comment;
+        m_ccXSt = St_CS_None;
+      }
+      else if( c0 == '\'')
+      {
+        m_fb.SetSyntaxStyle( m_l, m_p, HI_CONST );
+        m_p++; //< Move past '\"'
+        m_state = St_CS_SingleQuote;
+        m_qtXSt = St_CS_None;
+      }
+      else if( c0 == '\"')
+      {
+        m_fb.SetSyntaxStyle( m_l, m_p, HI_CONST );
+        m_p++; //< Move past '\"'
+        m_state = St_CS_DoubleQuote;
+        m_qtXSt = St_CS_None;
+      }
+      else if( !IsIdent( c1 )
+             && isdigit( c0 ))
+      {
+        // FIXME: For CSS, the following extensions should be highlighted:
+        //        px, pt, %, in, em
+        m_state = St_NumberBeg;
+        m_numXSt = St_CS_None;
+      }
+      else if( c1=='<' && c0=='/' && m_p+6<LL )
+      {
+        if( 0==strncasecmp( lp->c_str(m_p-1), "</style", 7 ) )
+        {
+          m_fb.SetSyntaxStyle( m_l, m_p-1, HI_DEFINE );
+          m_fb.SetSyntaxStyle( m_l, m_p  , HI_DEFINE );
+          m_p++; // Move past '/'
+          m_state = St_CloseTag;
+          if( 0<m_CS_edges.len() ) { //< Should always be true
+            Edges* edges = m_CS_edges.get( m_CS_edges.len()-1 );
+            edges->end.crsLine = m_l;
+            edges->end.crsChar = m_p-1;
+          }
+        }
+      }
+      else if( CS_OneVarType( c0 ) )
+      {
+        m_fb.SetSyntaxStyle( m_l, m_p, HI_VARTYPE );
+      }
+      else if( CS_OneControl( c0 ) )
+      {
+        m_fb.SetSyntaxStyle( m_l, m_p, HI_CONTROL );
+      }
+      else if( c0 < 32 || 126 < c0 )
+      {
+        m_fb.SetSyntaxStyle( m_l, m_p, HI_NONASCII );
+      }
+      if( St_CS_None != m_state ) return;
+    }
+    m_p = 0;
+  }
+  m_state = St_Done;
+}
+
+unsigned Highlight_HTML::Has_HTTP_Tag_At( const Line* lp, unsigned pos )
+{
+  if( IsXML_Ident( lp->get( pos ) ) )
+  {
+    const unsigned num_HTML_Tags = sizeof(m_HTML_Tags)/sizeof(char*);
+
+    for( unsigned k=0; k<num_HTML_Tags; k++ )
+    {
+      const char* tag = m_HTML_Tags[k];
+      const size_t tag_len = strlen(tag);
+
+      if( 0==strncasecmp( lp->c_str(pos), tag, tag_len ) )
+      {
+        return tag_len;
+      }
+    }
+  }
+  return 0;
+}
+
+const char* Highlight_HTML::State_2_str( const Hi_State state )
+{
+  switch( state )
+  {
+  case St_In_None         : return "St_In_None"         ;
+  case St_OpenTag_ElemName: return "St_OpenTag_ElemName";
+  case St_OpenTag_AttrName: return "St_OpenTag_AttrName";
+  case St_OpenTag_AttrVal : return "St_OpenTag_AttrVal ";
+  case St_CloseTag        : return "St_CloseTag"        ;
+  case St_XML_Comment     : return "St_XML_Comment"     ;
+  case St_SingleQuote     : return "St_SingleQuote"     ;
+  case St_DoubleQuote     : return "St_DoubleQuote"     ;
+  case St_NumberBeg       : return "St_NumberBeg"       ;
+  case St_NumberDec       : return "St_NumberDec"       ;
+  case St_NumberHex       : return "St_NumberHex"       ;
+  case St_NumberExponent  : return "St_NumberExponent"  ;
+  case St_NumberFraction  : return "St_NumberFraction"  ;
+  case St_NumberTypeSpec  : return "St_NumberTypeSpec"  ;
+
+  case St_JS_None          : return "St_JS_None"          ;
+  case St_JS_Define        : return "St_JS_Define"        ;
+  case St_JS_C_Comment     : return "St_JS_C_Comment"     ;
+  case St_JS_CPP_Comment   : return "St_JS_CPP_Comment"   ;
+  case St_JS_SingleQuote   : return "St_JS_SingleQuote"   ;
+  case St_JS_DoubleQuote   : return "St_JS_DoubleQuote"   ;
+  case St_JS_NumberBeg     : return "St_JS_NumberBeg"     ;
+  case St_JS_NumberDec     : return "St_JS_NumberDec"     ;
+  case St_JS_NumberHex     : return "St_JS_NumberHex"     ;
+  case St_JS_NumberExponent: return "St_JS_NumberExponent";
+  case St_JS_NumberFraction: return "St_JS_NumberFraction";
+  case St_JS_NumberTypeSpec: return "St_JS_NumberTypeSpec";
+
+  case St_CS_None       : return "St_CS_None"       ;
+  case St_CS_C_Comment  : return "St_CS_C_Comment"  ;
+  case St_CS_SingleQuote: return "St_CS_SingleQuote";
+  case St_CS_DoubleQuote: return "St_CS_DoubleQuote";
+
+  case St_Done: return "St_Done";
+  }
+  return "Unknown";
+}
+
+HiKeyVal Highlight_HTML::m_JS_HiPairs[] =
+{
+  // Keywords:
+  { "break"     , HI_CONTROL },
+  { "break"     , HI_CONTROL },
+  { "catch"     , HI_CONTROL },
+  { "case"      , HI_CONTROL },
+  { "continue"  , HI_CONTROL },
+  { "debugger"  , HI_CONTROL },
+  { "default"   , HI_CONTROL },
+  { "delete"    , HI_CONTROL },
+  { "do"        , HI_CONTROL },
+  { "else"      , HI_CONTROL },
+  { "finally"   , HI_CONTROL },
+  { "for"       , HI_CONTROL },
+  { "function"  , HI_CONTROL },
+  { "if"        , HI_CONTROL },
+  { "in"        , HI_CONTROL },
+  { "instanceof", HI_CONTROL },
+  { "new"       , HI_VARTYPE },
+  { "return"    , HI_CONTROL },
+  { "switch"    , HI_CONTROL },
+  { "throw"     , HI_CONTROL },
+  { "try"       , HI_CONTROL },
+  { "typeof"    , HI_VARTYPE },
+  { "var"       , HI_VARTYPE },
+  { "void"      , HI_VARTYPE },
+  { "while"     , HI_CONTROL },
+  { "with"      , HI_CONTROL },
+
+  // Keywords in strict mode:
+  { "implements", HI_CONTROL },
+  { "interface" , HI_CONTROL },
+  { "let"       , HI_VARTYPE },
+  { "package"   , HI_DEFINE  },
+  { "private"   , HI_CONTROL },
+  { "protected" , HI_CONTROL },
+  { "public"    , HI_CONTROL },
+  { "static"    , HI_VARTYPE },
+  { "yield"     , HI_CONTROL },
+
+  // Constants:
+  { "false", HI_CONST },
+  { "null" , HI_CONST },
+  { "true" , HI_CONST },
+
+  // Global variables and functions:
+  { "arguments"         , HI_VARTYPE },
+  { "Array"             , HI_VARTYPE },
+  { "Boolean"           , HI_VARTYPE },
+  { "Date"              , HI_CONTROL },
+  { "decodeURI"         , HI_CONTROL },
+  { "decodeURIComponent", HI_CONTROL },
+  { "encodeURI"         , HI_CONTROL },
+  { "encodeURIComponent", HI_CONTROL },
+  { "Error"             , HI_VARTYPE },
+  { "eval"              , HI_CONTROL },
+  { "EvalError"         , HI_CONTROL },
+  { "Function"          , HI_CONTROL },
+  { "Infinity"          , HI_CONST   },
+  { "isFinite"          , HI_CONTROL },
+  { "isNaN"             , HI_CONTROL },
+  { "JSON"              , HI_CONTROL },
+  { "Math"              , HI_CONTROL },
+  { "NaN"               , HI_CONST   },
+  { "Number"            , HI_VARTYPE },
+  { "Object"            , HI_VARTYPE },
+  { "parseFloat"        , HI_CONTROL },
+  { "parseInt"          , HI_CONTROL },
+  { "RangeError"        , HI_VARTYPE },
+  { "ReferenceError"    , HI_VARTYPE },
+  { "RegExp"            , HI_CONTROL },
+  { "String"            , HI_VARTYPE },
+  { "SyntaxError"       , HI_VARTYPE },
+  { "TypeError"         , HI_VARTYPE },
+  { "undefined"         , HI_CONST   },
+  { "URIError"          , HI_VARTYPE },
+};
 

@@ -114,6 +114,10 @@ public:
                      , const unsigned style );
   bool HasStyle( const unsigned l_num, const unsigned c_num
                , const unsigned style );
+  void RemoveTabs_SpacesAtEOLs( const unsigned tab_sz );
+  void dos2unix();
+  void unix2dos();
+
   struct Data;
 
 private:
