@@ -135,7 +135,6 @@ enum ChangeType
 };
 
 const char* ChangeType_Str( const ChangeType ct );
-//const char* UpdateType_Str( const UpdateType ut );
 
 enum File_Type
 {

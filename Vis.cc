@@ -128,7 +128,7 @@ Vis::Data::Data( Vis& vis )
   , shell( vis )
   , win( 0 )
   , num_wins( 1 )
-  , files(__FILE__, __LINE__)
+  , files()
   , views()
   , file_hist()
   , reg()
@@ -390,16 +390,16 @@ void InitFileHistory( Vis::Data& m )
 {
   for( int w=0; w<MAX_WINS; w++ )
   {
-    m.file_hist[w].push( __FILE__,__LINE__, BE_FILE );
-    m.file_hist[w].push( __FILE__,__LINE__, HELP_FILE );
+    m.file_hist[w].push( BE_FILE );
+    m.file_hist[w].push( HELP_FILE );
 
     if( USER_FILE<m.views[w].len() )
     {
-      m.file_hist[w].insert( __FILE__,__LINE__, 0, USER_FILE );
+      m.file_hist[w].insert( 0, USER_FILE );
 
       for( int f=m.views[w].len()-1; (USER_FILE+1)<=f; f-- )
       {
-        m.file_hist[w].push( __FILE__,__LINE__, f );
+        m.file_hist[w].push( f );
       }
     }
   }
@@ -434,7 +434,7 @@ void GoToBuffer( Vis::Data& m, const unsigned buf_idx )
     else {
       m.vis.NoDiff();
 
-      m.file_hist[m.win].insert(__FILE__,__LINE__, 0, buf_idx );
+      m.file_hist[m.win].insert( 0, buf_idx );
 
       // Remove subsequent buf_idx's from m.file_hist[m.win]:
       for( unsigned k=1; k<m.file_hist[m.win].len(); k++ )
@@ -509,7 +509,7 @@ void GoToNextBuffer( Vis::Data& m )
     // Move view index at back to front of m.file_hist
     unsigned view_index_new = 0;
     m.file_hist[m.win].pop( view_index_new );
-    m.file_hist[m.win].insert(__FILE__,__LINE__, 0, view_index_new );
+    m.file_hist[m.win].insert( 0, view_index_new );
 
     // Redisplay current window with new view:
     CV(m)->SetTilePos( tp_old );
@@ -560,7 +560,7 @@ void GoToPrevBuffer( Vis::Data& m )
     // Move view index at front to back of m.file_hist
     unsigned view_index_old = 0;
     m.file_hist[m.win].remove( 0, view_index_old );
-    m.file_hist[m.win].push(__FILE__,__LINE__, view_index_old );
+    m.file_hist[m.win].push( view_index_old );
 
     // Redisplay current window with new view:
     CV(m)->SetTilePos( tp_old );
@@ -1973,7 +1973,7 @@ void SetWinToBuffer( Vis::Data& m
       // Dont do anything.
     }
     else {
-      m.file_hist[win_idx].insert(__FILE__,__LINE__, 0, buf_idx );
+      m.file_hist[win_idx].insert( 0, buf_idx );
 
       // Remove subsequent buf_idx's from m.file_hist[win_idx]:
       for( unsigned k=1; k<m.file_hist[win_idx].len(); k++ )
@@ -2048,59 +2048,6 @@ View* DoDiff_FindRegFileView( Vis::Data& m
   }
   return pv;
 }
-
-//void DoDiff( Vis::Data& m )
-//{
-//  Trace trace( __PRETTY_FUNCTION__ );
-//
-//  // Must be exactly 2 buffers to do diff:
-//  if( 2 == m.num_wins )
-//  {
-//    View* pv0 = m.views[0][ m.file_hist[0][0] ];
-//    View* pv1 = m.views[1][ m.file_hist[1][0] ];
-//    FileBuf* pfb0 = pv0->GetFB();
-//    FileBuf* pfb1 = pv1->GetFB();
-//
-//    // New code in progress:
-//    bool ok = true;
-//    if( !pfb0->IsDir() && pfb1->IsDir() )
-//    {
-//      pv1 = DoDiff_FindRegFileView( m, pfb0, pfb1, 1, pv1 );
-//    }
-//    else if( pfb0->IsDir() && !pfb1->IsDir() )
-//    {
-//      pv0 = DoDiff_FindRegFileView( m, pfb1, pfb0, 0, pv0 );
-//    }
-//    else {
-//      if( ( strcmp( SHELL_BUF_NAME, pfb0->GetHeadName() )
-//         && !FileExists( pfb0->GetFileName() ) )
-//       || ( strcmp( SHELL_BUF_NAME, pfb1->GetHeadName() )
-//         && !FileExists( pfb1->GetFileName() ) ) )
-//      {
-//        ok = false;
-//      }
-//    }
-//    if( !ok ) m.running = false;
-//    else {
-//#ifndef WIN32
-//      timeval tv1; gettimeofday( &tv1, 0 );
-//#endif
-//      bool ok = m.diff.Run( pv0, pv1 );
-//      if( ok ) {
-//        m.diff_mode = true;
-//
-//#ifndef WIN32
-//        timeval tv2; gettimeofday( &tv2, 0 );
-//
-//        double secs = (tv2.tv_sec-tv1.tv_sec)
-//                    + double(tv2.tv_usec)/1e6
-//                    - double(tv1.tv_usec)/1e6;
-//        m.vis.CmdLineMessage( "Diff took: %g seconds", secs );
-//#endif
-//      }
-//    }
-//  }
-//}
 
 void DoDiff( Vis::Data& m )
 {
@@ -2527,7 +2474,7 @@ void Handle_i( Vis::Data& m )
   if( !m.key.get_from_dot_buf )
   {
     m.key.dot_buf.clear();
-    m.key.dot_buf.push(__FILE__,__LINE__,'i');
+    m.key.dot_buf.push('i');
     m.key.save_2_dot_buf = true;
   }
 
@@ -2577,7 +2524,7 @@ void Handle_v( Vis::Data& m )
   if( !m.key.get_from_dot_buf )
   {
     m.key.vis_buf.clear();
-    m.key.vis_buf.push(__FILE__,__LINE__,'v');
+    m.key.vis_buf.push('v');
     m.key.save_2_vis_buf = true;
   }
   const bool copy_vis_buf_2_dot_buf = m.diff_mode
@@ -2609,7 +2556,7 @@ void Handle_V( Vis::Data& m )
   if( !m.key.get_from_dot_buf )
   {
     m.key.vis_buf.clear();
-    m.key.vis_buf.push(__FILE__,__LINE__,'V');
+    m.key.vis_buf.push('V');
     m.key.save_2_vis_buf = true;
   }
   const bool copy_vis_buf_2_dot_buf = m.diff_mode
@@ -2633,7 +2580,7 @@ void Handle_a( Vis::Data& m )
   if( !m.key.get_from_dot_buf )
   {
     m.key.dot_buf.clear();
-    m.key.dot_buf.push(__FILE__,__LINE__,'a');
+    m.key.dot_buf.push('a');
     m.key.save_2_dot_buf = true;
   }
 
@@ -2683,7 +2630,7 @@ void Handle_A( Vis::Data& m )
   if( !m.key.get_from_dot_buf )
   {
     m.key.dot_buf.clear();
-    m.key.dot_buf.push(__FILE__,__LINE__,'A');
+    m.key.dot_buf.push('A');
     m.key.save_2_dot_buf = true;
   }
 
@@ -2733,7 +2680,7 @@ void Handle_o( Vis::Data& m )
   if( !m.key.get_from_dot_buf )
   {
     m.key.dot_buf.clear();
-    m.key.dot_buf.push(__FILE__,__LINE__,'o');
+    m.key.dot_buf.push('o');
     m.key.save_2_dot_buf = true;
   }
 
@@ -2783,7 +2730,7 @@ void Handle_O( Vis::Data& m )
   if( !m.key.get_from_dot_buf )
   {
     m.key.dot_buf.clear();
-    m.key.dot_buf.push(__FILE__,__LINE__,'O');
+    m.key.dot_buf.push('O');
     m.key.save_2_dot_buf = true;
   }
 
@@ -2803,7 +2750,7 @@ void Handle_x( Vis::Data& m )
   if( !m.key.get_from_dot_buf )
   {
     m.key.dot_buf.clear();
-    m.key.dot_buf.push(__FILE__,__LINE__,'x');
+    m.key.dot_buf.push('x');
   }
   if( m.diff_mode ) m.diff.Do_x();
   else              CV(m)->Do_x();
@@ -2824,7 +2771,7 @@ void Handle_s( Vis::Data& m )
   if( !m.key.get_from_dot_buf )
   {
     m.key.dot_buf.clear();
-    m.key.dot_buf.push(__FILE__,__LINE__,'s');
+    m.key.dot_buf.push('s');
     m.key.save_2_dot_buf = true;
   }
 
@@ -2856,8 +2803,8 @@ void Handle_c( Vis::Data& m )
     if( !m.key.get_from_dot_buf )
     {
       m.key.dot_buf.clear();
-      m.key.dot_buf.push(__FILE__,__LINE__,'c');
-      m.key.dot_buf.push(__FILE__,__LINE__,'w');
+      m.key.dot_buf.push('c');
+      m.key.dot_buf.push('w');
       m.key.save_2_dot_buf = true;
     }
     if( m.diff_mode ) m.diff.Do_cw();
@@ -2873,8 +2820,8 @@ void Handle_c( Vis::Data& m )
     if( !m.key.get_from_dot_buf )
     {
       m.key.dot_buf.clear();
-      m.key.dot_buf.push(__FILE__,__LINE__,'c');
-      m.key.dot_buf.push(__FILE__,__LINE__,'$');
+      m.key.dot_buf.push('c');
+      m.key.dot_buf.push('$');
       m.key.save_2_dot_buf = true;
     }
     if( m.diff_mode ) { m.diff.Do_D(); m.diff.Do_a(); }
@@ -3347,8 +3294,8 @@ void Handle_d( Vis::Data& m )
     if( !m.key.get_from_dot_buf )
     {
       m.key.dot_buf.clear();
-      m.key.dot_buf.push(__FILE__,__LINE__,'d');
-      m.key.dot_buf.push(__FILE__,__LINE__,'d');
+      m.key.dot_buf.push('d');
+      m.key.dot_buf.push('d');
     }
     if( m.diff_mode ) m.diff.Do_dd();
     else              CV(m)->Do_dd();
@@ -3358,8 +3305,8 @@ void Handle_d( Vis::Data& m )
     if( !m.key.get_from_dot_buf )
     {
       m.key.dot_buf.clear();
-      m.key.dot_buf.push(__FILE__,__LINE__,'d');
-      m.key.dot_buf.push(__FILE__,__LINE__,'w');
+      m.key.dot_buf.push('d');
+      m.key.dot_buf.push('w');
     }
     if( m.diff_mode ) m.diff.Do_dw();
     else              CV(m)->Do_dw();
@@ -3656,8 +3603,8 @@ void Do_Star_Update_Search_Editor( Vis::Data& m )
   }
   else {
     // Push regex onto search editor buffer
-    Line line(__FILE__,__LINE__);
-    for( const char* p=m.regex.c_str(); *p; p++ ) line.push(__FILE__,__LINE__, *p );
+    Line line;
+    for( const char* p=m.regex.c_str(); *p; p++ ) line.push( *p );
     pfb->PushLine( line );
   }
   // Push an emtpy line onto slash buffer to leave empty / prompt:
@@ -3707,7 +3654,7 @@ void Handle_D( Vis::Data& m )
   if( !m.key.get_from_dot_buf )
   {
     m.key.dot_buf.clear();
-    m.key.dot_buf.push(__FILE__,__LINE__,'D');
+    m.key.dot_buf.push('D');
   }
   if( m.diff_mode ) m.diff.Do_D();
   else              CV(m)->Do_D();
@@ -3728,7 +3675,7 @@ void Handle_p( Vis::Data& m )
   if( !m.key.get_from_dot_buf )
   {
     m.key.dot_buf.clear();
-    m.key.dot_buf.push(__FILE__,__LINE__,'p');
+    m.key.dot_buf.push('p');
   }
   if( m.diff_mode ) m.diff.Do_p();
   else              CV(m)->Do_p();
@@ -3749,7 +3696,7 @@ void Handle_P( Vis::Data& m )
   if( !m.key.get_from_dot_buf )
   {
     m.key.dot_buf.clear();
-    m.key.dot_buf.push(__FILE__,__LINE__,'P');
+    m.key.dot_buf.push('P');
   }
   if( m.diff_mode ) m.diff.Do_P();
   else              CV(m)->Do_P();
@@ -3770,7 +3717,7 @@ void Handle_R( Vis::Data& m )
   if( !m.key.get_from_dot_buf )
   {
     m.key.dot_buf.clear();
-    m.key.dot_buf.push(__FILE__,__LINE__,'R');
+    m.key.dot_buf.push('R');
     m.key.save_2_dot_buf = true;
   }
   if( m.diff_mode ) m.diff.Do_R();
@@ -3819,7 +3766,7 @@ void Handle_J( Vis::Data& m )
   if( !m.key.get_from_dot_buf )
   {
     m.key.dot_buf.clear();
-    m.key.dot_buf.push(__FILE__,__LINE__,'J');
+    m.key.dot_buf.push('J');
   }
   if( m.diff_mode ) m.diff.Do_J();
   else              CV(m)->Do_J();
@@ -3840,7 +3787,7 @@ void Handle_Tilda( Vis::Data& m )
   if( !m.key.get_from_dot_buf )
   {
     m.key.dot_buf.clear();
-    m.key.dot_buf.push(__FILE__,__LINE__,'~');
+    m.key.dot_buf.push('~');
   }
   if( m.diff_mode ) m.diff.Do_Tilda();
   else              CV(m)->Do_Tilda();
@@ -3964,9 +3911,9 @@ void AddToBufferEditor( Vis::Data& m, const char* fname )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  Line line(__FILE__, __LINE__, strlen( fname ) );
+  Line line( strlen( fname ) );
 
-  for( const char* p=fname; *p; p++ ) line.push(__FILE__,__LINE__, *p );
+  for( const char* p=fname; *p; p++ ) line.push( *p );
 
   FileBuf* pfb = m.views[0][ BE_FILE ]->GetFB();
   pfb->PushLine( line );
@@ -4107,7 +4054,7 @@ void Window_Message( Vis::Data& m, const char* const msg )
     const char C = msg[k];
 
     if( C == '\n' ) { pMB->PushLine( pL ); pL = 0; }
-    else            { pL->push(__FILE__,__LINE__, C ); }
+    else            { pL->push( C ); }
   }
   // Make sure last borrowed line gets put into Message Buffer:
   if( pL ) pMB->PushLine( pL );
@@ -4359,12 +4306,12 @@ void Vis::Add_FileBuf_2_Lists_Create_Views( FileBuf* pfb, const char* fname )
   Trace trace( __PRETTY_FUNCTION__ );
 
   // Add this file buffer to global list of files
-  m.files.push(__FILE__,__LINE__, pfb );
+  m.files.push( pfb );
   // Create a new view for each window for FileBuf
   for( unsigned w=0; w<MAX_WINS; w++ )
   {
     View* pV  = new(__FILE__,__LINE__) View( m.vis, m.key, *pfb, m.reg );
-    bool ok = m.views[w].push(__FILE__,__LINE__, pV );
+    bool ok = m.views[w].push( pV );
     ASSERT( __LINE__, ok, "ok" );
     pfb->AddView( pV );
   }
@@ -4668,13 +4615,13 @@ Line* Vis::BorrowLine( const char*    _FILE_
     bool ok = m.line_cache.pop( lp );
     ASSERT( __LINE__, ok, "ok" );
 
-    ok = lp->inc_cap( __FILE__, __LINE__, SIZE );
+    ok = lp->inc_cap( SIZE );
     ASSERT( __LINE__, ok, "ok" );
 
     lp->clear();
   }
   else {
-    lp = new( _FILE_, _LINE_ ) Line( __FILE__, __LINE__, SIZE );
+    lp = new( _FILE_, _LINE_ ) Line( SIZE );
   }
   return lp;
 }
@@ -4694,13 +4641,13 @@ Line* Vis::BorrowLine( const char*    _FILE_
     bool ok = m.line_cache.pop( lp );
     ASSERT( __LINE__, ok, "ok" );
 
-    ok = lp->set_len(__FILE__,__LINE__, LEN );
+    ok = lp->set_len( LEN );
     ASSERT( __LINE__, ok, "ok" );
 
     for( unsigned k=0; k<LEN; k++ ) lp->set( k, FILL );
   }
   else {
-    lp = new(_FILE_,_LINE_) Line( __FILE__, __LINE__, LEN, FILL );
+    lp = new(_FILE_,_LINE_) Line( LEN, FILL );
   }
   return lp;
 }

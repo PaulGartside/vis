@@ -323,14 +323,14 @@ void InsertAddReturn( View::Data& m )
   Trace trace( __PRETTY_FUNCTION__ );
   // The lines in fb do not end with '\n's.
   // When the file is written, '\n's are added to the ends of the lines.
-  Line new_line(__FILE__,__LINE__);
+  Line new_line;
   const unsigned OLL = m.fb.LineLen( m.view.CrsLine() );  // Old line length
   const unsigned OCP = m.view.CrsChar();                  // Old cursor position
 
   for( unsigned k=OCP; k<OLL; k++ )
   {
     const uint8_t C = m.fb.RemoveChar( m.view.CrsLine(), OCP );
-    bool ok = new_line.push(__FILE__,__LINE__, C );
+    bool ok = new_line.push( C );
     ASSERT( __LINE__, ok, "ok" );
   }
   // Truncate the rest of the old line:
@@ -370,7 +370,7 @@ void InsertBackspace_RmNL( View::Data& m, const unsigned OCL )
   CrsPos ncp = { OCL-1, m.fb.LineLen( OCL-1 ) };
 
   // 2. Remove the line
-  Line lp(__FILE__, __LINE__);
+  Line lp;
   m.fb.RemoveLine( OCL, lp );
 
   // 3. Append rest of line to previous line
@@ -611,7 +611,7 @@ void Do_y_v_block( View::Data& m )
 
     for( unsigned P = m.v_st_char; P<LL && P <= m.v_fn_char; P++ )
     {
-      nlp->push(__FILE__,__LINE__, m.fb.Get( L, P ) );
+      nlp->push( m.fb.Get( L, P ) );
     }
     // m.reg will delete nlp
     m.reg.push( nlp );
@@ -647,7 +647,7 @@ void Do_y_v_st_fn( View::Data& m )
 
       for( unsigned P = P_st; P <= P_fn; P++ )
       {
-        nlp->push(__FILE__,__LINE__, m.fb.Get( L, P ) );
+        nlp->push( m.fb.Get( L, P ) );
       }
     }
     // m.reg will delete nlp
@@ -680,7 +680,7 @@ void Do_Y_v_st_fn( View::Data& m )
     {
       for( unsigned P = 0; P <= LL-1; P++ )
       {
-        nlp->push(__FILE__,__LINE__, m.fb.Get( L, P ) );
+        nlp->push( m.fb.Get( L, P ) );
       }
     }
     // m.reg will delete nlp
@@ -762,7 +762,7 @@ void Do_x_range_block( View::Data& m
 
     for( unsigned P = st_char; P<LL && P <= fn_char; P++ )
     {
-      nlp->push(__FILE__,__LINE__, m.fb.RemoveChar( L, st_char ) );
+      nlp->push( m.fb.RemoveChar( L, st_char ) );
     }
     m.reg.push( nlp );
   }
@@ -790,7 +790,7 @@ void Do_x_range_single( View::Data& m
     // Dont remove a single line, or else Q wont work right
     for( unsigned P = P_st; P_st < LL && P <= P_fn; P++ )
     {
-      nlp->push(__FILE__,__LINE__, m.fb.RemoveChar( L, P_st ) );
+      nlp->push( m.fb.RemoveChar( L, P_st ) );
 
       LL = m.fb.LineLen( L ); // Removed a char, so re-calculate LL
     }
@@ -827,7 +827,7 @@ void Do_x_range_multiple( View::Data& m
 
     for( unsigned P = P_st; P_st < LL && P <= P_fn; P++ )
     {
-      nlp->push(__FILE__,__LINE__, m.fb.RemoveChar( L, P_st ) );
+      nlp->push( m.fb.RemoveChar( L, P_st ) );
 
       LL = m.fb.LineLen( L ); // Removed a char, so re-calculate LL
     }
@@ -1225,14 +1225,14 @@ void ReplaceAddReturn( View::Data& m )
   Trace trace( __PRETTY_FUNCTION__ );
   // The lines in fb do not end with '\n's.
   // When the file is written, '\n's are added to the ends of the lines.
-  Line new_line(__FILE__, __LINE__);
+  Line new_line;
   const unsigned OLL = m.fb.LineLen( m.view.CrsLine() );
   const unsigned OCP = m.view.CrsChar();
 
   for( unsigned k=OCP; k<OLL; k++ )
   {
     const uint8_t C = m.fb.RemoveChar( m.view.CrsLine(), OCP );
-    bool ok = new_line.push(__FILE__,__LINE__, C );
+    bool ok = new_line.push( C );
     ASSERT( __LINE__, ok, "ok" );
   }
   // Truncate the rest of the old line:
@@ -3119,7 +3119,7 @@ void View::Do_x()
 
   // Put char x'ed into register:
   Line* nlp = m.vis.BorrowLine( __FILE__,__LINE__ );
-  nlp->push(__FILE__,__LINE__, C );
+  nlp->push( C );
   m.reg.clear();
   m.reg.push( nlp );
   m.vis.SetPasteMode( PM_ST_FN );
@@ -3220,7 +3220,7 @@ void View::Do_D()
     for( unsigned k=OCP; k<OLL; k++ )
     {
       uint8_t c = m.fb.RemoveChar( OCL, OCP );
-      lpd->push(__FILE__,__LINE__, c );
+      lpd->push( c );
     }
     m.reg.clear();
     m.reg.push( lpd );
@@ -3367,7 +3367,7 @@ void View::Do_yw()
     // st_line and fn_line should be the same
     for( unsigned k=st_char; k<=fn_char; k++ )
     {
-      m.reg[0]->push(__FILE__,__LINE__, m.fb.Get( st_line, k ) );
+      m.reg[0]->push( m.fb.Get( st_line, k ) );
     }
     m.vis.SetPasteMode( PM_ST_FN );
   }

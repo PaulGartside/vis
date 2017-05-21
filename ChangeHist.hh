@@ -43,7 +43,7 @@ struct LineChange
     : type( type )
     , lnum( lnum )
     , cpos( cpos )
-    , line(__FILE__, __LINE__)
+    , line()
   {}
 };
 

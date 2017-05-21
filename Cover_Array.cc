@@ -54,12 +54,12 @@ void Cover_Array( FileBuf& in
     {
       const uint8_t B = in.Get( l, p );
       const uint8_t C = Cover_Byte() ^ B;
-      out.push(__FILE__,__LINE__, C );
+      out.push( C );
     }
     if( l<NUM_LINES-1 || in.Has_LF_at_EOF() )
     {
       const uint8_t C = Cover_Byte() ^ '\n';
-      out.push(__FILE__,__LINE__, C );
+      out.push( C );
     }
   }
 }

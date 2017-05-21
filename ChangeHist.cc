@@ -102,12 +102,12 @@ void ChangeHist::Save_Set( const unsigned l_num
                       + changes[NUM_CHANGES-1]->line.len() ) )
   {
     // Continuation of previous replacement:
-    changes[NUM_CHANGES-1]->line.push( __FILE__, __LINE__, old_C );
+    changes[NUM_CHANGES-1]->line.push( old_C );
   }
   else {
     // Start of new replacement:
     LineChange* lc = m_vis.BorrowLineChange( Replace_Text, l_num, c_pos );
-    lc->line.push( __FILE__, __LINE__, old_C );
+    lc->line.push( old_C );
 
     changes.push( lc );
   }
@@ -137,12 +137,12 @@ void ChangeHist::Save_InsertChar( const unsigned l_num
                      + changes[NUM_CHANGES-1]->line.len() ) )
   {
     // Continuation of previous insertion:
-    changes[NUM_CHANGES-1]->line.push( __FILE__, __LINE__, 0 );
+    changes[NUM_CHANGES-1]->line.push( 0 );
   }
   else {
     // Start of new insertion:
     LineChange* lc = m_vis.BorrowLineChange( Insert_Text, l_num, c_pos );
-    lc->line.push( __FILE__, __LINE__, 0 );
+    lc->line.push( 0 );
 
     changes.push( lc );
   }
@@ -159,7 +159,7 @@ void ChangeHist::Save_RemoveLine( const unsigned l_num
   lc->line.clear();
   for( unsigned k=0; k<line.len(); k++ )
   {
-    lc->line.push( __FILE__, __LINE__, line.get(k) );
+    lc->line.push( line.get(k) );
   }
   changes.push( lc );
 }
@@ -178,12 +178,12 @@ void ChangeHist::Save_RemoveChar( const unsigned l_num
    && c_pos       == changes[NUM_CHANGES-1]->cpos )
   {
     // Continuation of previous removal:
-    changes[NUM_CHANGES-1]->line.push( __FILE__, __LINE__, old_C );
+    changes[NUM_CHANGES-1]->line.push( old_C );
   }
   else {
     // Start of new removal:
     LineChange* lc = m_vis.BorrowLineChange( Remove_Text, l_num, c_pos );
-    lc->line.push( __FILE__, __LINE__, old_C );
+    lc->line.push( old_C );
 
     changes.push( lc );
   }

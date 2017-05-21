@@ -28,7 +28,6 @@
 #include <signal.h>
 #include "Types.hh"
 
-//class Line;
 class String;
 
 void DIE( const char* msg );

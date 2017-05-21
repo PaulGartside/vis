@@ -35,84 +35,58 @@
 class String
 {
 public:
-  String()                  : data(0), size(0), length(0) {}
-  String( const char* cp  ) : data(0), size(0), length(0) { copy( cp ); }
-  String( const String& s ) : data(0), size(0), length(0) { copy( s  ); }
-  ~String() { destruct(); }
+  String();
+  String( const char* cp  );
+  String( const String& a );
+  ~String();
 
-  unsigned sz () const { return size; }
-  unsigned len() const { return length; }
-  void   clear();
+  unsigned len() const;
+  unsigned cap() const;
+  void     clear();
 
-  const char* c_str() const { return data ? data : ""; }
+  const char* c_str() const;
 
-  String& operator=( const char* cp ) {
-    copy( cp );
-    return *this;
-  }
-  String& operator=( const String& s ) {
-    if( this != &s ) copy( s );
-    return *this;
-  }
+  String& operator=( const char* cp );
+  String& operator=( const String& a );
+
   bool  operator==( const char*  cp ) const;
-  bool  operator==( const String& s ) const;
-  bool  operator!=( const String& s ) const;
+  bool  operator==( const String& a ) const;
+  bool  operator!=( const String& a ) const;
 
-  char  get( unsigned i ) const;
-  bool  set( unsigned i, char c );
-  char  get_end( unsigned i=0 ) const;
+  char  get( const unsigned i ) const;
+  bool  set( const unsigned i, char C );
+  char  get_end( const unsigned i=0 ) const;
 
   bool    append( const char* cp );
-  bool    append( const String& s );
-  String& operator+=( const char*  cp ) { append(cp);        return *this; }
-  String& operator+=( const String& s ) { append(s.c_str()); return *this; }
+  bool    append( const String& a );
+  String& operator+=( const char*  cp );
+  String& operator+=( const String& a );
 
-  bool push( char c );
-  bool insert( unsigned p, char c );
-  bool insert( unsigned p, const char* cp );
+  bool inc_cap( unsigned new_cap );
+  bool push( const char C );
+  bool insert( const unsigned p, const char C );
+  bool insert( const unsigned p, const char* cp );
+  char remove( const unsigned p );
   char pop();
-  char pop_at( unsigned index=0 );
-  int  shift( unsigned num_chars );
 
   // replace the first occurance of s1 with s2,
   // returning 1 on success and 0 on failure
   bool replace( const String& s1, const String& s2 );
 
-  // Returns the number of chars changed from lower case to upper case
-  int to_upper();
-  // Returns the number of chars changed from upper case to lower case
-  int to_lower();
-
-  // If this string has pat at or after pos, returns 1, else returns 0
-  // If pos is non-zero:
-  //   If returning 1 *pos is set to index of pat
-  //   If returning 0 pos is un-changed
-  bool has( const char* pat, unsigned* pos=0 );
-
   // If this string has pat at pos, returns 1, else returns 0
   bool has_at( const char* pat, unsigned pos );
   bool ends_with( const char* pat );
-
-  int esc_len();
-  int chomp();
-  int trim    ( const char* trim_chars=" \t\r\n" );
-  int trim_end( const char* trim_chars=" \t\r\n" );
-  int trim_beg( const char* trim_chars=" \t\r\n" );
-  int trim_inv    ( const char* trim_chars );
-  int trim_inv_end( const char* trim_chars );
-  int trim_inv_beg( const char* trim_chars );
   bool split( const char* delim, String& part );
 
+  unsigned esc_len();
+  unsigned trim    ( const char* trim_chars=" \t\r\n" );
+  unsigned trim_end( const char* trim_chars=" \t\r\n" );
+  unsigned trim_beg( const char* trim_chars=" \t\r\n" );
+
+  struct Data;
+
 private:
-  char*    data  ;
-  unsigned size  ;  // size of buffer pointed to by data
-  unsigned length;  // length of data
-
-  void destruct();
-  bool inc_size( unsigned new_size, bool keep_data=false );
-
-  bool copy( const char*   cp );
-  bool copy( const String& s ) { return copy( s.c_str() ); }
+  Data& m;
 };
 
 #endif // __STRING__HH__

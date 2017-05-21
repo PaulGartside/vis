@@ -213,51 +213,6 @@ double ModificationTime( const char* fname )
   return mod_time;
 }
 
-//void Normalize_Full_Path( char* path )
-//{
-//  if( 0 != path )
-//  {
-//    int PATH_LEN = strlen( path );
-//    if( 1 < PATH_LEN )
-//    {
-//      if( '/' == path[PATH_LEN-2]
-//       && '.' == path[PATH_LEN-1] )
-//      {
-//        path[PATH_LEN-1] = 0;
-//        PATH_LEN--;
-//      }
-//      char slash_dot_dot[8];
-//      sprintf( slash_dot_dot, "%c..", DIR_DELIM );
-//
-//      // Remove all 'parent/..' occurences
-//      while( char* slash2_ptr = strstr( path, slash_dot_dot ) )
-//      {
-//        if( 3 == PATH_LEN )
-//        {
-//          path[0] = DIR_DELIM;
-//          path[1] = 0;
-//        }
-//        else {
-//          // Search for beginning of parent:
-//          int slash1_idx = slash2_ptr - path - 1;
-//          for( ; -1 < slash1_idx; slash1_idx-- )
-//          {
-//            if( path[slash1_idx] == DIR_DELIM ) break;
-//          }
-//          int end_idx = slash2_ptr + 2 - path;
-//          if( end_idx < PATH_LEN-1 && '/' == path[end_idx+1] ) end_idx++;
-//          const int RM_LEN = end_idx - slash1_idx;
-//          for( int k=slash1_idx+1; k<=(PATH_LEN-RM_LEN); k++ )
-//          {
-//            path[k] = path[k+RM_LEN];
-//          }
-//          PATH_LEN -= RM_LEN;
-//        }
-//      }
-//    }
-//  }
-//}
-
 // Changes 'path/.' to 'path/'
 void Remove_dot_at_end( char* path )
 {
@@ -367,18 +322,6 @@ void Remove_parent_slash_dot_dot( char* path )
   }
 }
 
-//void Normalize_Full_Path( char* path )
-//{
-//  if( 0 != path )
-//  {
-//    Remove_dot_at_end( path );
-//    Remove_parent_slash_dot_dot( path );
-//    Remove_dot_slash( path );
-//    Remove_slash_slash( path );
-//
-//  }
-//}
-
 void Normalize_Full_Path( char* path )
 {
   if( 0 != path )
@@ -390,118 +333,6 @@ void Normalize_Full_Path( char* path )
 
   }
 }
-
-// Finds full name of file or directory of in_out_fname passed in
-// relative to current directory, and places result in in_out_fname.
-// If successful, as a side effect, currect directory is changed to
-// that of new in_out_fname.
-// Returns true on success, false on failure.
-//
-//bool FindFullFileName( String& in_out_fname )
-//{
-//  EnvKeys2Vals( in_out_fname );
-//  const char* in_fname = in_out_fname.c_str();
-//  const unsigned FILE_NAME_LEN = 1024;
-//  char cwd[ FILE_NAME_LEN ];
-//
-//  // 1. lstat( in_fname ), set is_dir.
-//  // If lstat fails, is_dir is false, and assume in_fname will be a new file.
-//  struct stat sbuf ;
-//  int err = my_stat( in_fname, sbuf );
-//  const bool is_dir = ( 0==err && S_ISDIR( sbuf.st_mode ) ) ? true : false;
-//
-//  if( is_dir ) // in_fname is name of dir:
-//  {
-//    // 1. chdir  - Change dir to in_fname
-//    int err = chdir( in_fname );
-//    if( err ) return false;
-//    // 2. getcwd - Get the current working directory and put into cwd
-//    if( ! getcwd( cwd, FILE_NAME_LEN ) ) return false;
-//    // 3. make sure cwd ends with a '/'
-//    const int F_NAME_LEN = strlen( cwd );
-//    if( DIR_DELIM != cwd[ F_NAME_LEN-1 ] )
-//    {
-//      cwd[ F_NAME_LEN ] = DIR_DELIM;
-//      cwd[ F_NAME_LEN+1 ] = 0;
-//    }
-//    // 4. copy cwd int in_out_fname
-//    in_out_fname = cwd;
-//  }
-//  else {
-//    // 1. seperate in_fname into f_name_tail and f_name_head
-//    String f_name_head;
-//    String f_name_tail;
-//
-//    GetFnameHeadAndTail( in_out_fname, f_name_head, f_name_tail );
-//
-//    // 2. chdir  - Change dir to f_name_tail
-//    if( f_name_tail.len() )
-//    {
-//      int err = chdir( f_name_tail.c_str() );
-//      if( err ) return false;
-//    }
-//    // 3. getcwd - Get the current working directory and put into f_name_tail
-//    if( ! getcwd( cwd, FILE_NAME_LEN ) ) return false;
-//    f_name_tail = cwd;
-//    // 4. concatenate f_name_tail and f_name_head into in_out_fname
-//    sprintf( cwd, "%s%c%s", f_name_tail.c_str(), DIR_DELIM, f_name_head.c_str() );
-//    in_out_fname = cwd;
-//  }
-//  return true;
-//}
-
-// Finds full name of file or directory of in_out_fname passed in
-// relative to current directory, and places result in in_out_fname.
-// If successful, as a side effect, currect directory is changed to
-// that of new in_out_fname.
-// Returns true on success, false on failure.
-//
-//bool FindFullFileName( String& in_out_fname )
-//{
-//  EnvKeys2Vals( in_out_fname );
-//  const char* in_fname = in_out_fname.c_str();
-//  const unsigned FILE_NAME_LEN = 1024;
-//  char cwd[ FILE_NAME_LEN ];
-//
-//  if( IsDir( in_fname ) ) // in_fname is name of dir:
-//  {
-//    // 1. chdir  - Change dir to in_fname
-//    int err = chdir( in_fname );
-//    if( err ) return false;
-//    // 2. getcwd - Get the current working directory and put into cwd
-//    if( ! getcwd( cwd, FILE_NAME_LEN ) ) return false;
-//    // 3. make sure cwd ends with a '/'
-//    const int F_NAME_LEN = strlen( cwd );
-//    if( DIR_DELIM != cwd[ F_NAME_LEN-1 ] )
-//    {
-//      cwd[ F_NAME_LEN ] = DIR_DELIM;
-//      cwd[ F_NAME_LEN+1 ] = 0;
-//    }
-//    // 4. copy cwd int in_out_fname
-//    in_out_fname = cwd;
-//  }
-//  else { // IsDir is false, assume in_fname will be a new file.
-//    // 1. seperate in_fname into f_name_tail and f_name_head
-//    String f_name_head;
-//    String f_name_tail;
-//
-//    GetFnameHeadAndTail( in_out_fname, f_name_head, f_name_tail );
-//
-//    // 2. chdir  - Change dir to f_name_tail
-//    if( 0<f_name_tail.len() )
-//    {
-//      int err = chdir( f_name_tail.c_str() );
-//      if( err ) return false;
-//    }
-//    // 3. getcwd - Get the current working directory and put into f_name_tail
-//    if( ! getcwd( cwd, FILE_NAME_LEN ) ) return false;
-//    f_name_tail = cwd;
-//    // 4. concatenate f_name_tail and f_name_head into in_out_fname
-//    sprintf( cwd, "%s%c%s", f_name_tail.c_str(), DIR_DELIM, f_name_head.c_str() );
-//    in_out_fname = cwd;
-//  }
-//  return true;
-//}
 
 // Finds full name of file or directory of in_out_fname passed in
 // relative to the current directory, and places result in in_out_fname.
@@ -874,7 +705,7 @@ ConstCharList* Trace::mp_Call_Stack = 0;
 
 void Trace::Allocate()
 {
-  mp_Call_Stack = new(__FILE__,__LINE__) ConstCharList(__FILE__,__LINE__);
+  mp_Call_Stack = new(__FILE__,__LINE__) ConstCharList;
 }
 
 void Trace::Cleanup()
@@ -884,7 +715,7 @@ void Trace::Cleanup()
 
 Trace::Trace( const char* func_name )
 {
-  mp_Call_Stack->push(__FILE__,__LINE__, func_name );
+  mp_Call_Stack->push( func_name );
 }
 
 Trace::~Trace()

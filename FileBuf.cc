@@ -121,15 +121,15 @@ FileBuf::Data::Data( FileBuf& parent
   , head_name( "" )
   , is_dir( ::IsDir( file_name.c_str() ) )
   , mod_time( 0 )
-  , views(__FILE__, __LINE__)
+  , views()
   , line_view( 0 )
 #ifdef USE_REGEX
   , cm()
 #endif
   , regex()
-  , lineRegexsValid(__FILE__, __LINE__)
+  , lineRegexsValid()
   , save_history( false )
-  , lineOffsets(__FILE__, __LINE__)
+  , lineOffsets()
   , lines()
   , styles()
   , hi_touched_line( 0 )
@@ -159,13 +159,13 @@ FileBuf::Data::Data( FileBuf& parent
   , head_name( "" )
   , is_dir( rfb.m.is_dir )
   , mod_time( rfb.m.mod_time )
-  , views(__FILE__, __LINE__)
+  , views()
   , line_view( 0 )
 #ifdef USE_REGEX
   , cm()
 #endif
   , regex()
-  , lineRegexsValid(__FILE__, __LINE__)
+  , lineRegexsValid()
   , history( vis, parent )
   , save_history( is_dir ? false : true )
   , lineOffsets ( rfb.m.lineOffsets )
@@ -194,8 +194,6 @@ FileBuf::Data::~Data()
 
 bool Find_File_Type_Bash( FileBuf::Data& m )
 {
-  const unsigned LEN = m.file_name.len();
-
   if( m.file_name.ends_with(".sh"      )
    || m.file_name.ends_with(".sh.new"  )
    || m.file_name.ends_with(".sh.old"  )
@@ -217,8 +215,6 @@ bool Find_File_Type_Bash( FileBuf::Data& m )
 
 bool Find_File_Type_CPP( FileBuf::Data& m )
 {
-  const unsigned LEN = m.file_name.len();
-
   if( m.file_name.ends_with(".h"      )
    || m.file_name.ends_with(".h.new"  )
    || m.file_name.ends_with(".h.old"  )
@@ -250,8 +246,6 @@ bool Find_File_Type_CPP( FileBuf::Data& m )
 
 bool Find_File_Type_IDL( FileBuf::Data& m )
 {
-  const unsigned LEN = m.file_name.len();
-
   if( m.file_name.ends_with(".idl"    )
    || m.file_name.ends_with(".idl.new")
    || m.file_name.ends_with(".idl.old") )
@@ -265,8 +259,6 @@ bool Find_File_Type_IDL( FileBuf::Data& m )
 
 bool Find_File_Type_Java( FileBuf::Data& m )
 {
-  const unsigned LEN = m.file_name.len();
-
   if( m.file_name.ends_with(".java"    )
    || m.file_name.ends_with(".java.new")
    || m.file_name.ends_with(".java.old") )
@@ -280,8 +272,6 @@ bool Find_File_Type_Java( FileBuf::Data& m )
 
 bool Find_File_Type_HTML( FileBuf::Data& m )
 {
-  const unsigned LEN = m.file_name.len();
-
   if( m.file_name.ends_with(".htm"     )
    || m.file_name.ends_with(".htm.new" )
    || m.file_name.ends_with(".htm.old" )
@@ -298,8 +288,6 @@ bool Find_File_Type_HTML( FileBuf::Data& m )
 
 bool Find_File_Type_XML( FileBuf::Data& m )
 {
-  const unsigned LEN = m.file_name.len();
-
   if( m.file_name.ends_with(".xml"       )
    || m.file_name.ends_with(".xml.new"   )
    || m.file_name.ends_with(".xml.old"   )
@@ -316,8 +304,6 @@ bool Find_File_Type_XML( FileBuf::Data& m )
 
 bool Find_File_Type_JS( FileBuf::Data& m )
 {
-  const unsigned LEN = m.file_name.len();
-
   if( m.file_name.ends_with(".js"    )
    || m.file_name.ends_with(".js.new")
    || m.file_name.ends_with(".js.old") )
@@ -331,8 +317,6 @@ bool Find_File_Type_JS( FileBuf::Data& m )
 
 bool Find_File_Type_Make( FileBuf::Data& m )
 {
-  const unsigned LEN = m.file_name.len();
-
   if( m.file_name.ends_with(".Make"       )
    || m.file_name.ends_with(".make"       )
    || m.file_name.ends_with(".Make.new"   )
@@ -355,8 +339,6 @@ bool Find_File_Type_Make( FileBuf::Data& m )
 
 bool Find_File_Type_CMake( FileBuf::Data& m )
 {
-  const unsigned LEN = m.file_name.len();
-
   if( m.file_name.ends_with(".cmake"    )
    || m.file_name.ends_with(".cmake.new")
    || m.file_name.ends_with(".cmake.old")
@@ -373,8 +355,6 @@ bool Find_File_Type_CMake( FileBuf::Data& m )
 
 bool Find_File_Type_Python( FileBuf::Data& m )
 {
-  const unsigned LEN = m.file_name.len();
-
   if( m.file_name.ends_with(".py"    )
    || m.file_name.ends_with(".py.new")
    || m.file_name.ends_with(".py.old") )
@@ -388,8 +368,6 @@ bool Find_File_Type_Python( FileBuf::Data& m )
 
 bool Find_File_Type_SQL( FileBuf::Data& m )
 {
-  const unsigned LEN = m.file_name.len();
-
   if( m.file_name.ends_with(".sql"    )
    || m.file_name.ends_with(".sql.new")
    || m.file_name.ends_with(".sql.old") )
@@ -403,14 +381,12 @@ bool Find_File_Type_SQL( FileBuf::Data& m )
 
 bool Find_File_Type_STL( FileBuf::Data& m )
 {
-  const unsigned LEN = m.file_name.len();
-
-  if( ( 4 < LEN && m.file_name.has_at(".stl"    , LEN-4 ) )
-   || ( 8 < LEN && m.file_name.has_at(".stl.new", LEN-8 ) )
-   || ( 8 < LEN && m.file_name.has_at(".stl.old", LEN-8 ) )
-   || ( 4 < LEN && m.file_name.has_at(".ste"    , LEN-4 ) )
-   || ( 8 < LEN && m.file_name.has_at(".ste.new", LEN-8 ) )
-   || ( 8 < LEN && m.file_name.has_at(".ste.old", LEN-8 ) ) )
+  if( m.file_name.ends_with(".stl"    )
+   || m.file_name.ends_with(".stl.new")
+   || m.file_name.ends_with(".stl.old")
+   || m.file_name.ends_with(".ste"    )
+   || m.file_name.ends_with(".ste.new")
+   || m.file_name.ends_with(".ste.old") )
   {
     m.file_type = FT_STL;
     m.pHi = new(__FILE__,__LINE__) Highlight_STL( m.self );
@@ -421,8 +397,6 @@ bool Find_File_Type_STL( FileBuf::Data& m )
 
 bool Find_File_Type_ODB( FileBuf::Data& m )
 {
-  const unsigned LEN = m.file_name.len();
-
   if( m.file_name.ends_with(".odb"    )
    || m.file_name.ends_with(".odb.new")
    || m.file_name.ends_with(".odb.old") )
@@ -436,8 +410,6 @@ bool Find_File_Type_ODB( FileBuf::Data& m )
 
 bool Find_File_Type_Swift( FileBuf::Data& m )
 {
-  const unsigned LEN = m.file_name.len();
-
   if( m.file_name.ends_with(".swift"    )
    || m.file_name.ends_with(".swift.new")
    || m.file_name.ends_with(".swift.old") )
@@ -451,8 +423,6 @@ bool Find_File_Type_Swift( FileBuf::Data& m )
 
 bool Find_File_Type_TCL( FileBuf::Data& m )
 {
-  const unsigned LEN = m.file_name.len();
-
   if( m.file_name.ends_with(".tcl"    )
    || m.file_name.ends_with(".tcl.new")
    || m.file_name.ends_with(".tcl.old") )
@@ -551,7 +521,7 @@ void ChangedLine( FileBuf::Data& m, const unsigned line_num )
   {
     HVLO = Min( line_num-1, m.lineOffsets.len()-1 );
   }
-  m.lineOffsets.set_len(__FILE__,__LINE__, HVLO );
+  m.lineOffsets.set_len( HVLO );
 
   m.hi_touched_line = Min( m.hi_touched_line, line_num );
 }
@@ -589,7 +559,7 @@ void ReadExistingFile( FileBuf::Data& m, FILE* fp )
       m.LF_at_EOF = true;
     }
     else {
-      bool ok = lp->push(__FILE__,__LINE__, C );
+      bool ok = lp->push( C );
       if( !ok ) DIE("Line.push() failed");
       m.LF_at_EOF = false;
     }
@@ -617,8 +587,8 @@ void Append_DirDelim( FileBuf::Data& m, const unsigned l_num )
 
   if( !lp->ends_with( DIR_DELIM ) )
   {
-    bool ok = lp->push(__FILE__,__LINE__, DIR_DELIM )
-           && sp->push(__FILE__,__LINE__, 0 );
+    bool ok = lp->push( DIR_DELIM )
+           && sp->push( 0 );
 
     ASSERT( __LINE__, ok, "ok" );
 
@@ -887,7 +857,7 @@ FileBuf::FileBuf( Vis& vis
      )
 {
   // Absolute byte offset of beginning of first line in file is always zero:
-  m.lineOffsets.push(__FILE__,__LINE__, 0 );
+  m.lineOffsets.push( 0 );
 
   if( FT == FT_BUFFER_EDITOR )
   {
@@ -911,9 +881,9 @@ FileBuf::FileBuf( Vis& vis
   const unsigned NUM_LINES = rfb.m.lines.len();
 
   // Reserve space:
-  m.lines.inc_size( NUM_LINES );
-  m.styles.inc_size( NUM_LINES );
-  m.lineRegexsValid.inc_size(__FILE__,__LINE__, NUM_LINES );
+  m.lines.inc_cap( NUM_LINES );
+  m.styles.inc_cap( NUM_LINES );
+  m.lineRegexsValid.inc_cap( NUM_LINES );
 
   // Add elements:
   for( unsigned k=0; k<NUM_LINES; k++ )
@@ -926,7 +896,7 @@ FileBuf::FileBuf( Vis& vis
   }
   for( unsigned k=0; k<NUM_LINES; k++ )
   {
-    m.lineRegexsValid.push(__FILE__,__LINE__, false );
+    m.lineRegexsValid.push( false );
   }
   m.mod_time = ModificationTime( m.file_name.c_str() );
 
@@ -1069,7 +1039,7 @@ void FileBuf::Set_File_Type( const char* syn )
 
 void FileBuf::AddView( View* v )
 {
-  m.views.push(__FILE__,__LINE__, v );
+  m.views.push( v );
 }
 
 void FileBuf::AddView( LineView* v )
@@ -1171,7 +1141,7 @@ void FileBuf::ReadString( const char* const STR )
       m.LF_at_EOF = true;
     }
     else {
-      bool ok = lp->push(__FILE__,__LINE__, C );
+      bool ok = lp->push( C );
       if( !ok ) DIE("Line.push() failed");
       m.LF_at_EOF = false;
     }
@@ -1199,7 +1169,7 @@ void FileBuf::ReadArray( const Line& line )
       m.LF_at_EOF = true;
     }
     else {
-      bool ok = lp->push(__FILE__,__LINE__, C );
+      bool ok = lp->push( C );
       if( !ok ) DIE("Line.push() failed");
       m.LF_at_EOF = false;
     }
@@ -1381,7 +1351,7 @@ void FileBuf::InsertLine( const unsigned l_num, const Line& line )
 
   bool ok = m.lines.insert( l_num, lp )
          && m.styles.insert( l_num, sp )
-         && m.lineRegexsValid.insert( __FILE__,__LINE__, l_num, false );
+         && m.lineRegexsValid.insert( l_num, false );
 
   ASSERT( __LINE__, ok, "ok" );
 
@@ -1405,7 +1375,7 @@ void FileBuf::InsertLine( const unsigned l_num, Line* const pLine )
 
   bool ok = m.lines.insert( l_num, pLine )
          && m.styles.insert( l_num, sp )
-         && m.lineRegexsValid.insert( __FILE__,__LINE__, l_num, false );
+         && m.lineRegexsValid.insert( l_num, false );
 
   ASSERT( __LINE__, ok, "ok" );
 
@@ -1430,7 +1400,7 @@ void FileBuf::InsertLine( const unsigned l_num )
 
   bool ok = m.lines.insert( l_num, lp )
          && m.styles.insert( l_num, sp )
-         && m.lineRegexsValid.insert( __FILE__,__LINE__, l_num, false );
+         && m.lineRegexsValid.insert( l_num, false );
 
   ASSERT( __LINE__, ok, "ok" );
 
@@ -1477,8 +1447,8 @@ void FileBuf::InsertChar( const unsigned l_num
   ASSERT( __LINE__, c_num <= lp->len(), "c_num < lp->len()" );
   ASSERT( __LINE__, c_num <= sp->len(), "c_num < sp->len()" );
 
-  bool ok = lp->insert(__FILE__,__LINE__, c_num, C )
-         && sp->insert(__FILE__,__LINE__, c_num, 0 )
+  bool ok = lp->insert( c_num, C )
+         && sp->insert( c_num, 0 )
          && m.lineRegexsValid.set( l_num, false );
 
   ASSERT( __LINE__, ok, "ok" );
@@ -1500,7 +1470,7 @@ void FileBuf::PushLine( const Line& line )
 
   bool ok = m.lines.push( lp )
          && m.styles.push( sp )
-         && m.lineRegexsValid.push( __FILE__,__LINE__, false );
+         && m.lineRegexsValid.push( false );
 
   ASSERT( __LINE__, ok, "ok" );
 
@@ -1519,7 +1489,7 @@ void FileBuf::PushLine( Line* const pLine )
 
   bool ok = m.lines.push( pLine )
         && m.styles.push( sp )
-        && m.lineRegexsValid.push( __FILE__,__LINE__, false );
+        && m.lineRegexsValid.push( false );
 
   ASSERT( __LINE__, ok, "ok" );
 
@@ -1538,7 +1508,7 @@ void FileBuf::PushLine()
 
   bool ok = m.lines.push( lp )
          && m.styles.push( sp )
-         && m.lineRegexsValid.push( __FILE__,__LINE__, false );
+         && m.lineRegexsValid.push( false );
 
   ASSERT( __LINE__, ok, "ok" );
 
@@ -1556,8 +1526,8 @@ void FileBuf::PushChar( const unsigned l_num, const uint8_t C )
   Line* lp =  m.lines[ l_num ];
   Line* sp = m.styles[ l_num ];
 
-  bool ok = lp->push(__FILE__,__LINE__, C )
-         && sp->push(__FILE__,__LINE__, 0 )
+  bool ok = lp->push( C )
+         && sp->push( 0 )
          && m.lineRegexsValid.set( l_num, false );
 
   ASSERT( __LINE__, ok, "ok" );
@@ -1778,12 +1748,12 @@ void FileBuf::AppendLineToLine( const unsigned l_num, const Line& line )
   Line* lp = m.lines[ l_num ];
   Line* sp = m.styles[ l_num ];
 
-  bool ok = lp->append(__FILE__,__LINE__, line )
+  bool ok = lp->append( line )
          && m.lineRegexsValid.set( l_num, false );
   ASSERT( __LINE__, ok, "ok" );
 
   // Simply need to increase sp's length to match lp's new length:
-  for( unsigned k=0; k<line.len(); k++ ) sp->push(__FILE__,__LINE__, 0 );
+  for( unsigned k=0; k<line.len(); k++ ) sp->push( 0 );
 
   ChangedLine( m, l_num );
 
@@ -1809,12 +1779,12 @@ void FileBuf::AppendLineToLine( const unsigned l_num, const Line* pLine )
   Line* lp =  m.lines[ l_num ];
   Line* sp = m.styles[ l_num ];
 
-  bool ok = lp->append(__FILE__,__LINE__, *pLine )
+  bool ok = lp->append( *pLine )
          && m.lineRegexsValid.set( l_num, false );
   ASSERT( __LINE__, ok, "ok" );
 
   // Simply need to increase sp's length to match lp's new length:
-  for( unsigned k=0; k<pLine->len(); k++ ) sp->push(__FILE__,__LINE__, 0 );
+  for( unsigned k=0; k<pLine->len(); k++ ) sp->push( 0 );
 
   ChangedLine( m, l_num );
 
@@ -1895,13 +1865,13 @@ unsigned FileBuf::GetSize()
   if( NUM_LINES )
   {
     // Absolute byte offset of beginning of first line in file is always zero:
-    if( 0 == m.lineOffsets.len() ) m.lineOffsets.push(__FILE__,__LINE__, 0 );
+    if( 0 == m.lineOffsets.len() ) m.lineOffsets.push( 0 );
 
     // Old line offsets length:
     const unsigned OLOL = m.lineOffsets.len();
 
     // New line offsets length:
-    m.lineOffsets.set_len(__FILE__,__LINE__, NUM_LINES );
+    m.lineOffsets.set_len( NUM_LINES );
 
     // Absolute byte offset of beginning of first line in file is always zero:
     m.lineOffsets[ 0 ] = 0;
@@ -1935,14 +1905,14 @@ unsigned FileBuf::GetCursorByte( unsigned CL, unsigned CC )
     if( CLL <= CC ) CC = CLL ? CLL-1 : 0;
 
     // Absolute byte offset of beginning of first line in file is always zero:
-    if( 0 == m.lineOffsets.len() ) m.lineOffsets.push(__FILE__,__LINE__, 0 );
+    if( 0 == m.lineOffsets.len() ) m.lineOffsets.push( 0 );
 
     // HVLO = Highest valid line offset
     const unsigned HVLO = m.lineOffsets.len()-1;
 
     if( HVLO < CL )
     {
-      m.lineOffsets.set_len(__FILE__,__LINE__, CL+1 );
+      m.lineOffsets.set_len( CL+1 );
 
       for( unsigned k=HVLO+1; k<=CL; k++ )
       {
@@ -2081,7 +2051,8 @@ void FileBuf::Check_4_New_Regex()
     // Invalidate all regexes
     for( unsigned k=0; k<m.lineRegexsValid.len(); k++ )
     {
-      m.lineRegexsValid[k] = false;
+    //m.lineRegexsValid[k] = false;
+      m.lineRegexsValid.set( k, false );
     }
     m.regex = m.vis.GetRegex();
   }
@@ -2161,7 +2132,7 @@ void FileBuf::Find_Regexs_4_Line( const unsigned line_num )
 
 void FileBuf::Find_Regexs_4_Line( const unsigned line_num )
 {
-  if( line_num < m.lineRegexsValid.len() && !m.lineRegexsValid[line_num] )
+  if( line_num < m.lineRegexsValid.len() && !m.lineRegexsValid.at(line_num) )
   {
     Line* lp = m.lines[line_num];
     const unsigned LL = lp->len();
@@ -2206,7 +2177,7 @@ void FileBuf::Find_Regexs_4_Line( const unsigned line_num )
         }
       }
     }
-    m.lineRegexsValid[line_num] = true;
+    m.lineRegexsValid.set( line_num, true );
   }
 }
 

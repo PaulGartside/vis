@@ -627,12 +627,12 @@ void Highlight_HTML::Hi_OpenTag_ElemName()
         if( m_OpenTag_was_script )
         {
           m_state = St_JS_None;
-          m_JS_edges.push(__FILE__, __LINE__, Edges( m_l, m_p ) );
+          m_JS_edges.push( Edges( m_l, m_p ) );
         }
         else if( m_OpenTag_was_style )
         {
           m_state = St_CS_None;
-          m_CS_edges.push(__FILE__, __LINE__, Edges( m_l, m_p ) );
+          m_CS_edges.push( Edges( m_l, m_p ) );
         }
       }
       else if( c0=='/' || c0=='?' )

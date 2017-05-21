@@ -315,7 +315,7 @@ void Screen_Save()
 {
   for( unsigned k=0; k<LEN_SCREEN_SAVE; k++ )
   {
-    out_buf->push(__FILE__,__LINE__, STR_SCREEN_SAVE[k] );
+    out_buf->push( STR_SCREEN_SAVE[k] );
   }
   Console::Flush();
 }
@@ -324,11 +324,11 @@ void Screen_Restore()
 {
   for( unsigned k=0; k<LEN_SCREEN_RESTORE; k++ )
   {
-    out_buf->push(__FILE__,__LINE__, STR_SCREEN_RESTORE[k] );
+    out_buf->push( STR_SCREEN_RESTORE[k] );
   }
   for( unsigned k=0; k<LEN_NORMAL; k++ )
   {
-    out_buf->push(__FILE__,__LINE__, STR_NORMAL[k] );
+    out_buf->push( STR_NORMAL[k] );
   }
   Console::Flush();
 }
@@ -343,7 +343,7 @@ unsigned PrintC( uint8_t C )
 {
   unsigned bytes_written = 1;
 
-  out_buf->push(__FILE__,__LINE__, Byte2out( C ) );
+  out_buf->push( Byte2out( C ) );
 
   return bytes_written;
 }
@@ -352,7 +352,7 @@ void Move_2_Home()
 {
   for( unsigned k=0; k<LEN_HOME; k++ )
   {
-    out_buf->push(__FILE__,__LINE__, STR_HOME[k] );
+    out_buf->push( STR_HOME[k] );
   }
 }
 
@@ -397,7 +397,7 @@ void Set_Style( const Color BG, const Color FG, const bool BB )
                                  , Foreground_2_Code( FG ) );
   for( unsigned k=0; k<LEN; k++ )
   {
-    out_buf->push(__FILE__,__LINE__, s[k] );
+    out_buf->push( s[k] );
   }
 }
 
@@ -579,8 +579,8 @@ void Console::Allocate()
     lines__w = new(__FILE__,__LINE__) LinesList;
     styles_p = new(__FILE__,__LINE__) LinesList;
     styles_w = new(__FILE__,__LINE__) LinesList;
-    touched  = new(__FILE__,__LINE__) Line(__FILE__,__LINE__);
-    out_buf  = new(__FILE__,__LINE__) Line(__FILE__,__LINE__, 16385 );
+    touched  = new(__FILE__,__LINE__) Line();
+    out_buf  = new(__FILE__,__LINE__) Line( 16385 );
   }
   Screen_Save();
 }
@@ -800,12 +800,12 @@ bool Console::GetWindowSize()
       }
       for( unsigned k=0; k<m_num_rows; k++ )
       {
-        (*lines__p)[k]->set_len(__FILE__,__LINE__, m_num_cols );
-        (*lines__w)[k]->set_len(__FILE__,__LINE__, m_num_cols );
-        (*styles_p)[k]->set_len(__FILE__,__LINE__, m_num_cols );
-        (*styles_w)[k]->set_len(__FILE__,__LINE__, m_num_cols );
+        (*lines__p)[k]->set_len( m_num_cols );
+        (*lines__w)[k]->set_len( m_num_cols );
+        (*styles_p)[k]->set_len( m_num_cols );
+        (*styles_w)[k]->set_len( m_num_cols );
       }
-      touched->set_len(__FILE__,__LINE__, m_num_rows );
+      touched->set_len( m_num_rows );
     }
   }
   return true;
@@ -856,7 +856,7 @@ void Console::Set_Normal()
 {
   for( unsigned k=0; k<LEN_NORMAL; k++ )
   {
-    out_buf->push(__FILE__,__LINE__, STR_NORMAL[k] );
+    out_buf->push( STR_NORMAL[k] );
   }
 }
 
@@ -872,7 +872,7 @@ void Console::Move_2_Row_Col( const unsigned ROW, const unsigned COL )
 
   for( unsigned k=0; k<LEN; k++ )
   {
-    out_buf->push(__FILE__,__LINE__, buf[k] );
+    out_buf->push( buf[k] );
   }
 }
 

@@ -316,7 +316,7 @@ bool Find_File_Name_Completion_Variables( LineView::Data& m )
   if( ColonOp::e == m.colon_op
    || ColonOp::w == m.colon_op )
   {
-    m.sbuf.shift(1); m.sbuf.trim_beg(); // Remove initial 'e' and space after 'e'
+    m.sbuf.remove(0); m.sbuf.trim_beg(); // Remove initial 'e' and space after 'e'
     if( FindFileBuf(m) )
     {
       // Have FileBuf, so add matching files names to tab_fnames
@@ -349,7 +349,7 @@ bool Find_File_Name_Completion_Variables( LineView::Data& m )
       lp2->clear();
       for( unsigned k=0; k<m.sbuf.len(); k++ )
       {
-        lp2->push(__FILE__, __LINE__, m.sbuf.get(k) );
+        lp2->push( m.sbuf.get(k) );
       }
       m.fb.InsertLine( m.view.CrsLine(), lp2 );
 
@@ -390,7 +390,7 @@ bool Have_File_Name_Completion_Variables( LineView::Data& m )
       lp->clear();
       for( unsigned k=0; k<m.sbuf.len(); k++ )
       {
-        lp->push(__FILE__, __LINE__, m.sbuf.get(k) );
+        lp->push( m.sbuf.get(k) );
       }
       m.fb.InsertLine( m.view.CrsLine(), lp );
 
@@ -615,7 +615,7 @@ void Do_y_v_st_fn( LineView::Data& m )
 
       for( unsigned P = P_st; P <= P_fn; P++ )
       {
-        nlp->push(__FILE__,__LINE__, m.fb.Get( L, P ) );
+        nlp->push( m.fb.Get( L, P ) );
       }
     }
     // m.reg will delete nlp
@@ -647,7 +647,7 @@ void Do_Y_v_st_fn( LineView::Data& m )
     {
       for( unsigned P = 0; P <= LL-1; P++ )
       {
-        nlp->push(__FILE__,__LINE__, m.fb.Get( L, P ) );
+        nlp->push( m.fb.Get( L, P ) );
       }
     }
     // m.reg will delete nlp
@@ -725,7 +725,7 @@ void Do_x_range_single( LineView::Data& m
     // Dont remove a single line, or else Q wont work right
     for( unsigned P = P_st; P_st < LL && P <= P_fn; P++ )
     {
-      nlp->push(__FILE__,__LINE__, m.fb.RemoveChar( L, P_st ) );
+      nlp->push( m.fb.RemoveChar( L, P_st ) );
 
       LL = m.fb.LineLen( L ); // Removed a char, so re-calculate LL
     }
@@ -762,7 +762,7 @@ void Do_x_range_multiple( LineView::Data& m
 
     for( unsigned P = P_st; P_st < LL && P <= P_fn; P++ )
     {
-      nlp->push(__FILE__,__LINE__, m.fb.RemoveChar( L, P_st ) );
+      nlp->push( m.fb.RemoveChar( L, P_st ) );
 
       LL = m.fb.LineLen( L ); // Removed a char, so re-calculate LL
     }
@@ -2123,7 +2123,7 @@ void LineView::Do_x()
 
   // Put char x'ed into register:
   Line* nlp = m.vis.BorrowLine( __FILE__,__LINE__ );
-  nlp->push(__FILE__,__LINE__, C );
+  nlp->push( C );
   m.reg.clear();
   m.reg.push( nlp );
   m.vis.SetPasteMode( PM_ST_FN );
@@ -2224,7 +2224,7 @@ void LineView::Do_D()
     for( unsigned k=OCP; k<OLL; k++ )
     {
       uint8_t c = m.fb.RemoveChar( OCL, OCP );
-      lpd->push(__FILE__,__LINE__, c );
+      lpd->push( c );
     }
     m.reg.clear();
     m.reg.push( lpd );
@@ -2365,7 +2365,7 @@ void LineView::Do_yw()
     // st_line and fn_line should be the same
     for( unsigned k=st_char; k<=fn_char; k++ )
     {
-      m.reg[0]->push(__FILE__,__LINE__, m.fb.Get( st_line, k ) );
+      m.reg[0]->push( m.fb.Get( st_line, k ) );
     }
     m.vis.SetPasteMode( PM_ST_FN );
   }

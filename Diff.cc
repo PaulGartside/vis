@@ -188,12 +188,12 @@ Diff::Data::Data( Diff& diff, Vis& vis, Key& key, LinesList& reg )
   , inVisualMode ( false )
   , inVisualBlock( false )
   , undo_v( false )
-  , sameList(__FILE__, __LINE__)
-  , diffList(__FILE__, __LINE__)
-  , DI_List_S(__FILE__, __LINE__)
-  , DI_List_L(__FILE__, __LINE__)
-  , simiList(__FILE__, __LINE__)
-  , line_info_cache(__FILE__, __LINE__)
+  , sameList()
+  , diffList()
+  , DI_List_S()
+  , DI_List_L()
+  , simiList()
+  , line_info_cache()
 {
 }
 
@@ -257,8 +257,8 @@ void Popu_SameList( Diff::Data& m, const DiffArea CA )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   m.sameList.clear();
-  Array_t<DiffArea> compList(__FILE__, __LINE__);
-                    compList.push(__FILE__,__LINE__, CA );
+  Array_t<DiffArea> compList;
+                    compList.push( CA );
   unsigned count = 0;
   DiffArea ca;
 
@@ -268,7 +268,7 @@ void Popu_SameList( Diff::Data& m, const DiffArea CA )
 
     if( same.nlines && same.nbytes ) //< Dont count a single empty line as a same area
     {
-      m.sameList.push(__FILE__,__LINE__, same );
+      m.sameList.push( same );
 
       const unsigned SAME_FNL_S = same.ln_s+same.nlines; // Same finish line short
       const unsigned SAME_FNL_L = same.ln_l+same.nlines; // Same finish line long
@@ -280,7 +280,7 @@ void Popu_SameList( Diff::Data& m, const DiffArea CA )
         // Only one new DiffArea after same:
         DiffArea ca1( SAME_FNL_S , ca.fnl_s()-SAME_FNL_S
                     , SAME_FNL_L , ca.fnl_l()-SAME_FNL_L );
-        compList.push(__FILE__,__LINE__, ca1 );
+        compList.push( ca1 );
       }
       else if( ( SAME_FNL_S == ca.fnl_s() || SAME_FNL_L == ca.fnl_l() )
             && ca.ln_s < same.ln_s
@@ -289,7 +289,7 @@ void Popu_SameList( Diff::Data& m, const DiffArea CA )
         // Only one new DiffArea before same:
         DiffArea ca1( ca.ln_s, same.ln_s-ca.ln_s
                     , ca.ln_l, same.ln_l-ca.ln_l );
-        compList.push(__FILE__,__LINE__, ca1 );
+        compList.push( ca1 );
       }
       else if( ca.ln_s < same.ln_s && SAME_FNL_S < ca.fnl_s()
             && ca.ln_l < same.ln_l && SAME_FNL_L < ca.fnl_l() )
@@ -299,8 +299,8 @@ void Popu_SameList( Diff::Data& m, const DiffArea CA )
                     , ca.ln_l, same.ln_l-ca.ln_l );
         DiffArea ca2( SAME_FNL_S, ca.fnl_s()-SAME_FNL_S
                     , SAME_FNL_L, ca.fnl_l()-SAME_FNL_L );
-        compList.push(__FILE__,__LINE__, ca1 );
-        compList.push(__FILE__,__LINE__, ca2 );
+        compList.push( ca1 );
+        compList.push( ca2 );
       }
     }
   }
@@ -342,7 +342,7 @@ void Popu_DiffList_Begin( Diff::Data& m, const DiffArea CA )
     {
       // DiffArea at beginning of DiffArea:
       DiffArea da( CA.ln_s, nlines_s_da, CA.ln_l, nlines_l_da );
-      m.diffList.push(__FILE__,__LINE__, da );
+      m.diffList.push( da );
     }
   }
 }
@@ -366,13 +366,13 @@ void Popu_DiffList_End( Diff::Data& m, const DiffArea CA )
       // start of SameArea short and long
       DiffArea da( sa_s_end, CA.fnl_s() - sa_s_end
                  , sa_l_end, CA.fnl_l() - sa_l_end );
-      m.diffList.push(__FILE__,__LINE__, da );
+      m.diffList.push( da );
     }
   }
   else // No SameArea, so whole DiffArea is a DiffArea:
   {
     DiffArea da( CA.ln_s, CA.nlines_s, CA.ln_l, CA.nlines_l );
-    m.diffList.push(__FILE__,__LINE__, da );
+    m.diffList.push( da );
   }
 }
 
@@ -396,7 +396,7 @@ void Popu_DiffList( Diff::Data& m, const DiffArea CA )
     DiffArea da( da_ln_s, sa1.ln_s - da_ln_s
                , da_ln_l, sa1.ln_l - da_ln_l );
 
-    m.diffList.push(__FILE__,__LINE__, da );
+    m.diffList.push( da );
   }
   Popu_DiffList_End( m, CA );
 }
@@ -424,7 +424,7 @@ void Sort_SimiList( Diff::Data& m )
 
 void Return_LineInfo( Diff::Data& m, LineInfo* lip )
 {
-  if( lip ) m.line_info_cache.push(__FILE__,__LINE__, lip );
+  if( lip ) m.line_info_cache.push( lip );
 }
 
 void Clear_SimiList( Diff::Data& m )
@@ -457,7 +457,7 @@ LineInfo* Borrow_LineInfo( Diff::Data& m
     lip->clear();
   }
   else {
-    lip = new(_FILE_,_LINE_) LineInfo(__FILE__, __LINE__);
+    lip = new(_FILE_,_LINE_) LineInfo;
   }
   return lip;
 }
@@ -477,8 +477,8 @@ unsigned Compare_Lines( const Line* ls, LineInfo* li_s
   const unsigned SLL = pls->len();
   const unsigned LLL = pll->len();
 
-  pli_l->set_len(__FILE__,__LINE__, LLL );
-  pli_s->set_len(__FILE__,__LINE__, LLL );
+  pli_l->set_len( LLL );
+  pli_s->set_len( LLL );
 
   unsigned num_same = 0;
   unsigned i_s = 0;
@@ -580,8 +580,8 @@ void Popu_SimiList( Diff::Data& m
   {
     DiffArea ca( da_ln_s, da_nlines_s, da_ln_l, da_nlines_l );
 
-    Array_t<DiffArea> compList(__FILE__,__LINE__);
-                      compList.push(__FILE__,__LINE__, ca );
+    Array_t<DiffArea> compList;
+                      compList.push( ca );
 
     while( compList.pop( ca ) )
     {
@@ -594,7 +594,7 @@ void Popu_SimiList( Diff::Data& m
         MemMark(__FILE__,__LINE__); delete siml.li_l; siml.li_l = 0;
         return;
       }
-      m.simiList.push(__FILE__,__LINE__, siml );
+      m.simiList.push( siml );
       if( ( siml.ln_s == ca.ln_s || siml.ln_l == ca.ln_l )
        && siml.ln_s+1 < ca.fnl_s()
        && siml.ln_l+1 < ca.fnl_l() )
@@ -602,7 +602,7 @@ void Popu_SimiList( Diff::Data& m
         // Only one new DiffArea after siml:
         DiffArea ca1( siml.ln_s+1, ca.fnl_s()-siml.ln_s-1
                     , siml.ln_l+1, ca.fnl_l()-siml.ln_l-1 );
-        compList.push(__FILE__,__LINE__, ca1 );
+        compList.push( ca1 );
       }
       else if( ( siml.ln_s+1 == ca.fnl_s() || siml.ln_l+1 == ca.fnl_l() )
             && ca.ln_s < siml.ln_s
@@ -611,7 +611,7 @@ void Popu_SimiList( Diff::Data& m
         // Only one new DiffArea before siml:
         DiffArea ca1( ca.ln_s, siml.ln_s-ca.ln_s
                     , ca.ln_l, siml.ln_l-ca.ln_l );
-        compList.push(__FILE__,__LINE__, ca1 );
+        compList.push( ca1 );
       }
       else if( ca.ln_s < siml.ln_s && siml.ln_s+1 < ca.fnl_s()
             && ca.ln_l < siml.ln_l && siml.ln_l+1 < ca.fnl_l() )
@@ -621,8 +621,8 @@ void Popu_SimiList( Diff::Data& m
                     , ca.ln_l, siml.ln_l-ca.ln_l );
         DiffArea ca2( siml.ln_s+1, ca.fnl_s()-siml.ln_s-1
                     , siml.ln_l+1, ca.fnl_l()-siml.ln_l-1 );
-        compList.push(__FILE__,__LINE__, ca1 );
-        compList.push(__FILE__,__LINE__, ca2 );
+        compList.push( ca1 );
+        compList.push( ca2 );
       }
     }
   }
@@ -631,7 +631,7 @@ void Popu_SimiList( Diff::Data& m
 void Insert_DI_List( const Diff_Info di
                    , Array_t<Diff_Info>& DI_List )
 {
-  DI_List.push(__FILE__,__LINE__, di );
+  DI_List.push( di );
 }
 
 void SimiList_2_DI_Lists( Diff::Data& m
@@ -2625,8 +2625,8 @@ void Patch_Diff_Info_Inserted( Diff::Data& m
     Diff_Info dic = { DT_INSERTED, cDI_List[ DI_Len-1 ].line_num+1 };
     Diff_Info dio = { DT_DELETED , oDI_List[ DI_Len-1 ].line_num   };
 
-    bool ok1 = cDI_List.insert(__FILE__,__LINE__, DI_Len, dic ); ASSERT( __LINE__, ok1, "ok1" );
-    bool ok2 = oDI_List.insert(__FILE__,__LINE__, DI_Len, dio ); ASSERT( __LINE__, ok2, "ok2" );
+    bool ok1 = cDI_List.insert( DI_Len, dic ); ASSERT( __LINE__, ok1, "ok1" );
+    bool ok2 = oDI_List.insert( DI_Len, dio ); ASSERT( __LINE__, ok2, "ok2" );
   }
   else { // Inserting into beginning or middle of Diff_Info lists:
     Diff_Info& cDI = cDI_List[ DPL ];
@@ -2665,8 +2665,8 @@ void Patch_Diff_Info_Inserted( Diff::Data& m
       Diff_Info dic = { DT_INSERTED, cDI.line_num };
       Diff_Info dio = { DT_DELETED , dio_line };
 
-      bool ok1 = cDI_List.insert(__FILE__,__LINE__, DPL, dic ); ASSERT( __LINE__, ok1, "ok1" );
-      bool ok2 = oDI_List.insert(__FILE__,__LINE__, DPL, dio ); ASSERT( __LINE__, ok2, "ok2" );
+      bool ok1 = cDI_List.insert( DPL, dic ); ASSERT( __LINE__, ok1, "ok1" );
+      bool ok2 = oDI_List.insert( DPL, dio ); ASSERT( __LINE__, ok2, "ok2" );
 
       // Added a view line, so increment all following view line numbers:
       for( unsigned k=DPL+1; k<cDI_List.len(); k++ )
@@ -2818,7 +2818,7 @@ void InsertAddReturn( Diff::Data& m )
 
   // The lines in fb do not end with '\n's.
   // When the file is written, '\n's are added to the ends of the lines.
-  Line new_line(__FILE__,__LINE__);
+  Line new_line;
   const unsigned DL = CrsLine(m);          // Diff line number
   const unsigned VL = ViewLine( m, pV, DL ); // View line number
   const unsigned OLL = pfb->LineLen( VL ); // Old line length
@@ -2827,7 +2827,7 @@ void InsertAddReturn( Diff::Data& m )
   for( unsigned k=OCP; k<OLL; k++ )
   {
     const uint8_t C = pfb->RemoveChar( VL, OCP );
-    bool ok = new_line.push(__FILE__,__LINE__, C );
+    bool ok = new_line.push( C );
     ASSERT( __LINE__, ok, "ok" );
   }
   // Truncate the rest of the old line:
@@ -2881,7 +2881,7 @@ void InsertBackspace_RmNL( Diff::Data& m, const unsigned DL )
   CrsPos ncp = { DL-1, pfb->LineLen( VL-1 ) };
 
   // 2. Remove the line
-  Line lr(__FILE__, __LINE__);
+  Line lr;
   pfb->RemoveLine( VL, lr );
 
   // 3. Append rest of line to previous line
@@ -2960,7 +2960,7 @@ void Do_y_v_block( Diff::Data& m )
 
     for( unsigned P = m.v_st_char; P<LL && P <= m.v_fn_char; P++ )
     {
-      nlp->push( __FILE__,__LINE__, pfb->Get( VL, P ) );
+      nlp->push( pfb->Get( VL, P ) );
     }
     // m.reg will delete nlp
     m.reg.push( nlp );
@@ -3006,7 +3006,7 @@ void Do_y_v_st_fn( Diff::Data& m )
 
         for( unsigned P = P_st; P <= P_fn; P++ )
         {
-          nlp->push(__FILE__,__LINE__, pfb->Get( VL, P ) );
+          nlp->push( pfb->Get( VL, P ) );
         }
       }
       // m.reg will delete nlp
@@ -3052,7 +3052,7 @@ void Do_Y_v_st_fn( Diff::Data& m )
       {
         for( unsigned P = 0; P <= LL-1; P++ )
         {
-          nlp->push(__FILE__,__LINE__,  pfb->Get( VL, P ) );
+          nlp->push(  pfb->Get( VL, P ) );
         }
       }
       // m.reg will delete nlp
@@ -3221,7 +3221,7 @@ void Do_x_range_block( Diff::Data& m
 
     for( int P = st_char; P<LL && P <= fn_char; P++ )
     {
-      nlp->push( __FILE__,__LINE__, pfb->RemoveChar( VL, st_char ) );
+      nlp->push( pfb->RemoveChar( VL, st_char ) );
     }
     m.reg.push( nlp );
   }
@@ -3249,7 +3249,7 @@ void Do_x_range_single( Diff::Data& m
 
   for( unsigned P = st_char; st_char < LL && P <= fn_char; P++ )
   {
-    nlp->push(__FILE__,__LINE__, pfb->RemoveChar( VL, st_char ) );
+    nlp->push( pfb->RemoveChar( VL, st_char ) );
     LL = pfb->LineLen( VL ); // Removed a char, so re-set LL
     removed_char = true;
   }
@@ -3301,7 +3301,7 @@ void Do_x_range_multiple( Diff::Data& m
     unsigned LL = OLL;
     for( unsigned P = P_st; P_st < LL && P <= P_fn; P++ )
     {
-      nlp->push( __FILE__,__LINE__, pfb->RemoveChar( VL, P_st ) );
+      nlp->push( pfb->RemoveChar( VL, P_st ) );
       LL = pfb->LineLen( VL ); // Removed a char, so re-calculate LL
       removed_char = true;
     }
@@ -3324,7 +3324,7 @@ void Do_x_range_multiple( Diff::Data& m
     const unsigned v_st_line  = ViewLine( m, pV, st_line ); // View line start
     const unsigned v_fn_line  = ViewLine( m, pV, fn_line ); // View line finish
 
-    Line lr(__FILE__, __LINE__);
+    Line lr;
     pfb->RemoveLine( v_fn_line, lr );
     pfb->AppendLineToLine( v_st_line, lr );
 
@@ -4186,7 +4186,7 @@ void ReplaceAddReturn( Diff::Data& m )
   FileBuf* pfb = pV->GetFB();
   // The lines in fb do not end with '\n's.
   // When the file is written, '\n's are added to the ends of the lines.
-  Line new_line(__FILE__, __LINE__);
+  Line new_line;
   const unsigned ODL = CrsLine(m);
   const unsigned OVL = ViewLine( m, pV, ODL ); // View line number
   const unsigned OLL = pfb->LineLen( OVL );
@@ -4195,7 +4195,7 @@ void ReplaceAddReturn( Diff::Data& m )
   for( unsigned k=OCP; k<OLL; k++ )
   {
     const uint8_t C = pfb->RemoveChar( OVL, OCP );
-    bool ok = new_line.push(__FILE__,__LINE__, C );
+    bool ok = new_line.push( C );
     ASSERT( __LINE__, ok, "ok" );
   }
   // Truncate the rest of the old line:
@@ -4225,7 +4225,7 @@ void ReplaceAddChar_ON_DELETED( Diff::Data& m
   const bool ODVL0 = On_Deleted_View_Line_Zero( m, DL );
 
   Line* nlp = m.vis.BorrowLine(__FILE__,__LINE__);
-  nlp->push( __FILE__,__LINE__, C );
+  nlp->push( C );
   pfb->InsertLine( ODVL0 ? VL : VL+1, nlp );
   Patch_Diff_Info_Inserted( m, pV, DL, ODVL0 );
 }
@@ -5329,7 +5329,7 @@ void Diff::Do_x()
 
       // Put char x'ed into register:
       Line* nlp = m.vis.BorrowLine(__FILE__,__LINE__);
-      nlp->push(__FILE__,__LINE__, C );
+      nlp->push( C );
       m.reg.clear();
       m.reg.push( nlp );
       m.vis.SetPasteMode( PM_ST_FN );
@@ -5397,7 +5397,7 @@ void Diff::Do_D()
     for( unsigned k=CP; k<LL; k++ )
     {
       uint8_t c = pfb->RemoveChar( VL, CP );
-      lpd->push(__FILE__,__LINE__, c );
+      lpd->push( c );
     }
     m.reg.clear();
     m.reg.push( lpd );
@@ -5609,7 +5609,7 @@ void Diff::Do_yw()
       // DL and fn_line_d should be the same
       for( unsigned k=st_char; k<=fn_char; k++ )
       {
-        m.reg[0]->push(__FILE__,__LINE__, pfb->Get( st_line_v, k ) );
+        m.reg[0]->push( pfb->Get( st_line_v, k ) );
       }
       m.vis.SetPasteMode( PM_ST_FN );
     }

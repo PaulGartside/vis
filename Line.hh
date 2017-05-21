@@ -32,14 +32,8 @@ class Line
 {
 public:
   Line();
-  Line( const char*     _FILE_
-      , const unsigned  _LINE_
-      , const  unsigned cap=0 );
-  Line( const char*    _FILE_
-      , const unsigned _LINE_
-      , const unsigned len
-      , const uint8_t  fill );
-
+  Line( const unsigned cap );
+  Line( const unsigned len, const uint8_t fill );
   Line( const Line& a );
 
   ~Line();
@@ -49,11 +43,9 @@ public:
   unsigned len() const;
   unsigned cap() const;
 
-  bool set_len( const char* _FILE_, const unsigned _LINE_, unsigned new_len );
+  bool set_len( unsigned new_len );
 
-  bool inc_cap( const char*    _FILE_
-              , const unsigned _LINE_
-              ,       unsigned new_cap );
+  bool inc_cap( unsigned new_cap );
   bool copy( const Line& a );
 
   uint8_t get( const unsigned i ) const;
@@ -61,12 +53,9 @@ public:
 
   const char* c_str( unsigned i ) const;
 
-  bool insert( const char*    _FILE_
-             , const unsigned _LINE_
-             , const unsigned i
-             , const uint8_t  t );
+  bool insert( const unsigned i, const uint8_t t );
 
-  bool push( const char* _FILE_, const unsigned _LINE_, uint8_t t );
+  bool push( uint8_t t );
 
   bool remove( const unsigned i );
   bool remove( const unsigned i, uint8_t& t );
@@ -74,7 +63,7 @@ public:
   bool pop( uint8_t& t );
   bool pop();
 
-  bool append( const char* _FILE_, const unsigned _LINE_, const Line& a );
+  bool append( const Line& a );
 
   bool ends_with( const uint8_t C );
 

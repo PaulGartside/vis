@@ -76,7 +76,7 @@ Shell::Data::Data( Shell& parent
   , fd_blocking( true )
   , child_pid( 0 )
   , running( false )
-  , divider( __FILE__, __LINE__, 40, '#')
+  , divider( 40, '#')
 {
 }
 
@@ -102,6 +102,7 @@ bool Blocking_Cmd( Shell::Data& m )
     // or this instance of vis will and the child editor will be clobbering
     // each other
     if( m.cmd_part.ends_with("vis")
+     || m.cmd_part.ends_with("vis.new")
      || m.cmd_part.ends_with("vim")
      || m.cmd_part.ends_with("vi" ) )
     {

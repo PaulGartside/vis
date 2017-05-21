@@ -33,9 +33,9 @@ Key::Key()
   , save_2_map_buf  ( false )
   , get_from_dot_buf( false )
   , get_from_map_buf( false )
-  , dot_buf(__FILE__, __LINE__)
-  , vis_buf(__FILE__, __LINE__)
-  , map_buf(__FILE__, __LINE__)
+  , dot_buf()
+  , vis_buf()
+  , map_buf()
   , dot_buf_index( 0 )
   , map_buf_index( 0 )
 {
@@ -50,9 +50,9 @@ char Key::In()
   else if( get_from_dot_buf ) C = In_DotBuf();
   else                        C = Console::KeyIn();
 
-  if( save_2_map_buf ) map_buf.push(__FILE__,__LINE__, C );
-  if( save_2_dot_buf ) dot_buf.push(__FILE__,__LINE__, C );
-  if( save_2_vis_buf ) vis_buf.push(__FILE__,__LINE__, C );
+  if( save_2_map_buf ) map_buf.push( C );
+  if( save_2_dot_buf ) dot_buf.push( C );
+  if( save_2_vis_buf ) vis_buf.push( C );
 
   return C;
 }
