@@ -2106,6 +2106,16 @@ void DoDiff( Vis::Data& m )
   }
 }
 
+void ReDiff( Vis::Data& m )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( true == m.diff_mode )
+  {
+    m.diff.ReDiff();
+  }
+}
+
 void VSplitWindow( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -2427,6 +2437,7 @@ void Handle_Colon_Cmd( Vis::Data& m )
   else if( strcmp( m.cbuf,"qa"  )==0 ) QuitAll(m);
   else if( strcmp( m.cbuf,"help")==0 ) Help(m);
   else if( strcmp( m.cbuf,"diff")==0 ) DoDiff(m);
+  else if( strcmp( m.cbuf,"rediff")==0) ReDiff(m);
   else if( strcmp( m.cbuf,"nodiff")==0)m.vis.NoDiff();
   else if( strcmp( m.cbuf,"n"   )==0 ) GoToNextBuffer(m);
   else if( strcmp( m.cbuf,"se"  )==0 ) GoToSearchBuffer(m);
@@ -4192,6 +4203,7 @@ void Vis::NoDiff()
     View* pvS = m.diff.GetViewShort();
     View* pvL = m.diff.GetViewLong();
 
+    // Set the view contexts to similar values as the diff contexts:
     if( 0 != pvS )
     {
       pvS->SetTopLine ( m.diff.GetTopLine ( pvS ) );

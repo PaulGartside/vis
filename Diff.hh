@@ -104,6 +104,7 @@ public:
 
   void PrintCursor( View* pV );
   bool Update_Status_Lines();
+  bool ReDiff();
 
   struct Data;
 

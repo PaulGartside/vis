@@ -157,6 +157,7 @@ struct Diff::Data
 
   Array_t<Diff_Info> DI_List_S;
   Array_t<Diff_Info> DI_List_L;
+  unsigned DI_L_ins_idx;
 
   Array_t<SimLines> simiList;
   Array_t<LineInfo*> line_info_cache;
@@ -192,6 +193,7 @@ Diff::Data::Data( Diff& diff, Vis& vis, Key& key, LinesList& reg )
   , diffList()
   , DI_List_S()
   , DI_List_L()
+  , DI_L_ins_idx(0)
   , simiList()
   , line_info_cache()
 {
@@ -628,10 +630,12 @@ void Popu_SimiList( Diff::Data& m
   }
 }
 
-void Insert_DI_List( const Diff_Info di
+void Insert_DI_List( Diff::Data& m
+                   , const Diff_Info& di
                    , Array_t<Diff_Info>& DI_List )
 {
-  DI_List.push( di );
+  bool ok = DI_List.insert( m.DI_L_ins_idx, di );
+  ASSERT( __LINE__, ok, "ok" );
 }
 
 void SimiList_2_DI_Lists( Diff::Data& m
@@ -670,8 +674,8 @@ void SimiList_2_DI_Lists( Diff::Data& m
       }
     }
     // DI_List_s and DI_List_l now own LineInfo objects:
-    Insert_DI_List( dis, DI_List_s );
-    Insert_DI_List( dil, DI_List_l );
+    Insert_DI_List( m, dis, DI_List_s );
+    Insert_DI_List( m, dil, DI_List_l ); m.DI_L_ins_idx++;
   }
 }
 
@@ -740,8 +744,10 @@ void Popu_DI_List_AddDiff( Diff::Data& m, const DiffArea da )
 
       unsigned bytes_same = Compare_Lines( ls, li_s, ll, li_l );
 
-      Diff_Info dis = { DT_CHANGED, da.ln_s+k, li_s }; Insert_DI_List( dis, m.DI_List_S );
-      Diff_Info dil = { DT_CHANGED, da.ln_l+k, li_l }; Insert_DI_List( dil, m.DI_List_L );
+      Diff_Info dis = { DT_CHANGED, da.ln_s+k, li_s };
+      Diff_Info dil = { DT_CHANGED, da.ln_l+k, li_l };
+      Insert_DI_List( m, dis, m.DI_List_S );
+      Insert_DI_List( m, dil, m.DI_List_L ); m.DI_L_ins_idx++;
     }
   }
 }
@@ -757,46 +763,46 @@ void Popu_DI_List_NoSameArea( Diff::Data& m )
   Popu_DI_List_AddDiff( m, m.diffList[0] );
 }
 
-void Clear_DI_List_CA( Diff::Data& m
-                     , const unsigned st_line
-                     , const unsigned fn_line
-                     , Array_t<Diff_Info>& DI_List )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  bool     found_first = false;
-  unsigned first_to_remove = 0;
-  unsigned num___to_remove = 0;
-
-  // Since, Clear_DI_List_CA will only be called when DI_List is
-  // fully populated, the Diff_Info.line_num's will be at indexes
-  // greater than or equal to st_line
-  for( unsigned k=st_line; k<DI_List.len(); k++ )
-  {
-    Diff_Info& di = DI_List[k];
-
-    if( st_line <= di.line_num && di.line_num < fn_line )
-    {
-      if( di.pLineInfo )
-      {
-        // Return all the previously allocated LineInfo's:
-        Return_LineInfo( m, di.pLineInfo ); di.pLineInfo = 0;
-      }
-      if( !found_first )
-      {
-        found_first = true;
-        first_to_remove = k;
-      }
-      num___to_remove++;
-    }
-    else if( fn_line <= di.line_num )
-    {
-      // Past the range of line_num's we want to remove
-      break;
-    }
-  }
-  DI_List.remove_n( first_to_remove, num___to_remove );
-}
+//void Clear_DI_List_CA( Diff::Data& m
+//                     , const unsigned st_line
+//                     , const unsigned fn_line
+//                     , Array_t<Diff_Info>& DI_List )
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//
+//  bool     found_first = false;
+//  unsigned first_to_remove = 0;
+//  unsigned num___to_remove = 0;
+//
+//  // Since, Clear_DI_List_CA will only be called when DI_List is
+//  // fully populated, the Diff_Info.line_num's will be at indexes
+//  // greater than or equal to st_line
+//  for( unsigned k=st_line; k<DI_List.len(); k++ )
+//  {
+//    Diff_Info& di = DI_List[k];
+//
+//    if( st_line <= di.line_num && di.line_num < fn_line )
+//    {
+//      if( di.pLineInfo )
+//      {
+//        // Return all the previously allocated LineInfo's:
+//        Return_LineInfo( m, di.pLineInfo ); di.pLineInfo = 0;
+//      }
+//      if( !found_first )
+//      {
+//        found_first = true;
+//        first_to_remove = k;
+//      }
+//      num___to_remove++;
+//    }
+//    else if( fn_line <= di.line_num )
+//    {
+//      // Past the range of line_num's we want to remove
+//      break;
+//    }
+//  }
+//  DI_List.remove_n( first_to_remove, num___to_remove );
+//}
 
 void Popu_DI_List_AddSame( Diff::Data& m, const SameArea sa )
 {
@@ -807,8 +813,8 @@ void Popu_DI_List_AddSame( Diff::Data& m, const SameArea sa )
     Diff_Info dis = { DT_SAME, sa.ln_s+k };
     Diff_Info dil = { DT_SAME, sa.ln_l+k };
 
-    Insert_DI_List( dis, m.DI_List_S );
-    Insert_DI_List( dil, m.DI_List_L );
+    Insert_DI_List( m, dis, m.DI_List_S );
+    Insert_DI_List( m, dil, m.DI_List_L ); m.DI_L_ins_idx++;
   }
 }
 
@@ -870,8 +876,8 @@ void Popu_DI_List( Diff::Data& m, const DiffArea CA )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  Clear_DI_List_CA( m, CA.ln_s, CA.fnl_s(), m.DI_List_S );
-  Clear_DI_List_CA( m, CA.ln_l, CA.fnl_l(), m.DI_List_L );
+//Clear_DI_List_CA( m, CA.ln_s, CA.fnl_s(), m.DI_List_S );
+//Clear_DI_List_CA( m, CA.ln_l, CA.fnl_l(), m.DI_List_L );
 
   const unsigned SLL = m.sameList.len();
   const unsigned DLL = m.diffList.len();
@@ -894,15 +900,16 @@ void RunDiff( Diff::Data& m, const DiffArea CA )
 //PrintDiffList();
   Popu_DI_List( m, CA );
 //PrintDI_List( CA );
+}
 
+void Set_DiffContext_2_ViewContext( Diff::Data& m )
+{
   View* pV = m.vis.CV();
 
   m.topLine  = DiffLine( m, pV, pV->GetTopLine() );
   m.leftChar =                  pV->GetLeftChar();
   m.crsRow   =                  pV->GetCrsRow  ();
   m.crsCol   =                  pV->GetCrsCol  ();
-
-  m.diff.Update();
 }
 
 void Clear_DI_List( Diff::Data& m, Array_t<Diff_Info>& DI_List )
@@ -931,6 +938,7 @@ void CleanDiff( Diff::Data& m )
 
   Clear_DI_List( m, m.DI_List_S );
   Clear_DI_List( m, m.DI_List_L );
+  m.DI_L_ins_idx = 0;
 
   Clear_SimiList(m);
 
@@ -3141,7 +3149,7 @@ void Do_D_v( Diff::Data& m )
   if( removed_line )
   {
     Do_D_v_find_new_crs_pos(m);
-    m.diff.Update();
+    if( !m.diff.ReDiff() ) m.diff.Update();
   }
 }
 
@@ -3197,7 +3205,7 @@ void Do_x_range_post( Diff::Data& m
 
   m.inVisualMode = false;
 
-  m.diff.Update(); //<- No need to Undo_v() or Remove_Banner() because of this
+  if( !m.diff.ReDiff() ) m.diff.Update(); //<- No need to Undo_v() or Remove_Banner() because of this
 }
 
 void Do_x_range_block( Diff::Data& m
@@ -3658,7 +3666,7 @@ void Do_p_line( Diff::Data& m )
     ODVL0 = false;
   }
 //pfb->Update_Styles( VL, VL+NUM_LINES_TO_INSERT );
-  m.diff.Update();
+  if( !m.diff.ReDiff() ) m.diff.Update();
 }
 
 void Do_p_or_P_st_fn_FirstLine( Diff::Data& m
@@ -3827,7 +3835,7 @@ void Do_p_or_P_st_fn( Diff::Data& m, Paste_Pos paste_pos )
     }
   }
 //pfb->Update_Styles( OVL, OVL+NUM_LINES );
-  m.diff.Update();
+  if( !m.diff.ReDiff() ) m.diff.Update();
 }
 
 void Do_p_block_Change_Line( Diff::Data& m
@@ -3935,7 +3943,7 @@ void Do_p_block( Diff::Data& m )
       Do_p_block_Insert_Line( m, k, DL, 0<VL?VL+1:0, ISP );
     }
   }
-  m.diff.Update();
+  if( !m.diff.ReDiff() ) m.diff.Update();
 }
 
 void Do_P_line( Diff::Data& m )
@@ -3979,7 +3987,7 @@ void Do_P_block( Diff::Data& m )
       Do_p_block_Insert_Line( m, k, DL, 0<VL?VL+1:0, ISP );
     }
   }
-  m.diff.Update();
+  if( !m.diff.ReDiff() ) m.diff.Update();
 }
 
 void Replace_Crs_Char( Diff::Data& m, Style style )
@@ -4575,6 +4583,8 @@ bool Diff::Run( View* const pv0, View* const pv1 )
         DiffArea CA( 0, m.pfS->NumLines(), 0, m.pfL->NumLines() );
 
         RunDiff( m, CA );
+        Set_DiffContext_2_ViewContext(m);
+        m.diff.Update();
       }
       return true;
     }
@@ -5407,7 +5417,7 @@ void Diff::Do_D()
     if( 0<m.crsCol ) m.crsCol--;
 
     Patch_Diff_Info_Changed( m, pV, DL );
-    Update();
+    if( !m.diff.ReDiff() ) m.diff.Update();
   }
 }
 
@@ -5439,7 +5449,7 @@ void Diff::Do_J()
       pfb->AppendLineToLine( VL, lp );
       Patch_Diff_Info_Changed( m, pV, DL );
 
-      Update();
+      if( !m.diff.ReDiff() ) m.diff.Update();
     }
   }
 }
@@ -5488,7 +5498,7 @@ void Diff::Do_dd()
       }
       GoToCrsPos_NoWrite( m, ncld, CrsChar(m) );
 
-      Update();
+      if( !m.diff.ReDiff() ) m.diff.Update();
     }
   }
 }
@@ -5841,5 +5851,181 @@ bool Diff::Update_Status_Lines()
     updated_a_sts_line = true;
   }
   return updated_a_sts_line;
+}
+
+bool ReDiff_GetDiffArea_Search_4_Same( Diff::Data& m, DiffArea& da )
+{
+  const unsigned DL = CrsLine(m); // Diff line number
+  const bool in_short = m.vis.CV() == m.pvS;
+  Array_t<Diff_Info>& cDI_List = in_short ? m.DI_List_S : m.DI_List_L; // Current
+
+  // Search up for SAME
+  bool found = false;
+  for( int L=DL; !found && 0<=L; L-- )
+  {
+    Diff_Info& di = cDI_List[ L ];
+    if( DT_SAME == di.diff_type )
+    {
+      found = true;
+      da.ln_s = ( DT_DELETED == m.DI_List_S[ L+1 ].diff_type )
+              ? m.DI_List_S[L+1].line_num+1
+              : m.DI_List_S[L+1].line_num;
+
+      da.ln_l = ( DT_DELETED == m.DI_List_L[ L+1 ].diff_type )
+              ? m.DI_List_L[L+1].line_num+1
+              : m.DI_List_L[L+1].line_num;
+    }
+  }
+  // Search down for SAME
+  found = false;
+  for( unsigned L=DL; !found && L<cDI_List.len(); L++ )
+  {
+    Diff_Info& di = cDI_List[ L ];
+    if( DT_SAME == di.diff_type )
+    {
+      found = true;
+      da.nlines_s = m.DI_List_S[L].line_num - da.ln_s;
+      da.nlines_l = m.DI_List_L[L].line_num - da.ln_l;
+    }
+  }
+  return found;
+}
+
+bool ReDiff_GetDiffArea_Search_4_Diff_Then_Same( Diff::Data& m, DiffArea& da )
+{
+  const unsigned DL = CrsLine(m); // Diff line number
+  const bool in_short = m.vis.CV() == m.pvS;
+  Array_t<Diff_Info>& cDI_List = in_short ? m.DI_List_S : m.DI_List_L; // Current
+
+  // Search up for CHANGED, INSERTED or DELETED and then for SAME
+  bool found = false;
+  int L = DL;
+  for( ; !found && 0<=L; L-- )
+  {
+    Diff_Info& di = cDI_List[ L ];
+    if( DT_CHANGED  == di.diff_type
+     || DT_INSERTED == di.diff_type
+     || DT_DELETED  == di.diff_type )
+    {
+      found = true;
+    }
+  }
+  if( found ) {
+    found = false;
+    for( ; !found && 0<=L; L-- )
+    {
+      Diff_Info& di = cDI_List[ L ];
+      if( DT_SAME == di.diff_type )
+      {
+        found = true;
+        da.ln_s = ( DT_DELETED == m.DI_List_S[ L+1 ].diff_type )
+                ? m.DI_List_S[L+1].line_num+1
+                : m.DI_List_S[L+1].line_num;
+
+        da.ln_l = ( DT_DELETED == m.DI_List_L[ L+1 ].diff_type )
+                ? m.DI_List_L[L+1].line_num+1
+                : m.DI_List_L[L+1].line_num;
+      }
+    }
+  }
+  // Search down for CHANGED, INSERTED or DELETED and then for SAME
+  found = false;
+  L = DL;
+  for( ; !found && L<cDI_List.len(); L++ )
+  {
+    Diff_Info& di = cDI_List[ L ];
+    if( DT_CHANGED  == di.diff_type
+     || DT_INSERTED == di.diff_type
+     || DT_DELETED  == di.diff_type )
+    {
+      found = true;
+    }
+  }
+  if( found ) {
+    found = false;
+    for( ; !found && L<cDI_List.len(); L++ )
+    {
+      Diff_Info& di = cDI_List[ L ];
+      if( DT_SAME == di.diff_type )
+      {
+        found = true;
+        da.nlines_s = m.DI_List_S[L].line_num - da.ln_s;
+        da.nlines_l = m.DI_List_L[L].line_num - da.ln_l;
+      }
+    }
+  }
+  return found;
+}
+
+bool ReDiff_GetDiffArea( Diff::Data& m, DiffArea& da )
+{
+  bool found_diff_area = false;
+
+  const unsigned DL = CrsLine(m); // Diff line number
+
+  const bool in_short = m.vis.CV() == m.pvS;
+  Array_t<Diff_Info>& cDI_List = in_short ? m.DI_List_S : m.DI_List_L; // Current
+  Diff_Info& cDI = cDI_List[ DL ];
+
+  if( DT_SAME == cDI.diff_type )
+  {
+    found_diff_area = ReDiff_GetDiffArea_Search_4_Diff_Then_Same( m, da );
+  }
+  else if( DT_CHANGED  == cDI.diff_type
+        || DT_INSERTED == cDI.diff_type
+        || DT_DELETED  == cDI.diff_type )
+  {
+     found_diff_area = ReDiff_GetDiffArea_Search_4_Same( m, da );
+  }
+  return found_diff_area;
+}
+
+unsigned Remove_From_DI_Lists( Diff::Data& m, DiffArea da )
+{
+  unsigned DI_lists_insert_idx = 0;
+
+  unsigned DI_list_s_remove_st = DiffLine_S( m, da.ln_s );
+  unsigned DI_list_l_remove_st = DiffLine_L( m, da.ln_l );
+  unsigned DI_list_remove_st = Min( DI_list_s_remove_st
+                                  , DI_list_l_remove_st );
+  DI_lists_insert_idx = DI_list_remove_st;
+
+  unsigned DI_list_s_remove_fn = DiffLine_S( m, da.fnl_s() );
+  unsigned DI_list_l_remove_fn = DiffLine_L( m, da.fnl_l() );
+  unsigned DI_list_remove_fn = Max( DI_list_s_remove_fn
+                                  , DI_list_l_remove_fn );
+//Log.Log("(DI_list_remove_st,DI_list_remove_fn) = ("
+//       + (DI_list_remove_st+1)+","+(DI_list_remove_fn+1) +")");
+
+  for( unsigned k=DI_list_remove_st; k<DI_list_remove_fn; k++ )
+  {
+    m.DI_List_S.remove( DI_lists_insert_idx );
+    m.DI_List_L.remove( DI_lists_insert_idx );
+  }
+  return DI_lists_insert_idx;
+}
+
+// Returns success or failure
+bool Diff::ReDiff()
+{
+  bool ok = false;
+  DiffArea da;
+  const bool found_diff_area = ReDiff_GetDiffArea( m, da );
+
+  if( !found_diff_area )
+  {
+    m.vis.CmdLineMessage("rediff: DiffArea not found");
+    PrintCursor( m.vis.CV() );
+  }
+  else {
+    ok = true;
+  //Log.Log("ReDiff DiffArea:"); da.Print();
+
+    m.DI_L_ins_idx = Remove_From_DI_Lists( m, da );
+
+    RunDiff( m, da );
+    Update();
+  }
+  return ok;
 }
 
