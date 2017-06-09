@@ -40,8 +40,6 @@ public:
 
   virtual void GoToCrsPos_NoWrite( const unsigned ncp_crsLine
                                  , const unsigned ncp_crsChar ) = 0;
-
-//virtual void LineRemoved_Adjust_TopLine( const unsigned line_removed ) = 0;
 };
 
 #endif

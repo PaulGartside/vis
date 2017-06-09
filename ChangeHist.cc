@@ -26,8 +26,9 @@
 #include "MemLog.hh"
 #include "Utilities.hh"
 #include "Vis.hh"
-#include "View_IF.hh"
+#include "View.hh"
 #include "FileBuf.hh"
+#include "Diff.hh"
 #include "ChangeHist.hh"
 
 extern MemLog<MEM_LOG_BUF_SIZE> Log;
@@ -55,7 +56,7 @@ bool ChangeHist::Has_Changes() const
   return !! changes.len();
 }
 
-void ChangeHist::Undo( View_IF& rV )
+void ChangeHist::Undo( View& rV )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -64,17 +65,29 @@ void ChangeHist::Undo( View_IF& rV )
   if( changes.pop( plc ) )
   {
     const ChangeType ct = plc->type;
-    if     ( ct ==  Insert_Line ) Undo_InsertLine( plc, rV );
-    else if( ct ==  Remove_Line ) Undo_RemoveLine( plc, rV );
-    else if( ct ==  Insert_Text ) Undo_InsertChar( plc, rV );
-    else if( ct ==  Remove_Text ) Undo_RemoveChar( plc, rV );
-    else if( ct == Replace_Text ) Undo_Set       ( plc, rV );
 
+    if( m_vis.InDiffMode() )
+    {
+      if     ( ct ==  Insert_Line ) Undo_InsertLine_Diff( plc, rV );
+      else if( ct ==  Remove_Line ) Undo_RemoveLine_Diff( plc, rV );
+      else if( ct ==  Insert_Text ) Undo_InsertChar_Diff( plc, rV );
+      else if( ct ==  Remove_Text ) Undo_RemoveChar_Diff( plc, rV );
+      else if( ct == Replace_Text ) Undo_Set_Diff       ( plc, rV );
+      else {
+      }
+    }
+    else {
+      if     ( ct ==  Insert_Line ) Undo_InsertLine( plc, rV );
+      else if( ct ==  Remove_Line ) Undo_RemoveLine( plc, rV );
+      else if( ct ==  Insert_Text ) Undo_InsertChar( plc, rV );
+      else if( ct ==  Remove_Text ) Undo_RemoveChar( plc, rV );
+      else if( ct == Replace_Text ) Undo_Set       ( plc, rV );
+    }
     m_vis.ReturnLineChange( plc );
   }
 }
 
-void ChangeHist::UndoAll( View_IF& rV )
+void ChangeHist::UndoAll( View& rV )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -194,7 +207,7 @@ void ChangeHist::Save_SwapLines( const unsigned l_num_1
 {
 }
 
-void ChangeHist::Undo_Set( LineChange* plc, View_IF& rV )
+void ChangeHist::Undo_Set( LineChange* plc, View& rV )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -211,7 +224,7 @@ void ChangeHist::Undo_Set( LineChange* plc, View_IF& rV )
   m_fb.Update();
 }
 
-void ChangeHist::Undo_InsertLine( LineChange* plc, View_IF& rV )
+void ChangeHist::Undo_InsertLine( LineChange* plc, View& rV )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -228,7 +241,7 @@ void ChangeHist::Undo_InsertLine( LineChange* plc, View_IF& rV )
   m_fb.Update();
 }
 
-void ChangeHist::Undo_RemoveLine( LineChange* plc, View_IF& rV )
+void ChangeHist::Undo_RemoveLine( LineChange* plc, View& rV )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -240,7 +253,7 @@ void ChangeHist::Undo_RemoveLine( LineChange* plc, View_IF& rV )
   m_fb.Update();
 }
 
-void ChangeHist::Undo_InsertChar( LineChange* plc, View_IF& rV )
+void ChangeHist::Undo_InsertChar( LineChange* plc, View& rV )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -256,7 +269,7 @@ void ChangeHist::Undo_InsertChar( LineChange* plc, View_IF& rV )
   m_fb.Update();
 }
 
-void ChangeHist::Undo_RemoveChar( LineChange* plc, View_IF& rV )
+void ChangeHist::Undo_RemoveChar( LineChange* plc, View& rV )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -272,5 +285,113 @@ void ChangeHist::Undo_RemoveChar( LineChange* plc, View_IF& rV )
   rV.GoToCrsPos_NoWrite( plc->lnum, plc->cpos );
 
   m_fb.Update();
+}
+
+void ChangeHist::Undo_Set_Diff( LineChange* plc, View& rV )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  const unsigned LINE_LEN = plc->line.len();
+
+  for( unsigned k=0; k<LINE_LEN; k++ )
+  {
+    const uint8_t C = plc->line.get(k);
+
+    m_fb.Set( plc->lnum, plc->cpos+k, C );
+  }
+  Diff& rDiff = m_vis.GetDiff();
+
+  const int DL = rDiff.DiffLine( &rV, plc->lnum );
+  rDiff.Patch_Diff_Info_Changed( &rV, DL );
+
+  rDiff.GoToCrsPos_NoWrite( DL, plc->cpos );
+
+  if( !rDiff.ReDiff() ) rDiff.Update();
+}
+
+void ChangeHist::Undo_InsertLine_Diff( LineChange* plc, View& rV )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  // Undo an inserted line by removing the inserted line
+  m_fb.RemoveLine( plc->lnum );
+
+  // If last line of file was just removed, plc->lnum is out of range,
+  // so go to NUM_LINES-1 instead:
+  const unsigned NUM_LINES = m_fb.NumLines();
+  const unsigned LINE_NUM  = plc->lnum < NUM_LINES ? plc->lnum : NUM_LINES-1;
+
+  Diff& rDiff = m_vis.GetDiff();
+
+  const int DL = rDiff.DiffLine( &rV, LINE_NUM );
+
+  rDiff.Patch_Diff_Info_Deleted( &rV, DL );
+
+  rDiff.GoToCrsPos_NoWrite( DL, plc->cpos );
+
+  if( !rDiff.ReDiff() ) rDiff.Update();
+}
+
+void ChangeHist::Undo_RemoveLine_Diff( LineChange* plc, View& rV )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  // Undo a removed line by inserting the removed line
+  m_fb.InsertLine( plc->lnum, plc->line );
+
+  Diff& rDiff = m_vis.GetDiff();
+
+  const int  DL    = rDiff.DiffLine( &rV, plc->lnum );
+  const bool ODVL0 = rDiff.On_Deleted_View_Line_Zero( DL );
+
+  rDiff.Patch_Diff_Info_Inserted( &rV, DL, ODVL0 );
+
+  rDiff.GoToCrsPos_NoWrite( plc->lnum, plc->cpos );
+
+  if( !rDiff.ReDiff() ) rDiff.Update();
+}
+
+void ChangeHist::Undo_InsertChar_Diff( LineChange* plc, View& rV )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  const unsigned LINE_LEN = plc->line.len();
+
+  // Undo inserted chars by removing the inserted chars
+  for( unsigned k=0; k<LINE_LEN; k++ )
+  {
+    m_fb.RemoveChar( plc->lnum, plc->cpos );
+  }
+  Diff& rDiff = m_vis.GetDiff();
+
+  const int DL = rDiff.DiffLine( &rV, plc->lnum );
+  rDiff.Patch_Diff_Info_Changed( &rV, DL );
+
+  rDiff.GoToCrsPos_NoWrite( DL, plc->cpos );
+
+  if( !rDiff.ReDiff() ) rDiff.Update();
+}
+
+void ChangeHist::Undo_RemoveChar_Diff( LineChange* plc, View& rV )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  const unsigned LINE_LEN = plc->line.len();
+
+  // Undo removed chars by inserting the removed chars
+  for( unsigned k=0; k<LINE_LEN; k++ )
+  {
+    const uint8_t C = plc->line.get(k);
+
+    m_fb.InsertChar( plc->lnum, plc->cpos+k, C );
+  }
+  Diff& rDiff = m_vis.GetDiff();
+
+  const int DL = rDiff.DiffLine( &rV, plc->lnum );
+  rDiff.Patch_Diff_Info_Changed( &rV, DL );
+
+  rDiff.GoToCrsPos_NoWrite( DL, plc->cpos );
+
+  if( !rDiff.ReDiff() ) rDiff.Update();
 }
 

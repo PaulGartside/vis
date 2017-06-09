@@ -45,6 +45,18 @@ public:
   unsigned GetCrsRow  () const;
   unsigned GetCrsCol  () const;
 
+  void GoToCrsPos_NoWrite( const unsigned ncp_crsLine
+                         , const unsigned ncp_crsChar );
+
+  unsigned DiffLine( const View* pV, const unsigned view_line );
+
+  void Patch_Diff_Info_Inserted( View* pV
+                               , const unsigned DPL
+                               , const bool ON_DELETED_VIEW_LINE_ZERO=false );
+  void Patch_Diff_Info_Deleted( View* pV, const unsigned DPL );
+  void Patch_Diff_Info_Changed( View* pV, const unsigned DPL );
+  bool On_Deleted_View_Line_Zero( const unsigned DL );
+
   void GoUp();
   void GoDown();
   void GoLeft();

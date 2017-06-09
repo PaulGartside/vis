@@ -1820,7 +1820,7 @@ void FileBuf::ClearLines()
   m.lineRegexsValid.clear();
 }
 
-void FileBuf::Undo( View_IF& rV )
+void FileBuf::Undo( View& rV )
 {
   if( m.save_history )
   {
@@ -1832,7 +1832,7 @@ void FileBuf::Undo( View_IF& rV )
   }
 }
 
-void FileBuf::UndoAll( View_IF& rV )
+void FileBuf::UndoAll( View& rV )
 {
   if( m.save_history )
   {

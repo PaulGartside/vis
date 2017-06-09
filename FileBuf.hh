@@ -83,8 +83,8 @@ public:
   bool     Changed() const;
   void     ClearChanged();
   void     ClearLines();
-  void     Undo( View_IF& rV );
-  void     UndoAll( View_IF& rV );
+  void     Undo( View& rV );
+  void     UndoAll( View& rV );
   void     Update();
   void     UpdateCmd();
   void Set_File_Type( const char* syn );

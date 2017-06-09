@@ -29,6 +29,7 @@
 class String;
 class FileBuf;
 class View;
+class Diff;
 
 class Vis
 {
@@ -51,6 +52,7 @@ public:
   bool        Shell_Running() const;
   void        Update_Shell();
   FileBuf*    GetFileBuf( const unsigned index ) const;
+  Diff&       GetDiff() const;
   unsigned    GetRegexLen() const;
   String      GetRegex() const;
 

@@ -4247,6 +4247,11 @@ FileBuf* Vis::GetFileBuf( const unsigned index ) const
   return m.files[ index ];
 }
 
+Diff& Vis::GetDiff() const
+{
+  return m.diff;
+}
+
 unsigned Vis::GetRegexLen() const
 {
   return m.regex.len();

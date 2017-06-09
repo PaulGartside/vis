@@ -887,8 +887,6 @@ void Popu_DI_List( Diff::Data& m, const DiffArea CA )
   else                Popu_DI_List_DiffAndSame( m, CA );
 }
 
-unsigned DiffLine( Diff::Data& m, const View* pV, const unsigned view_line );
-
 void RunDiff( Diff::Data& m, const DiffArea CA )
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -906,7 +904,7 @@ void Set_DiffContext_2_ViewContext( Diff::Data& m )
 {
   View* pV = m.vis.CV();
 
-  m.topLine  = DiffLine( m, pV, pV->GetTopLine() );
+  m.topLine  = m.diff.DiffLine( pV, pV->GetTopLine() );
   m.leftChar =                  pV->GetLeftChar();
   m.crsRow   =                  pV->GetCrsRow  ();
   m.crsCol   =                  pV->GetCrsCol  ();
@@ -1097,13 +1095,13 @@ unsigned DiffLine_L( Diff::Data& m, const unsigned view_line )
   return 0;
 }
 
-unsigned DiffLine( Diff::Data& m, const View* pV, const unsigned view_line )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  return ( pV == m.pvS ) ? DiffLine_S( m, view_line )
-                         : DiffLine_L( m, view_line );
-}
+//unsigned DiffLine( Diff::Data& m, const View* pV, const unsigned view_line )
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//
+//  return ( pV == m.pvS ) ? DiffLine_S( m, view_line )
+//                         : DiffLine_L( m, view_line );
+//}
 
 unsigned ViewLine( Diff::Data& m, const View* pV, const unsigned diff_line )
 {
@@ -1824,9 +1822,8 @@ void GoToCrsPos_Write( Diff::Data& m
   }
 }
 
-void GoToCrsPos_NoWrite( Diff::Data& m
-                       , const unsigned ncp_crsLine
-                       , const unsigned ncp_crsChar )
+void Diff::GoToCrsPos_NoWrite( const unsigned ncp_crsLine
+                             , const unsigned ncp_crsChar )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -1880,7 +1877,7 @@ void GoToOppositeBracket_Forward( Diff::Data& m
           found = true;
 
           // Convert from view line back to diff line:
-          const unsigned dl = DiffLine(m, pV, vl);
+          const unsigned dl = m.diff.DiffLine(pV, vl);
 
           GoToCrsPos_Write( m, dl, p );
         }
@@ -1920,7 +1917,7 @@ void GoToOppositeBracket_Backward( Diff::Data& m
           found = true;
 
           // Convert from view line back to dif line:
-          const unsigned dl = DiffLine(m, pV, vl);
+          const unsigned dl = m.diff.DiffLine(pV, vl);
 
           GoToCrsPos_Write( m, dl, p );
         }
@@ -1979,7 +1976,7 @@ bool GoToNextWord_GetPosition( Diff::Data& m, CrsPos& ncp )
       if( found_space && found_word )
       {
         // Convert from view line back to diff line:
-        const unsigned dl = DiffLine( m, pV, vl );
+        const unsigned dl = m.diff.DiffLine( pV, vl );
 
         ncp.crsLine = dl;
         ncp.crsChar = p;
@@ -2014,7 +2011,7 @@ bool GoToPrevWord_GetPosition( Diff::Data& m, CrsPos& ncp )
       return true;
     }
     else {
-      GoToCrsPos_NoWrite( m, CrsLine(m), LL ? LL-1 : 0 );
+      m.diff.GoToCrsPos_NoWrite( CrsLine(m), LL ? LL-1 : 0 );
     }
   }
   bool found_space = false;
@@ -2055,7 +2052,7 @@ bool GoToPrevWord_GetPosition( Diff::Data& m, CrsPos& ncp )
       if( found_space && found_word )
       {
         // Convert from view line back to diff line:
-        const unsigned dl = DiffLine( m, pV, vl );
+        const unsigned dl = m.diff.DiffLine( pV, vl );
 
         ncp.crsLine = dl;
         ncp.crsChar = p;
@@ -2176,7 +2173,7 @@ bool Do_n_FindNextPattern( Diff::Data& m, CrsPos& ncp )
       {
         found_next_star = true;
         // Convert from view line back to diff line:
-        const unsigned dl = DiffLine( m, pV, l );
+        const unsigned dl = m.diff.DiffLine( pV, l );
         ncp.crsLine = dl;
         ncp.crsChar = p;
       }
@@ -2200,7 +2197,7 @@ bool Do_n_FindNextPattern( Diff::Data& m, CrsPos& ncp )
         {
           found_next_star = true;
           // Convert from view line back to diff line:
-          const unsigned dl = DiffLine( m, pV, l );
+          const unsigned dl = m.diff.DiffLine( pV, l );
           ncp.crsLine = dl;
           ncp.crsChar = p;
         }
@@ -2366,7 +2363,7 @@ bool MoveInBounds( Diff::Data& m )
 
   if( EOL < CrsChar(m) ) // Since cursor is now allowed past EOL,
   {                      // it may need to be moved back:
-    GoToCrsPos_NoWrite( m, DL, EOL );
+    m.diff.GoToCrsPos_NoWrite( DL, EOL );
     return true;
   }
   return false;
@@ -2407,7 +2404,7 @@ bool Do_N_FindPrevPattern( Diff::Data& m, CrsPos& ncp )
       {
         found_prev_star = true;
         // Convert from view line back to diff line:
-        const unsigned dl = DiffLine( m, pV, l );
+        const unsigned dl = m.diff.DiffLine( pV, l );
         ncp.crsLine = dl;
         ncp.crsChar = p;
       }
@@ -2431,7 +2428,7 @@ bool Do_N_FindPrevPattern( Diff::Data& m, CrsPos& ncp )
         {
           found_prev_star = true;
           // Convert from view line back to diff line:
-          const unsigned dl = DiffLine( m, pV, l );
+          const unsigned dl = m.diff.DiffLine( pV, l );
           ncp.crsLine = dl;
           ncp.crsChar = p;
         }
@@ -2616,10 +2613,9 @@ void Patch_Diff_Info_Inserted_Inc( Diff::Data& m
 //--------------------------------------------------------------------------------
 //| Insert | DELETED  | INSERTED  | Compare sides, if same set both to SAME, else set both to CHANGED
 //|        | -------- | ANY OTHER | Add line to both sides, and set this side to INSERTED and other side to DELETED
-void Patch_Diff_Info_Inserted( Diff::Data& m
-                             , View* pV
-                             , const unsigned DPL
-                             , const bool ON_DELETED_VIEW_LINE_ZERO=false )
+void Diff::Patch_Diff_Info_Inserted( View* pV
+                                   , const unsigned DPL
+                                   , const bool ON_DELETED_VIEW_LINE_ZERO )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   Array_t<Diff_Info>& cDI_List = (pV == m.pvS) ? m.DI_List_S : m.DI_List_L; // Current
@@ -2691,7 +2687,7 @@ void Patch_Diff_Info_Inserted( Diff::Data& m
 //|        | CHANGED  | CHANGED   | Change this side to DELETED and other side to INSERTED
 //|        | INSERTED | DELETED   | Remove line on both sides
 //|        | DELETED  | --------- | Do nothing
-void Patch_Diff_Info_Deleted( Diff::Data& m, View* pV, const unsigned DPL )
+void Diff::Patch_Diff_Info_Deleted( View* pV, const unsigned DPL )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -2734,7 +2730,7 @@ void Patch_Diff_Info_Deleted( Diff::Data& m, View* pV, const unsigned DPL )
 //| Change | SAME     | SAME      | Change this side and other side to CHANGED
 //|        | CHANGED  | CHANGED   | Compare sides, if same change both to SAME, else leave both CHANGED
 //|        | INSERTED | DELETED   | Dont change anything
-void Patch_Diff_Info_Changed( Diff::Data& m, View* pV, const unsigned DPL )
+void Diff::Patch_Diff_Info_Changed( View* pV, const unsigned DPL )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -2800,11 +2796,11 @@ void InsertAddChar( Diff::Data& m, const char c )
     m.crsCol = 0;
     pfb->InsertLine( VL+1 );
     pfb->InsertChar( VL+1, 0, c );
-    Patch_Diff_Info_Inserted( m, pV, DL );
+    m.diff.Patch_Diff_Info_Inserted( pV, DL );
   }
   else {
     pfb->InsertChar( VL, CrsChar(m), c );
-    Patch_Diff_Info_Changed( m, pV, DL );
+    m.diff.Patch_Diff_Info_Changed( pV, DL );
   }
   if( WorkingCols( pV ) <= m.crsCol+1 )
   {
@@ -2850,8 +2846,8 @@ void InsertAddReturn( Diff::Data& m )
     // one line so that the cursor line is not below the screen.
     m.topLine++;
   }
-  Patch_Diff_Info_Changed( m, pV, DL );
-  Patch_Diff_Info_Inserted( m, pV, DL+1 );
+  m.diff.Patch_Diff_Info_Changed( pV, DL );
+  m.diff.Patch_Diff_Info_Inserted( pV, DL+1 );
   m.diff.Update();
 }
 
@@ -2871,7 +2867,7 @@ void InsertBackspace_RmC( Diff::Data& m
   if( 0 < m.crsCol ) m.crsCol -= 1;
   else               m.leftChar -= 1;
 
-  Patch_Diff_Info_Changed( m, pV, DL );
+  m.diff.Patch_Diff_Info_Changed( pV, DL );
   m.diff.Update();
 }
 
@@ -2906,8 +2902,8 @@ void InsertBackspace_RmNL( Diff::Data& m, const unsigned DL )
                    m.crsCol = ncp.crsChar - m.leftChar;
 
   // 5. Removed a line, so update to re-draw window view
-  Patch_Diff_Info_Deleted( m, pV, DL );
-  Patch_Diff_Info_Changed( m, pV, DL-1 );
+  m.diff.Patch_Diff_Info_Deleted( pV, DL );
+  m.diff.Patch_Diff_Info_Changed( pV, DL-1 );
   m.diff.Update();
 }
 
@@ -2984,7 +2980,7 @@ void Do_y_v_block( Diff::Data& m )
   unsigned ncc = 0;
   if( 0<NLL ) ncc = NLL <= m.v_st_char ? NLL-1 : m.v_st_char;
 
-  GoToCrsPos_NoWrite( m, ncl, ncc );
+  m.diff.GoToCrsPos_NoWrite( ncl, ncc );
 }
 
 void Do_y_v_st_fn( Diff::Data& m )
@@ -3101,7 +3097,7 @@ void Do_D_v_find_new_crs_pos( Diff::Data& m )
   unsigned ncc = 0;
   if( NCLL ) ncc = m.v_st_char < NCLL ? m.v_st_char : NCLL-1;
 
-  GoToCrsPos_NoWrite( m, ncld, ncc );
+  m.diff.GoToCrsPos_NoWrite( ncld, ncc );
 }
 
 void Do_D_v( Diff::Data& m )
@@ -3132,7 +3128,7 @@ void Do_D_v( Diff::Data& m )
       Line* lp = pfb->RemoveLineP( VL );
       m.reg.push( lp ); // m.reg will delete lp
 
-      Patch_Diff_Info_Deleted( m, pV, DL );
+      m.diff.Patch_Diff_Info_Deleted( pV, DL );
 
       removed_line = true;
       // If line on other side is DT_DELETED, a diff line will be removed
@@ -3201,7 +3197,7 @@ void Do_x_range_post( Diff::Data& m
   unsigned ncc = 0;
   if( 0<NCLL ) ncc = st_char < NCLL ? st_char : NCLL-1;
 
-  GoToCrsPos_NoWrite( m, ncld, ncc );
+  m.diff.GoToCrsPos_NoWrite( ncld, ncc );
 
   m.inVisualMode = false;
 
@@ -3261,7 +3257,7 @@ void Do_x_range_single( Diff::Data& m
     LL = pfb->LineLen( VL ); // Removed a char, so re-set LL
     removed_char = true;
   }
-  if( removed_char ) Patch_Diff_Info_Changed( m, pV, DL );
+  if( removed_char ) m.diff.Patch_Diff_Info_Changed( pV, DL );
 
   m.reg.push( nlp );
 }
@@ -3316,14 +3312,14 @@ void Do_x_range_multiple( Diff::Data& m
     if( 0 == P_st && OLL-1 == P_fn )
     {
       pfb->RemoveLine( VL );
-      Patch_Diff_Info_Deleted( m, pV, DL );
+      m.diff.Patch_Diff_Info_Deleted( pV, DL );
       // If line on other side is DT_DELETED, a diff line will be removed
       // from both sides, so decrement DL to stay on same DL, decrement
       // n_fn_line because it just moved up a line
       if( oDT == DT_DELETED ) { DL--; n_fn_line--; }
     }
     else {
-      if( removed_char ) Patch_Diff_Info_Changed( m, pV, DL );
+      if( removed_char ) m.diff.Patch_Diff_Info_Changed( pV, DL );
     }
     m.reg.push( nlp );
   }
@@ -3336,8 +3332,8 @@ void Do_x_range_multiple( Diff::Data& m
     pfb->RemoveLine( v_fn_line, lr );
     pfb->AppendLineToLine( v_st_line, lr );
 
-    Patch_Diff_Info_Deleted( m, pV, fn_line );
-    Patch_Diff_Info_Changed( m, pV, st_line );
+    m.diff.Patch_Diff_Info_Deleted( pV, fn_line );
+    m.diff.Patch_Diff_Info_Changed( pV, st_line );
   }
 }
 
@@ -3392,9 +3388,9 @@ void InsertBackspace_vb( Diff::Data& m )
     {
       pfb->RemoveChar( VL+k, CP-1 );
 
-      Patch_Diff_Info_Changed( m, pV, DL+k );
+      m.diff.Patch_Diff_Info_Changed( pV, DL+k );
     }
-    GoToCrsPos_NoWrite( m, DL, CP-1 );
+    m.diff.GoToCrsPos_NoWrite( DL, CP-1 );
   }
 }
 
@@ -3427,9 +3423,9 @@ void InsertAddChar_vb( Diff::Data& m, const char c )
     }
     pfb->InsertChar( VL+k, CP, c );
 
-    Patch_Diff_Info_Changed( m, pV, DL+k );
+    m.diff.Patch_Diff_Info_Changed( pV, DL+k );
   }
-  GoToCrsPos_NoWrite( m, DL, CP+1 );
+  m.diff.GoToCrsPos_NoWrite( DL, CP+1 );
 }
 
 void Do_i_vb( Diff::Data& m )
@@ -3484,7 +3480,7 @@ void Do_a_vb( Diff::Data& m )
   const bool CURSOR_AT_EOL = ( CrsChar( m ) == LL-1 );
   if( CURSOR_AT_EOL )
   {
-    GoToCrsPos_NoWrite( m, DL, LL );
+    m.diff.GoToCrsPos_NoWrite( DL, LL );
   }
   const bool CURSOR_AT_RIGHT_COL = ( m.crsCol == WorkingCols( pV )-1 );
 
@@ -3596,7 +3592,7 @@ void Do_Tilda_v_st_fn( Diff::Data& m )
     }
     if( changed_line )
     {
-      Patch_Diff_Info_Changed( m, pV, DL );
+      m.diff.Patch_Diff_Info_Changed( pV, DL );
     }
   }
 }
@@ -3613,7 +3609,7 @@ void Do_Tilda_v( Diff::Data& m )
   m.inVisualMode = false;
 }
 
-bool On_Deleted_View_Line_Zero( Diff::Data& m, const unsigned DL )
+bool Diff::On_Deleted_View_Line_Zero( const unsigned DL )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -3653,7 +3649,7 @@ void Do_p_line( Diff::Data& m )
   // If cursor is on a deleted diff line, start inserting lines into that deleted diff line
   // If cursor is NOT on a deleted diff line, start inserting lines below diff cursor line
   const bool ON_DELETED = DT_DELETED == cDI.diff_type;
-        bool ODVL0 = On_Deleted_View_Line_Zero( m, DL );
+        bool ODVL0 = m.diff.On_Deleted_View_Line_Zero( DL );
   const unsigned DL_START = ON_DELETED ? DL : DL+1;
   const unsigned VL_START = ODVL0      ? VL : VL+1;
 
@@ -3662,7 +3658,7 @@ void Do_p_line( Diff::Data& m )
     // In FileBuf: Put reg on line below:
     pfb->InsertLine( VL_START+k, *(m.reg[k]) );
 
-    Patch_Diff_Info_Inserted( m, pV, DL_START+k, ODVL0 );
+    m.diff.Patch_Diff_Info_Inserted( pV, DL_START+k, ODVL0 );
     ODVL0 = false;
   }
 //pfb->Update_Styles( VL, VL+NUM_LINES_TO_INSERT );
@@ -3688,12 +3684,12 @@ void Do_p_or_P_st_fn_FirstLine( Diff::Data& m
 
   if( ON_DELETED )
   {
-    const bool ODVL0 = On_Deleted_View_Line_Zero( m, ODL );
+    const bool ODVL0 = m.diff.On_Deleted_View_Line_Zero( ODL );
 
     // In FileBuf: Put reg on line below:
     pfb->InsertLine( ODVL0 ? VL : VL+1, *(m.reg[0]) );
 
-    Patch_Diff_Info_Inserted( m, pV, ODL+k, ODVL0 );
+    m.diff.Patch_Diff_Info_Inserted( pV, ODL+k, ODVL0 );
   }
   else {
     MoveInBounds(m);
@@ -3709,7 +3705,7 @@ void Do_p_or_P_st_fn_FirstLine( Diff::Data& m
 
       pfb->InsertChar( VL, CP+i+forward, C );
     }
-    Patch_Diff_Info_Changed( m, pV, ODL+k );
+    m.diff.Patch_Diff_Info_Changed( pV, ODL+k );
 
     // Move rest of first line onto new line below
     if( 1 < NUM_LINES && CP+forward < LL )
@@ -3720,7 +3716,7 @@ void Do_p_or_P_st_fn_FirstLine( Diff::Data& m
         char C = pfb->RemoveChar( VL, CP + NLL+forward );
         pfb->PushChar( VL+1, C );
       }
-      Patch_Diff_Info_Inserted( m, pV, ODL+k+1, false ); //< Always false since we are starting on line below
+      m.diff.Patch_Diff_Info_Inserted( pV, ODL+k+1, false ); //< Always false since we are starting on line below
     }
   }
 }
@@ -3742,7 +3738,7 @@ void Do_p_or_P_st_fn_LastLine( Diff::Data& m
   if( ON_DELETED )
   {
     pfb->InsertLine( VL+1, *(m.reg[k]) );
-    Patch_Diff_Info_Inserted( m, pV, ODL+k, false );
+    m.diff.Patch_Diff_Info_Inserted( pV, ODL+k, false );
   }
   else {
     for( unsigned i=0; i<NLL; i++ )
@@ -3750,7 +3746,7 @@ void Do_p_or_P_st_fn_LastLine( Diff::Data& m
       char C = m.reg[k]->get(i);
       pfb->InsertChar( VL, i, C );
     }
-    Patch_Diff_Info_Changed( m, pV, ODL+k );
+    m.diff.Patch_Diff_Info_Changed( pV, ODL+k );
   }
 }
 
@@ -3775,7 +3771,7 @@ void Do_p_or_P_st_fn_IntermediatLine( Diff::Data& m
     // In FileBuf: Put reg on line below:
     pfb->InsertLine( VL+1, *( m.reg[k] ) );
 
-    Patch_Diff_Info_Inserted( m, pV, ODL+k, false );
+    m.diff.Patch_Diff_Info_Inserted( pV, ODL+k, false );
   }
   else {
     MoveInBounds(m);
@@ -3787,7 +3783,7 @@ void Do_p_or_P_st_fn_IntermediatLine( Diff::Data& m
 
       pfb->InsertChar( VL, i, C );
     }
-    Patch_Diff_Info_Changed( m, pV, ODL+k );
+    m.diff.Patch_Diff_Info_Changed( pV, ODL+k );
 
     // Move rest of first line onto new line below
     if( 1 < NUM_LINES && 0 < LL )
@@ -3798,7 +3794,7 @@ void Do_p_or_P_st_fn_IntermediatLine( Diff::Data& m
         char C = pfb->RemoveChar( VL, NLL );
         pfb->PushChar( VL+1, C );
       }
-      Patch_Diff_Info_Inserted( m, pV, ODL+k+1, false ); //< Always false since we are starting on line below
+      m.diff.Patch_Diff_Info_Inserted( pV, ODL+k+1, false ); //< Always false since we are starting on line below
     }
   }
 }
@@ -3870,7 +3866,7 @@ void Do_p_block_Change_Line( Diff::Data& m
 
     pfb->InsertChar( VL+k, ISP+i, C );
   }
-  Patch_Diff_Info_Changed( m, pV, DL+k );
+  m.diff.Patch_Diff_Info_Changed( pV, DL+k );
 }
 
 void Do_p_block_Insert_Line( Diff::Data& m
@@ -3907,9 +3903,9 @@ void Do_p_block_Insert_Line( Diff::Data& m
 
     pfb->InsertChar( VL+k, ISP+i, C );
   }
-  const bool ODVL0 = On_Deleted_View_Line_Zero( m, DL+k );
+  const bool ODVL0 = m.diff.On_Deleted_View_Line_Zero( DL+k );
 
-  Patch_Diff_Info_Inserted( m, pV, DL+k, ODVL0 );
+  m.diff.Patch_Diff_Info_Inserted( pV, DL+k, ODVL0 );
 }
 
 void Do_p_block( Diff::Data& m )
@@ -3953,7 +3949,7 @@ void Do_P_line( Diff::Data& m )
   const int DL = CrsLine(m); // Diff line
 
   // Move to line above, and then do 'p':
-  if( 0<DL ) GoToCrsPos_NoWrite( m, DL-1, CrsChar(m) );
+  if( 0<DL ) m.diff.GoToCrsPos_NoWrite( DL-1, CrsChar(m) );
 
   Do_p_line(m);
 }
@@ -4211,10 +4207,10 @@ void ReplaceAddReturn( Diff::Data& m )
   const unsigned new_line_num = OVL+1;
   pfb->InsertLine( new_line_num, new_line );
 
-  GoToCrsPos_NoWrite( m, ODL+1, 0 );
+  m.diff.GoToCrsPos_NoWrite( ODL+1, 0 );
 
-  Patch_Diff_Info_Changed( m, pV, ODL );
-  Patch_Diff_Info_Inserted( m, pV, ODL+1 );
+  m.diff.Patch_Diff_Info_Changed( pV, ODL );
+  m.diff.Patch_Diff_Info_Inserted( pV, ODL+1 );
   m.diff.Update();
 }
 
@@ -4230,12 +4226,12 @@ void ReplaceAddChar_ON_DELETED( Diff::Data& m
 
   Array_t<Diff_Info>& cDI_List = (pV == m.pvS) ? m.DI_List_S : m.DI_List_L; // Current
 
-  const bool ODVL0 = On_Deleted_View_Line_Zero( m, DL );
+  const bool ODVL0 = m.diff.On_Deleted_View_Line_Zero( DL );
 
   Line* nlp = m.vis.BorrowLine(__FILE__,__LINE__);
   nlp->push( C );
   pfb->InsertLine( ODVL0 ? VL : VL+1, nlp );
-  Patch_Diff_Info_Inserted( m, pV, DL, ODVL0 );
+  m.diff.Patch_Diff_Info_Inserted( pV, DL, ODVL0 );
 }
 
 void ReplaceAddChar( Diff::Data& m, const char C )
@@ -4274,7 +4270,7 @@ void ReplaceAddChar( Diff::Data& m, const char C )
     else {
       pfb->PushChar( VL, C );
     }
-    Patch_Diff_Info_Changed( m, pV, DL );
+    m.diff.Patch_Diff_Info_Changed( pV, DL );
   }
   if( m.crsCol < WorkingCols( pV )-1 )
   {
@@ -4558,7 +4554,7 @@ bool Diff::Run( View* const pv0, View* const pv1 )
       {
         View* pV = m.vis.CV();
 
-        m.topLine  = DiffLine( m, pV, pV->GetTopLine() );
+        m.topLine  = m.diff.DiffLine( pV, pV->GetTopLine() );
         m.leftChar =                  pV->GetLeftChar();
         m.crsRow   =                  pV->GetCrsRow  ();
         m.crsCol   =                  pV->GetCrsCol  ();
@@ -4659,6 +4655,15 @@ unsigned Diff::GetCrsRow  () const
 unsigned Diff::GetCrsCol  () const
 {
   return m.crsCol;
+}
+
+unsigned Diff::DiffLine( const View* pV, const unsigned view_line )
+{
+//return DiffLine( m, pV, view_line );
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  return ( pV == m.pvS ) ? DiffLine_S( m, view_line )
+                         : DiffLine_L( m, view_line );
 }
 
 void Diff::PageDown()
@@ -4836,7 +4841,7 @@ void Diff::GoToLine( const unsigned user_line_num )
     PrintCursor( pV );
   }
   else {
-    const unsigned NCLd = DiffLine( m, pV, NCLv );
+    const unsigned NCLd = m.diff.DiffLine( pV, NCLv );
 
     GoToCrsPos_Write( m, NCLd, 0 );
   }
@@ -5222,7 +5227,7 @@ void Diff::Do_a()
       const bool CURSOR_AT_EOL = ( CrsChar(m) == LL-1 );
       if( CURSOR_AT_EOL )
       {
-        GoToCrsPos_NoWrite( m, DL, LL );
+        m.diff.GoToCrsPos_NoWrite( DL, LL );
       }
       const bool CURSOR_AT_RIGHT_COL = ( m.crsCol == WorkingCols( pV )-1 );
 
@@ -5279,7 +5284,7 @@ void Diff::Do_o()
       // one line so that the cursor line is not below the screen.
       m.topLine++;
     }
-    Patch_Diff_Info_Inserted( m, pV, DL+1, false );
+    m.diff.Patch_Diff_Info_Inserted( pV, DL+1, false );
 
     Update();
   }
@@ -5296,7 +5301,7 @@ void Diff::Do_O()
   if( 0<DL )
   {
     // Not on top line, so just back up and then Do_o:
-    GoToCrsPos_NoWrite( m, DL-1, CrsChar(m) );
+    m.diff.GoToCrsPos_NoWrite( DL-1, CrsChar(m) );
     Do_o();
   }
   else {
@@ -5306,7 +5311,7 @@ void Diff::Do_O()
     FileBuf* pfb = pV->GetFB();
 
     pfb->InsertLine( 0 );
-    Patch_Diff_Info_Inserted( m, pV, 0, true );
+    m.diff.Patch_Diff_Info_Inserted( pV, 0, true );
 
     Update();
     Do_i();
@@ -5355,7 +5360,7 @@ void Diff::Do_x()
         // If cursor is not at beginning of line, move it back one more space.
         if( m.crsCol ) m.crsCol--;
       }
-      Patch_Diff_Info_Changed( m, pV, DL );
+      m.diff.Patch_Diff_Info_Changed( pV, DL );
       Update();
     }
   }
@@ -5416,7 +5421,7 @@ void Diff::Do_D()
     // If cursor is not at beginning of line, move it back one space.
     if( 0<m.crsCol ) m.crsCol--;
 
-    Patch_Diff_Info_Changed( m, pV, DL );
+    m.diff.Patch_Diff_Info_Changed( pV, DL );
     if( !m.diff.ReDiff() ) m.diff.Update();
   }
 }
@@ -5441,13 +5446,13 @@ void Diff::Do_J()
        || cDT == DT_CHANGED
        || cDT == DT_INSERTED ) )
     {
-      const int DLp = DiffLine( m, pV, VL+1 ); // Diff line for VL+1
+      const int DLp = m.diff.DiffLine( pV, VL+1 ); // Diff line for VL+1
 
       Line* lp = pfb->RemoveLineP( VL+1 );
-      Patch_Diff_Info_Deleted( m, pV, DLp );
+      m.diff.Patch_Diff_Info_Deleted( pV, DLp );
 
       pfb->AppendLineToLine( VL, lp );
-      Patch_Diff_Info_Changed( m, pV, DL );
+      m.diff.Patch_Diff_Info_Changed( pV, DL );
 
       if( !m.diff.ReDiff() ) m.diff.Update();
     }
@@ -5483,7 +5488,7 @@ void Diff::Do_dd()
 
         m.vis.SetPasteMode( PM_LINE );
       }
-      Patch_Diff_Info_Deleted( m, pV, DL );
+      m.diff.Patch_Diff_Info_Deleted( pV, DL );
 
       // Figure out where to put cursor after deletion:
       const bool DELETED_LAST_LINE = VL == NVL-1;
@@ -5496,7 +5501,7 @@ void Diff::Do_dd()
         const Diff_Type DTN = DiffType( m, pV, DL );
         if( DTN == DT_DELETED ) ncld++;
       }
-      GoToCrsPos_NoWrite( m, ncld, CrsChar(m) );
+      m.diff.GoToCrsPos_NoWrite( ncld, CrsChar(m) );
 
       if( !m.diff.ReDiff() ) m.diff.Update();
     }
@@ -5747,19 +5752,23 @@ void Diff::Do_Tilda()
       // At end of line so cant move or scroll right:
       if( changed ) pfb->Set( VL, CP, C, CONT_LAST_UPDATE );
     }
-    if( changed ) Patch_Diff_Info_Changed( m, pV, DL );
+    if( changed ) m.diff.Patch_Diff_Info_Changed( pV, DL );
     Update();
   }
 }
 
 void Diff::Do_u()
 {
-  // FIXME: Need to implement
+  View* pV = m.vis.CV();
+
+  pV->GetFB()->Undo( *pV );
 }
 
 void Diff::Do_U()
 {
-  // FIXME: Need to implement
+  View* pV = m.vis.CV();
+
+  pV->GetFB()->UndoAll( *pV );
 }
 
 String Diff::Do_Star_GetNewPattern()

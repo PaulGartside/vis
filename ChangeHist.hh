@@ -25,7 +25,7 @@
 #define __CHANGE_HIST_HH__
 
 class Vis;
-class View_IF;
+class View;
 class FileBuf;
 
 #include "Types.hh"
@@ -55,8 +55,8 @@ public:
   void Clear();
   bool Has_Changes() const;
 
-  void Undo( View_IF& rV );
-  void UndoAll( View_IF& rV );
+  void Undo( View& rV );
+  void UndoAll( View& rV );
 
   void Save_Set( const unsigned l_num
                , const unsigned c_pos
@@ -74,11 +74,17 @@ public:
   void Save_SwapLines( const unsigned l_num_1
                      , const unsigned l_num_2 );
 private:
-  void Undo_InsertLine( LineChange* plc, View_IF& rV );
-  void Undo_RemoveLine( LineChange* plc, View_IF& rV );
-  void Undo_InsertChar( LineChange* plc, View_IF& rV );
-  void Undo_RemoveChar( LineChange* plc, View_IF& rV );
-  void Undo_Set       ( LineChange* plc, View_IF& rV );
+  void Undo_InsertLine( LineChange* plc, View& rV );
+  void Undo_RemoveLine( LineChange* plc, View& rV );
+  void Undo_InsertChar( LineChange* plc, View& rV );
+  void Undo_RemoveChar( LineChange* plc, View& rV );
+  void Undo_Set       ( LineChange* plc, View& rV );
+
+  void Undo_InsertLine_Diff( LineChange* plc, View& rV );
+  void Undo_RemoveLine_Diff( LineChange* plc, View& rV );
+  void Undo_InsertChar_Diff( LineChange* plc, View& rV );
+  void Undo_RemoveChar_Diff( LineChange* plc, View& rV );
+  void Undo_Set_Diff       ( LineChange* plc, View& rV );
 
   LineChange* BorrowLineChange( const ChangeType type
                               , const unsigned   lnum
