@@ -66,6 +66,11 @@ struct DiffArea
     , nlines_s( nlines_s )
     , nlines_l( nlines_l )
   {}
+  void Print()
+  {
+    Log.Log("DiffArea: lines_s=(%u,%u) lines_l=(%u,%u)\n"
+           , ln_s+1, fnl_s(), ln_l+1, fnl_l() );
+  }
   unsigned fnl_s() const { return ln_s + nlines_s; }
   unsigned fnl_l() const { return ln_l + nlines_l; }
 };
@@ -1039,60 +1044,140 @@ unsigned LineLen( Diff::Data& m )
   return pV->GetFB()->LineLen( view_line );
 }
 
+//// Return the diff line of the view line on the short side
+//unsigned DiffLine_S( Diff::Data& m, const unsigned view_line )
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//
+//  const unsigned LEN = m.DI_List_S.len();
+//
+//  if( 0 < m.pvS->GetFB()->NumLines() )
+//  {
+//    // Diff line is greater or equal to view line,
+//    // so start at view line number and search forward
+//    bool ok = true;
+//    for( unsigned k=view_line; k<LEN && ok; k++ )
+//    {
+//      Diff_Info di = m.DI_List_S[ k ];
+//
+//      if( DT_SAME     == di.diff_type
+//       || DT_CHANGED  == di.diff_type
+//       || DT_INSERTED == di.diff_type )
+//      {
+//        if( view_line == di.line_num ) return k;
+//      }
+//    }
+//    ASSERT( __LINE__, 0, "view_line : %u : not found", view_line );
+//  }
+//  return 0;
+//}
+
 // Return the diff line of the view line on the short side
 unsigned DiffLine_S( Diff::Data& m, const unsigned view_line )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  const unsigned LEN = m.DI_List_S.len();
+  unsigned diff_line = 0;
+  const unsigned NUM_LINES_VS = m.pvS->GetFB()->NumLines();
 
-  if( 0 < m.pvS->GetFB()->NumLines() )
+  if( 0 < NUM_LINES_VS )
   {
-    // Diff line is greater or equal to view line,
-    // so start at view line number and search forward
-    bool ok = true;
-    for( unsigned k=view_line; k<LEN && ok; k++ )
-    {
-      Diff_Info di = m.DI_List_S[ k ];
+    const unsigned DI_LEN = m.DI_List_S.len();
 
-      if( DT_SAME     == di.diff_type
-       || DT_CHANGED  == di.diff_type
-       || DT_INSERTED == di.diff_type )
+    if( NUM_LINES_VS <= view_line ) diff_line = DI_LEN-1;
+    else {
+      // Diff line is greater or equal to view line,
+      // so start at view line number and search forward
+      bool found = false;
+      for( unsigned k=view_line; !found && k<DI_LEN; k++ )
       {
-        if( view_line == di.line_num ) return k;
+        Diff_Info di = m.DI_List_S[ k ];
+
+        if( DT_SAME     == di.diff_type
+         || DT_CHANGED  == di.diff_type
+         || DT_INSERTED == di.diff_type )
+        {
+          if( view_line == di.line_num )
+          {
+            found = true;
+            diff_line = k;
+          }
+        }
+      }
+      if( !found ) {
+        ASSERT( __LINE__, 0, "view_line : %u : not found", view_line );
       }
     }
-    ASSERT( __LINE__, 0, "view_line : %u : not found", view_line );
   }
-  return 0;
+  return diff_line;
 }
+
+//// Return the diff line of the view line on the long side
+//unsigned DiffLine_L( Diff::Data& m, const unsigned view_line )
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//
+//  const unsigned LEN = m.DI_List_L.len();
+//
+//  if( 0 < m.pvL->GetFB()->NumLines() )
+//  {
+//    // Diff line is greater or equal to view line,
+//    // so start at view line number and search forward
+//    bool ok = true;
+//    for( unsigned k=view_line; k<LEN && ok; k++ )
+//    {
+//      Diff_Info di = m.DI_List_L[ k ];
+//
+//      if( DT_SAME     == di.diff_type
+//       || DT_CHANGED  == di.diff_type
+//       || DT_INSERTED == di.diff_type )
+//      {
+//        if( view_line == di.line_num ) return k;
+//      }
+//    }
+//    ASSERT( __LINE__, 0, "view_line : %u : not found", view_line );
+//  }
+//  return 0;
+//}
 
 // Return the diff line of the view line on the long side
 unsigned DiffLine_L( Diff::Data& m, const unsigned view_line )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  const unsigned LEN = m.DI_List_L.len();
+  unsigned diff_line = 0;
+  const unsigned NUM_LINES_VL = m.pvL->GetFB()->NumLines();
 
-  if( 0 < m.pvL->GetFB()->NumLines() )
+  if( 0 < NUM_LINES_VL )
   {
-    // Diff line is greater or equal to view line,
-    // so start at view line number and search forward
-    bool ok = true;
-    for( unsigned k=view_line; k<LEN && ok; k++ )
-    {
-      Diff_Info di = m.DI_List_L[ k ];
+    const unsigned DI_LEN = m.DI_List_L.len();
 
-      if( DT_SAME     == di.diff_type
-       || DT_CHANGED  == di.diff_type
-       || DT_INSERTED == di.diff_type )
+    if( NUM_LINES_VL <= view_line ) diff_line = DI_LEN-1;
+    else {
+      // Diff line is greater or equal to view line,
+      // so start at view line number and search forward
+      bool found = false;
+      for( unsigned k=view_line; !found && k<DI_LEN; k++ )
       {
-        if( view_line == di.line_num ) return k;
+        Diff_Info di = m.DI_List_L[ k ];
+
+        if( DT_SAME     == di.diff_type
+         || DT_CHANGED  == di.diff_type
+         || DT_INSERTED == di.diff_type )
+        {
+          if( view_line == di.line_num )
+          {
+            found = true;
+            diff_line = k;
+          }
+        }
+      }
+      if( !found ) {
+        ASSERT( __LINE__, 0, "view_line : %u : not found", view_line );
       }
     }
-    ASSERT( __LINE__, 0, "view_line : %u : not found", view_line );
   }
-  return 0;
+  return diff_line;
 }
 
 //unsigned DiffLine( Diff::Data& m, const View* pV, const unsigned view_line )
@@ -3661,7 +3746,6 @@ void Do_p_line( Diff::Data& m )
     m.diff.Patch_Diff_Info_Inserted( pV, DL_START+k, ODVL0 );
     ODVL0 = false;
   }
-//pfb->Update_Styles( VL, VL+NUM_LINES_TO_INSERT );
   if( !m.diff.ReDiff() ) m.diff.Update();
 }
 
@@ -3830,7 +3914,6 @@ void Do_p_or_P_st_fn( Diff::Data& m, Paste_Pos paste_pos )
       Do_p_or_P_st_fn_IntermediatLine( m, k, ODL, OVL, ON_DELETED );
     }
   }
-//pfb->Update_Styles( OVL, OVL+NUM_LINES );
   if( !m.diff.ReDiff() ) m.diff.Update();
 }
 
@@ -5862,53 +5945,41 @@ bool Diff::Update_Status_Lines()
   return updated_a_sts_line;
 }
 
-bool ReDiff_GetDiffArea_Search_4_Same( Diff::Data& m, DiffArea& da )
+bool ReDiff_GetDiffSt_Search_4_Same( Diff::Data& m
+                                   , unsigned& DL_st )
 {
-  const unsigned DL = CrsLine(m); // Diff line number
   const bool in_short = m.vis.CV() == m.pvS;
   Array_t<Diff_Info>& cDI_List = in_short ? m.DI_List_S : m.DI_List_L; // Current
 
   // Search up for SAME
   bool found = false;
-  for( int L=DL; !found && 0<=L; L-- )
+  int L = DL_st;
+  for( ; !found && 0<=L; L-- )
   {
     Diff_Info& di = cDI_List[ L ];
     if( DT_SAME == di.diff_type )
     {
       found = true;
-      da.ln_s = ( DT_DELETED == m.DI_List_S[ L+1 ].diff_type )
-              ? m.DI_List_S[L+1].line_num+1
-              : m.DI_List_S[L+1].line_num;
-
-      da.ln_l = ( DT_DELETED == m.DI_List_L[ L+1 ].diff_type )
-              ? m.DI_List_L[L+1].line_num+1
-              : m.DI_List_L[L+1].line_num;
+      DL_st = L+1; // Diff area starts on first diff after first same
     }
   }
-  // Search down for SAME
-  found = false;
-  for( unsigned L=DL; !found && L<cDI_List.len(); L++ )
+  if( !found && L < 0 )
   {
-    Diff_Info& di = cDI_List[ L ];
-    if( DT_SAME == di.diff_type )
-    {
-      found = true;
-      da.nlines_s = m.DI_List_S[L].line_num - da.ln_s;
-      da.nlines_l = m.DI_List_L[L].line_num - da.ln_l;
-    }
+    found = true;
+    DL_st = 0; // Diff area starts at beginning of file
   }
   return found;
 }
 
-bool ReDiff_GetDiffArea_Search_4_Diff_Then_Same( Diff::Data& m, DiffArea& da )
+bool ReDiff_GetSt_Search_4_Diff_Then_Same( Diff::Data& m
+                                         , unsigned& DL_st )
 {
-  const unsigned DL = CrsLine(m); // Diff line number
   const bool in_short = m.vis.CV() == m.pvS;
   Array_t<Diff_Info>& cDI_List = in_short ? m.DI_List_S : m.DI_List_L; // Current
 
   // Search up for CHANGED, INSERTED or DELETED and then for SAME
   bool found = false;
-  int L = DL;
+  int L = DL_st;
   for( ; !found && 0<=L; L-- )
   {
     Diff_Info& di = cDI_List[ L ];
@@ -5919,7 +5990,8 @@ bool ReDiff_GetDiffArea_Search_4_Diff_Then_Same( Diff::Data& m, DiffArea& da )
       found = true;
     }
   }
-  if( found ) {
+  if( found )
+  {
     found = false;
     for( ; !found && 0<=L; L-- )
     {
@@ -5927,19 +5999,53 @@ bool ReDiff_GetDiffArea_Search_4_Diff_Then_Same( Diff::Data& m, DiffArea& da )
       if( DT_SAME == di.diff_type )
       {
         found = true;
-        da.ln_s = ( DT_DELETED == m.DI_List_S[ L+1 ].diff_type )
-                ? m.DI_List_S[L+1].line_num+1
-                : m.DI_List_S[L+1].line_num;
-
-        da.ln_l = ( DT_DELETED == m.DI_List_L[ L+1 ].diff_type )
-                ? m.DI_List_L[L+1].line_num+1
-                : m.DI_List_L[L+1].line_num;
+        DL_st = L+1; // Diff area starts on first diff after first same
       }
     }
   }
+  if( !found && L < 0 )
+  {
+    found = true;
+    DL_st = 0; // Diff area starts at beginning of file
+  }
+  return found;
+}
+
+bool ReDiff_GetDiffFn_Search_4_Same( Diff::Data& m
+                                   , unsigned& DL_fn )
+{
+  const bool in_short = m.vis.CV() == m.pvS;
+  Array_t<Diff_Info>& cDI_List = in_short ? m.DI_List_S : m.DI_List_L; // Current
+
+  // Search down for SAME
+  bool found = false;
+  unsigned L = DL_fn;
+  for( ; !found && L<cDI_List.len(); L++ )
+  {
+    Diff_Info& di = cDI_List[ L ];
+    if( DT_SAME == di.diff_type )
+    {
+      found = true;
+      DL_fn = L;
+    }
+  }
+  if( !found && cDI_List.len() < L )
+  {
+    found = true;
+    DL_fn = cDI_List.len(); // Diff area ends at end of file
+  }
+  return found;
+}
+
+bool ReDiff_GetFn_Search_4_Diff_Then_Same( Diff::Data& m
+                                         , unsigned& DL_fn )
+{
+  const bool in_short = m.vis.CV() == m.pvS;
+  Array_t<Diff_Info>& cDI_List = in_short ? m.DI_List_S : m.DI_List_L; // Current
+
   // Search down for CHANGED, INSERTED or DELETED and then for SAME
-  found = false;
-  L = DL;
+  bool found = false;
+  unsigned L = DL_fn;
   for( ; !found && L<cDI_List.len(); L++ )
   {
     Diff_Info& di = cDI_List[ L ];
@@ -5950,7 +6056,8 @@ bool ReDiff_GetDiffArea_Search_4_Diff_Then_Same( Diff::Data& m, DiffArea& da )
       found = true;
     }
   }
-  if( found ) {
+  if( found )
+  {
     found = false;
     for( ; !found && L<cDI_List.len(); L++ )
     {
@@ -5958,33 +6065,131 @@ bool ReDiff_GetDiffArea_Search_4_Diff_Then_Same( Diff::Data& m, DiffArea& da )
       if( DT_SAME == di.diff_type )
       {
         found = true;
-        da.nlines_s = m.DI_List_S[L].line_num - da.ln_s;
-        da.nlines_l = m.DI_List_L[L].line_num - da.ln_l;
+        DL_fn = L;
       }
     }
+  }
+  if( !found && cDI_List.len() < L )
+  {
+    found = true;
+    DL_fn = cDI_List.len(); // Diff area ends at end of file
   }
   return found;
 }
 
-bool ReDiff_GetDiffArea( Diff::Data& m, DiffArea& da )
+bool ReDiff_FindDiffSt( Diff::Data& m
+                      , unsigned& DL_st )
 {
-  bool found_diff_area = false;
-
-  const unsigned DL = CrsLine(m); // Diff line number
+  bool found_diff_st = false;
 
   const bool in_short = m.vis.CV() == m.pvS;
   Array_t<Diff_Info>& cDI_List = in_short ? m.DI_List_S : m.DI_List_L; // Current
-  Diff_Info& cDI = cDI_List[ DL ];
+  Diff_Info& cDI_st = cDI_List[ DL_st ];
 
-  if( DT_SAME == cDI.diff_type )
+  if( DT_SAME == cDI_st.diff_type )
   {
-    found_diff_area = ReDiff_GetDiffArea_Search_4_Diff_Then_Same( m, da );
+    found_diff_st = ReDiff_GetSt_Search_4_Diff_Then_Same( m, DL_st );
   }
-  else if( DT_CHANGED  == cDI.diff_type
-        || DT_INSERTED == cDI.diff_type
-        || DT_DELETED  == cDI.diff_type )
+  else if( DT_CHANGED  == cDI_st.diff_type
+        || DT_INSERTED == cDI_st.diff_type
+        || DT_DELETED  == cDI_st.diff_type )
   {
-     found_diff_area = ReDiff_GetDiffArea_Search_4_Same( m, da );
+    found_diff_st = ReDiff_GetDiffSt_Search_4_Same( m, DL_st );
+  }
+  return found_diff_st;
+}
+
+bool ReDiff_FindDiffFn( Diff::Data& m
+                      , unsigned& DL_fn )
+{
+  bool found_diff_fn = false;
+
+  const bool in_short = m.vis.CV() == m.pvS;
+  Array_t<Diff_Info>& cDI_List = in_short ? m.DI_List_S : m.DI_List_L; // Current
+  Diff_Info& cDI_fn = cDI_List[ DL_fn ];
+
+  if( DT_SAME == cDI_fn.diff_type )
+  {
+    found_diff_fn = ReDiff_GetFn_Search_4_Diff_Then_Same( m, DL_fn );
+  }
+  else if( DT_CHANGED  == cDI_fn.diff_type
+        || DT_INSERTED == cDI_fn.diff_type
+        || DT_DELETED  == cDI_fn.diff_type )
+  {
+    found_diff_fn = ReDiff_GetDiffFn_Search_4_Same( m, DL_fn );
+  }
+  else {
+  }
+  return found_diff_fn;
+}
+
+DiffArea DL_st_fn_2_DiffArea( Diff::Data& m
+                            , const unsigned DL_st
+                            , const unsigned DL_fn )
+{
+  DiffArea da;
+
+  da.ln_s = ( DT_DELETED == m.DI_List_S[ DL_st ].diff_type )
+          ? m.DI_List_S[DL_st].line_num+1
+          : m.DI_List_S[DL_st].line_num;
+
+  da.ln_l = ( DT_DELETED == m.DI_List_L[ DL_st ].diff_type )
+          ? m.DI_List_L[DL_st].line_num+1
+          : m.DI_List_L[DL_st].line_num;
+
+  if( DL_fn < m.DI_List_L.len() )
+  {
+    da.nlines_s = m.DI_List_S[DL_fn].line_num - da.ln_s;
+    da.nlines_l = m.DI_List_L[DL_fn].line_num - da.ln_l;
+  }
+  else {
+    // Need the extra -1 here to avoid a crash.
+    // Not sure why it is needed.
+  //da.nlines_s = m.pfS->NumLines() - da.ln_s - 1;
+  //da.nlines_l = m.pfL->NumLines() - da.ln_l - 1;
+    da.nlines_s = m.pfS->NumLines() - da.ln_s;
+    da.nlines_l = m.pfL->NumLines() - da.ln_l;
+  }
+  return da;
+}
+
+bool ReDiff_GetDiffArea( Diff::Data& m
+                       , const unsigned DL_st
+                       , const unsigned DL_fn
+                       , DiffArea& da )
+{
+  // Diff area if from l_DL_st up to but not including l_DL_fn
+  unsigned l_DL_st = DL_st; // local diff line start
+  unsigned l_DL_fn = DL_fn; // local diff line finish
+
+  bool found_st = ReDiff_FindDiffSt( m, l_DL_st );
+  bool found_fn = false;
+
+  if( found_st )
+  {
+    found_fn = l_DL_fn < m.DI_List_L.len()
+             ? ReDiff_FindDiffFn( m, l_DL_fn )
+             : true;
+  }
+  bool found_diff_area = found_st && found_fn;
+
+  if( found_diff_area )
+  {
+    da = DL_st_fn_2_DiffArea( m, l_DL_st, l_DL_fn );
+  }
+  else {
+    const unsigned DL = CrsLine(m); // Diff line number
+
+    unsigned l_DL_st_2 = DL; // local diff line start
+    unsigned l_DL_fn_2 = DL; // local diff line finish
+
+    found_diff_area = ReDiff_FindDiffSt( m, l_DL_st_2 )
+                   && ReDiff_FindDiffFn( m, l_DL_fn_2 );
+
+    if( found_diff_area )
+    {
+      da = DL_st_fn_2_DiffArea( m, l_DL_st_2, l_DL_fn_2 );
+    }
   }
   return found_diff_area;
 }
@@ -6018,8 +6223,17 @@ unsigned Remove_From_DI_Lists( Diff::Data& m, DiffArea da )
 bool Diff::ReDiff()
 {
   bool ok = false;
+  const unsigned DL = CrsLine(m); // Diff line number
+  const unsigned NUM_DLs = m.DI_List_L.len();
+  const unsigned SIDE_BAND = 50;
+  unsigned DL_st = DL < SIDE_BAND ? 0 : DL - SIDE_BAND;
+  unsigned DL_fn = NUM_DLs;
+  if( SIDE_BAND < NUM_DLs )
+  {
+    DL_fn = NUM_DLs-SIDE_BAND < DL ? NUM_DLs : DL + SIDE_BAND;
+  }
   DiffArea da;
-  const bool found_diff_area = ReDiff_GetDiffArea( m, da );
+  const bool found_diff_area = ReDiff_GetDiffArea( m, DL_st, DL_fn, da );
 
   if( !found_diff_area )
   {
