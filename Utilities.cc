@@ -177,7 +177,38 @@ bool FileExists( const char* fname )
   int err = my_stat( fname, sbuf );
 
   const bool exists = 0 == err;
+
   return exists;
+}
+
+size_t FileSize( const char* fname )
+{
+  size_t file_size = 0;
+
+  struct stat sbuf;
+
+  int err = my_stat( fname, sbuf );
+
+  const bool exists = 0 == err;
+
+  if( exists )
+  {
+    file_size = sbuf.st_size;
+  }
+  return file_size;
+}
+
+bool IsReg( const char* fname )
+{
+  struct stat sbuf;
+
+  int err = my_stat( fname, sbuf );
+
+  const bool exists = 0 == err;
+
+  const bool is_reg = exists && S_ISREG( sbuf.st_mode );
+
+  return is_reg;
 }
 
 bool IsDir( const char* fname )
@@ -187,7 +218,9 @@ bool IsDir( const char* fname )
 
   int err = my_stat( fname, sbuf );
 
-  const bool is_dir = 0==err && S_ISDIR( sbuf.st_mode );
+  const bool exists = 0 == err;
+
+  const bool is_dir = exists && S_ISDIR( sbuf.st_mode );
 
   return is_dir;
 }
@@ -592,15 +625,20 @@ void ExecShell( const char* cmd )
   execl( shell_prog, shell_prog, "-c", cmd, (char*) 0 );
 }
 
+#endif
+
 double GetTimeSeconds()
 {
+#if defined( WIN32 )
+  return time();
+#else
   timeval tv;
 
   gettimeofday( &tv, 0 );
 
   return tv.tv_sec + double(tv.tv_usec)/1e6;
-}
 #endif
+}
 
 bool IsWord_Ident( const int C )
 {
@@ -699,6 +737,49 @@ bool line_end_or_non_ident( const Line& line
   }
   // C is an identifier
   return false;
+}
+
+bool Files_Are_Same( const char* fname_s, const char* fname_l )
+{
+  bool files_are_same = false;
+
+  if( IsReg( fname_s )
+   && IsReg( fname_l ) )
+  {
+    const size_t len_s = FileSize( fname_s );
+    const size_t len_l = FileSize( fname_l );
+
+    if( len_s == len_l )
+    {
+      FILE* fp_s = fopen( fname_s, "rb" );
+      FILE* fp_l = fopen( fname_l, "rb" );
+
+      if( fp_s && fp_l )
+      {
+        for( bool done = false; !done; )
+        {
+          const int C_s = fgetc( fp_s );
+          const int C_l = fgetc( fp_l );
+
+          if( EOF == C_s && EOF == C_l )
+          {
+            done = true;
+            files_are_same = true;
+          }
+          else if( C_s != C_l )
+          {
+            done = true; // Files are different
+          }
+          else {
+            // Keep reading till end of files or difference
+          }
+        }
+      }
+      fclose( fp_s );
+      fclose( fp_l );
+    }
+  }
+  return files_are_same;
 }
 
 ConstCharList* Trace::mp_Call_Stack = 0;

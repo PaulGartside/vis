@@ -551,10 +551,12 @@ void Sig_Handle_SIGCONT( int signo )
 
 void Sig_Handle_HW( int signo )
 {
-  if( SIGBUS  == signo ) Log.Log("Received SIGBUS \n");
-  if( SIGIOT  == signo ) Log.Log("Received SIGIOT \n");
-  if( SIGTRAP == signo ) Log.Log("Received SIGTRAP\n");
-  if( SIGSEGV == signo ) Log.Log("Received SIGSEGV\n");
+  if     ( SIGBUS  == signo ) Log.Log("Received SIGBUS \n");
+  else if( SIGIOT  == signo ) Log.Log("Received SIGIOT \n");
+  else if( SIGTRAP == signo ) Log.Log("Received SIGTRAP\n");
+  else if( SIGSEGV == signo ) Log.Log("Received SIGSEGV\n");
+  else if( SIGINT  == signo ) Log.Log("Received SIGINT \n");
+  else if( SIGTERM == signo ) Log.Log("Received SIGTERM\n");
 
   mp_vis->Stop();
 
@@ -669,6 +671,8 @@ void Console::SetSignals()
   signal( SIGIOT , Sig_Handle_HW );
   signal( SIGTRAP, Sig_Handle_HW );
   signal( SIGSEGV, Sig_Handle_HW );
+  signal( SIGINT , Sig_Handle_HW );
+  signal( SIGTERM, Sig_Handle_HW );
 }
 
 void Console::SetVis( Vis* p_vis )

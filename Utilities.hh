@@ -30,37 +30,6 @@
 
 class String;
 
-void DIE( const char* msg );
-void DBG( const int line, const char* msg=0, ... );
-void ASSERT( const int line, bool condition, const char* msg, ... );
-unsigned Min( const unsigned a, const unsigned b );
-unsigned Max( const unsigned a, const unsigned b );
-unsigned LLM1( const unsigned LL );
-void Swap( unsigned& A, unsigned& B );
-void Safe_Strcpy( char* dst, const char* src, const size_t dst_size );
-void RemoveSpaces( char* cp );
-void Shift( char* cp, const unsigned SHIFT_LEN );
-int  my_stat( const char* fname, struct stat& sbuf );
-bool FileExists( const char* fname );
-bool IsDir( const char* fname );
-double ModificationTime( const char* fname );
-void Normalize_Full_Path( const char* path );
-bool FindFullFileNameRel2CWD( String& in_out_fname );
-bool FindFullFileNameRel2( const char* rel_2_path, String& in_out_fname );
-void GetFnameHeadAndTail( const char* in_fname, String& head, String& tail );
-void GetFnameHeadAndTail( const String& in_fname, String& head, String& tail );
-String GetFnameHead( const char* in_full_fname );
-String GetFnameTail( const char* in_full_fname );
-const char* DirDelimStr();
-void ReplaceEnvVars( String& in_out_fname );
-void EnvKeys2Vals( String& in_out_fname );
-#ifndef WIN32
-FILE* POpenRead( const char* cmd, pid_t& child_pid );
-int   PClose( FILE* fp, const pid_t child_pid );
-void  ExecShell( const char* cmd );
-double GetTimeSeconds();
-#endif
-
 // The built in cast functions are too long, so create shorter versions:
 template <class ToType, class FromType>
 ToType SCast( FromType from )
@@ -85,6 +54,39 @@ ToType RCast( FromType from )
 
 typedef bool (*IsWord_Func)( const int );
 
+void DIE( const char* msg );
+void DBG( const int line, const char* msg=0, ... );
+void ASSERT( const int line, bool condition, const char* msg, ... );
+unsigned Min( const unsigned a, const unsigned b );
+unsigned Max( const unsigned a, const unsigned b );
+unsigned LLM1( const unsigned LL );
+void Swap( unsigned& A, unsigned& B );
+void Safe_Strcpy( char* dst, const char* src, const size_t dst_size );
+void RemoveSpaces( char* cp );
+void Shift( char* cp, const unsigned SHIFT_LEN );
+int  my_stat( const char* fname, struct stat& sbuf );
+bool FileExists( const char* fname );
+size_t FileSize( const char* fname );
+bool IsReg( const char* fname );
+bool IsDir( const char* fname );
+double ModificationTime( const char* fname );
+void Normalize_Full_Path( const char* path );
+bool FindFullFileNameRel2CWD( String& in_out_fname );
+bool FindFullFileNameRel2( const char* rel_2_path, String& in_out_fname );
+void GetFnameHeadAndTail( const char* in_fname, String& head, String& tail );
+void GetFnameHeadAndTail( const String& in_fname, String& head, String& tail );
+String GetFnameHead( const char* in_full_fname );
+String GetFnameTail( const char* in_full_fname );
+const char* DirDelimStr();
+void ReplaceEnvVars( String& in_out_fname );
+void EnvKeys2Vals( String& in_out_fname );
+#ifndef WIN32
+FILE* POpenRead( const char* cmd, pid_t& child_pid );
+int   PClose( FILE* fp, const pid_t child_pid );
+void  ExecShell( const char* cmd );
+#endif
+double GetTimeSeconds();
+
 bool IsWord_Ident( const int C );
 bool IsWord_NonIdent( const int C );
 bool IsSpace( const int C );
@@ -99,6 +101,8 @@ bool line_start_or_prev_C_non_ident( const Line& line
 bool line_end_or_non_ident( const Line& line
                           , const unsigned LL
                           , const unsigned p );
+
+bool Files_Are_Same( const char* fname_s, const char* fname_l );
 
 class Trace
 {

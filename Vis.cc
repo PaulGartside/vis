@@ -168,6 +168,37 @@ View* PV( Vis::Data& m )
   return m.views[m.win][ m.file_hist[m.win][1] ];
 }
 
+// Get view of window w, currently displayed file
+View* GetView_Win( Vis::Data& m, const unsigned w )
+{
+  return m.views[w][ m.file_hist[w][0] ];
+}
+
+// Get view of window w, prev'th displayed file
+View* GetView_WinPrev( Vis::Data& m, const unsigned w, const unsigned prev )
+{
+  View* pV = 0;
+
+  if( prev < m.file_hist[w].len() )
+  {
+    pV = m.views[w][ m.file_hist[w][prev] ];
+  }
+  return pV;
+}
+
+// Get window number of currently displayed View
+int GetWinNum_Of_View( Vis::Data& m, const View* rV )
+{
+  for( int w=0; w<m.num_wins; w++ )
+  {
+    if( rV == GetView_Win( m, w ) )
+    {
+      return w;
+    }
+  }
+  return -1;
+}
+
 void GetCWD( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -540,6 +571,67 @@ void GoToCurrBuffer( Vis::Data& m )
   }
 }
 
+bool FName_2_FNum( Vis::Data& m, const String& full_fname, unsigned& file_num )
+{
+  bool found = false;
+
+  for( unsigned k=0; !found && k<m.files.len(); k++ )
+  {
+    if( full_fname == m.files[ k ]->GetFileName() )
+    {
+      found = true;
+      file_num = k;
+    }
+  }
+  return found;
+}
+
+bool WentBackToPrevDirDiff( Vis::Data& m )
+{
+  bool went_back = false;
+  View* pV = CV(m);
+  View* const pDiff_vS = m.diff.GetViewShort();
+  View* const pDiff_vL = m.diff.GetViewLong ();
+  View* cV = (pV == pDiff_vS) ? pDiff_vS : pDiff_vL; // Current view
+  View* oV = (pV == pDiff_vS) ? pDiff_vL : pDiff_vS; // Other   view
+  // Get m_win for cV and oV
+  const int c_win = GetWinNum_Of_View( m, cV );
+  const int o_win = GetWinNum_Of_View( m, oV );
+  View* cV_prev = GetView_WinPrev( m, c_win, 1 );
+  View* oV_prev = GetView_WinPrev( m, o_win, 1 );
+
+  if( 0 != cV_prev && 0 != oV_prev )
+  {
+    if( cV_prev->GetFB()->IsDir() && oV_prev->GetFB()->IsDir() )
+    {
+      Line l_cV_prev = cV_prev->GetFB()->GetLine( cV_prev->CrsLine() );
+      Line l_oV_prev = oV_prev->GetFB()->GetLine( oV_prev->CrsLine() );
+
+      if( l_cV_prev == l_oV_prev )
+      { // Previous file one both sides were directories, and cursor was
+        // on same file name on both sides, so go back to previous diff:
+        unsigned c_file_idx = 0;
+        unsigned o_file_idx = 0;
+
+        if( FName_2_FNum( m, cV_prev->GetFB()->GetFileName(), c_file_idx )
+         && FName_2_FNum( m, oV_prev->GetFB()->GetFileName(), o_file_idx ) )
+        {
+          // Move view indexes at front to back of m.file_hist
+          unsigned c_view_index_old = m.file_hist[ c_win ].remove( 0 );
+          unsigned o_view_index_old = m.file_hist[ o_win ].remove( 0 );
+          m.file_hist[ c_win ].push( c_view_index_old );
+          m.file_hist[ o_win ].push( o_view_index_old );
+
+          went_back = m.diff.Run( cV_prev, oV_prev );
+
+          if( went_back ) m.diff_mode = true;
+        }
+      }
+    }
+  }
+  return went_back;
+}
+
 void GoToPrevBuffer( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -552,19 +644,27 @@ void GoToPrevBuffer( Vis::Data& m )
     CV(m)->PrintCursor();
   }
   else {
-    m.vis.NoDiff();
+    bool went_back_to_prev_dir_diff = false;
+    if( m.diff_mode )
+    {
+      went_back_to_prev_dir_diff = WentBackToPrevDirDiff(m);
 
-    View*    const pV_old = CV(m);
-    Tile_Pos const tp_old = pV_old->GetTilePos();
+      if( !went_back_to_prev_dir_diff ) m.vis.NoDiff();
+    }
+    if( !went_back_to_prev_dir_diff )
+    {
+      View*    const pV_old = CV(m);
+      Tile_Pos const tp_old = pV_old->GetTilePos();
 
-    // Move view index at front to back of m.file_hist
-    unsigned view_index_old = 0;
-    m.file_hist[m.win].remove( 0, view_index_old );
-    m.file_hist[m.win].push( view_index_old );
+      // Move view index at front to back of m.file_hist
+      unsigned view_index_old = 0;
+      m.file_hist[m.win].remove( 0, view_index_old );
+      m.file_hist[m.win].push( view_index_old );
 
-    // Redisplay current window with new view:
-    CV(m)->SetTilePos( tp_old );
-    CV(m)->Update();
+      // Redisplay current window with new view:
+      CV(m)->SetTilePos( tp_old );
+      CV(m)->Update();
+    }
   }
 }
 
@@ -1991,9 +2091,9 @@ void SetWinToBuffer( Vis::Data& m
 
 // If file is found, puts View of file in win_idx window,
 // and returns the View, else returns null
-View* DoDiff_CheckPossibleFile( Vis::Data& m
-                              , const int win_idx
-                              , const char* pos_fname )
+View* Diff_CheckPossibleFile( Vis::Data& m
+                            , const int win_idx
+                            , const char* pos_fname )
 {
   if( FileExists( pos_fname ) )
   {
@@ -2014,11 +2114,11 @@ View* DoDiff_CheckPossibleFile( Vis::Data& m
   return 0;
 }
 
-View* DoDiff_FindRegFileView( Vis::Data& m
-                            , const FileBuf* pfb_reg
-                            , const FileBuf* pfb_dir
-                            , const unsigned win_idx
-                            ,       View*    pv )
+View* Diff_FindRegFileView( Vis::Data& m
+                          , const FileBuf* pfb_reg
+                          , const FileBuf* pfb_dir
+                          , const unsigned win_idx
+                          ,       View*    pv )
 {
   String possible_fname = pfb_dir->GetFileName();
   String fname_extension;
@@ -2042,14 +2142,15 @@ View* DoDiff_FindRegFileView( Vis::Data& m
 
     const char* pos_fname = possible_fname.c_str();
 
-    View* nv = DoDiff_CheckPossibleFile( m, win_idx, pos_fname );
+    View* nv = Diff_CheckPossibleFile( m, win_idx, pos_fname );
 
     if( 0 != nv ) return nv;
   }
   return pv;
 }
 
-void DoDiff( Vis::Data& m )
+// Execute user diff command
+void Diff_Files_Displayed( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -2065,11 +2166,11 @@ void DoDiff( Vis::Data& m )
     bool ok = true;
     if( !pfb0->IsDir() && pfb1->IsDir() )
     {
-      pv1 = DoDiff_FindRegFileView( m, pfb0, pfb1, 1, pv1 );
+      pv1 = Diff_FindRegFileView( m, pfb0, pfb1, 1, pv1 );
     }
     else if( pfb0->IsDir() && !pfb1->IsDir() )
     {
-      pv0 = DoDiff_FindRegFileView( m, pfb1, pfb0, 0, pv0 );
+      pv0 = Diff_FindRegFileView( m, pfb1, pfb0, 0, pv0 );
     }
     else {
       if( ( strcmp( SHELL_BUF_NAME, pfb0->GetHeadName() )
@@ -2086,22 +2187,9 @@ void DoDiff( Vis::Data& m )
       }
     }
     if( ok ) {
-#ifndef WIN32
-      timeval tv1; gettimeofday( &tv1, 0 );
-#endif
       bool ok = m.diff.Run( pv0, pv1 );
-      if( ok ) {
-        m.diff_mode = true;
 
-#ifndef WIN32
-        timeval tv2; gettimeofday( &tv2, 0 );
-
-        double secs = (tv2.tv_sec-tv1.tv_sec)
-                    + double(tv2.tv_usec)/1e6
-                    - double(tv1.tv_usec)/1e6;
-        m.vis.CmdLineMessage( "Diff took: %g seconds", secs );
-#endif
-      }
+      if( ok ) m.diff_mode = true;
     }
   }
 }
@@ -2305,9 +2393,6 @@ void HandleColon_detab( Vis::Data& m )
 
 void HandleColon_dos2unix( Vis::Data& m )
 {
-//View* pV = CV(m);
-//FileBuf* pfb = pV->GetFB();
-//pfbj->
   CV(m)->GetFB()->dos2unix();
 }
 
@@ -2348,7 +2433,8 @@ void HandleColon_e( Vis::Data& m )
         GoToBuffer( m, file_index );
       }
       else {
-        FileBuf* p_fb = new(__FILE__,__LINE__) FileBuf( m.vis, fname.c_str(), true, FT_UNKNOWN );
+        FileBuf* p_fb = new(__FILE__,__LINE__)
+                        FileBuf( m.vis, fname.c_str(), true, FT_UNKNOWN );
         p_fb->ReadFile();
         GoToBuffer( m, m.views[m.win].len()-1 );
       }
@@ -2436,7 +2522,7 @@ void Handle_Colon_Cmd( Vis::Data& m )
   if     ( strcmp( m.cbuf,"q"   )==0 ) Quit(m);
   else if( strcmp( m.cbuf,"qa"  )==0 ) QuitAll(m);
   else if( strcmp( m.cbuf,"help")==0 ) Help(m);
-  else if( strcmp( m.cbuf,"diff")==0 ) DoDiff(m);
+  else if( strcmp( m.cbuf,"diff")==0 ) Diff_Files_Displayed(m);
   else if( strcmp( m.cbuf,"rediff")==0) ReDiff(m);
   else if( strcmp( m.cbuf,"nodiff")==0)m.vis.NoDiff();
   else if( strcmp( m.cbuf,"n"   )==0 ) GoToNextBuffer(m);
@@ -3960,21 +4046,6 @@ bool File_Is_Displayed( Vis::Data& m, const unsigned file_num )
   return false;
 }
 
-bool FName_2_FNum( Vis::Data& m, const String& full_fname, unsigned& file_num )
-{
-  bool found = false;
-
-  for( unsigned k=0; !found && k<m.files.len(); k++ )
-  {
-    if( full_fname == m.files[ k ]->GetFileName() )
-    {
-      found = true;
-      file_num = k;
-    }
-  }
-  return found;
-}
-
 void ReleaseFileNum( Vis::Data& m, const unsigned file_num )
 {
   bool ok = m.files.remove( file_num );
@@ -4118,8 +4189,8 @@ void Vis::Init( const int ARGC, const char* const ARGV[] )
     m.file_hist[ 1 ][0] = USER_FILE+1;
     m.views[0][ m.file_hist[ 0 ][0] ]->SetTilePos( TP_LEFT_HALF );
     m.views[1][ m.file_hist[ 1 ][0] ]->SetTilePos( TP_RITE_HALF );
-  
-    DoDiff(m);
+
+    Diff_Files_Displayed(m);
   }
 }
 
@@ -4531,24 +4602,7 @@ bool Vis::GoToBuffer_Fname( String& fname )
     GoToBuffer( m, file_index ); return true;
   }
   // 4. See if file exists, and if so, add a file buffer, and go to that buffer
-  bool exists = false;
-  const bool IS_DIR = fname.get_end() == DIR_DELIM;
-  if( IS_DIR )
-  {
-    DIR* dp = opendir( fname.c_str() );
-    if( dp ) {
-      exists = true;
-      closedir( dp );
-    }
-  }
-  else {
-    FILE* fp = fopen( fname.c_str(), "rb" );
-    if( fp ) {
-      exists = true;
-      fclose( fp );
-    }
-  }
-  if( exists )
+  if( FileExists( fname.c_str() ) )
   {
     FileBuf* fb = new(__FILE__,__LINE__) FileBuf( m.vis, fname.c_str(), true, FT_UNKNOWN );
     fb->ReadFile();
@@ -4615,6 +4669,54 @@ void Vis::Handle_Slash_GotPattern( const String& pattern
     }
     CV()->Update();
   }
+}
+
+// Given view of currently displayed on this side and other side,
+// and file indexes of files to diff on this side and other side,
+// perform diff of files identified by the file indexes.
+// cV - View of currently displayed file on this side
+// oV - View of currently displayed file on other side
+// c_file_idx - Index of file to diff on this side
+// o_file_idx - Index of file to diff on other side
+bool Vis::Diff_By_File_Indexes( View* const cV, unsigned const c_file_idx
+                              , View* const oV, unsigned const o_file_idx )
+{
+  bool ok = false;
+  // Get m_win for cV and oV
+  const int c_win = GetWinNum_Of_View( m, cV );
+  const int o_win = GetWinNum_Of_View( m, oV );
+
+  if( 0 <= c_win && 0 <= o_win )
+  {
+    m.file_hist[ c_win ].insert( 0, c_file_idx );
+    m.file_hist[ o_win ].insert( 0, o_file_idx );
+    // Remove subsequent file_idx's from m.file_hist[ c_win ]:
+    for( unsigned k=1; k<m.file_hist[ c_win ].len(); k++ )
+    {
+      if( c_file_idx == m.file_hist[ c_win ][ k ] )
+      {
+        m.file_hist[ c_win ].remove( k );
+      }
+    }
+    // Remove subsequent file_idx's from m.file_hist[ o_win ]:
+    for( unsigned k=1; k<m.file_hist[ o_win ].len(); k++ )
+    {
+      if( c_file_idx == m.file_hist[ o_win ][ k ] )
+      {
+        m.file_hist[ o_win ].remove( k );
+      }
+    }
+    View* nv_c = GetView_WinPrev( m, c_win, 0 );
+    View* nv_o = GetView_WinPrev( m, o_win, 0 );
+
+    nv_c->SetTilePos( cV->GetTilePos() );
+    nv_o->SetTilePos( oV->GetTilePos() );
+
+    ok = m.diff.Run( nv_c, nv_o );
+
+    if( ok ) m.diff_mode = true;
+  }
+  return ok;
 }
 
 // Line returned has at least SIZE, but zero length

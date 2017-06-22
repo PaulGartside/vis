@@ -5,6 +5,8 @@ OS = OSX
 #OS = WIN32
 #OS = SUNOS
 
+.PHONY: all clean install preproc tar
+
 NAME      = vis
 DEFINES   = #-DUSE_REGEX
 CXX       = g++
@@ -59,8 +61,6 @@ SOURCE_HH_FILES = $(addsuffix .hh,$(SOURCES))
 DOT_O_FILES   = $(addprefix $(DOT_O_DIR)/,$(addsuffix .o,$(SOURCES)))
 DOT_DEP_FILES = $(addprefix $(DEPS_DIR)/,$(addsuffix .dep,$(SOURCES)))
 PREPROC_FILES = $(addprefix $(PP_DIR)/,$(addsuffix .pp.cc,$(SOURCES)))
-
-.PHONY: all clean install preproc tar
 
 all: $(NAME)
 

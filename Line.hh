@@ -48,6 +48,8 @@ public:
   bool inc_cap( unsigned new_cap );
   bool copy( const Line& a );
 
+  bool operator==( const Line& a ) const;
+
   uint8_t get( const unsigned i ) const;
   void    set( const unsigned i, const uint8_t C );
 

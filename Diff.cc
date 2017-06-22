@@ -42,7 +42,8 @@ enum Diff_Type
   DT_SAME,
   DT_CHANGED,
   DT_INSERTED,
-  DT_DELETED
+  DT_DELETED,
+  DT_DIFF_FILES
 };
 
 // Diff or Comparison area
@@ -141,6 +142,8 @@ struct Diff::Data
   LinesList& reg;
   double     mod_time_s;
   double     mod_time_l;
+  unsigned   diff_ms;
+  bool       printed_diff_ms;
 
   unsigned topLine;   // top  of buffer view line number.
   unsigned leftChar;  // left of buffer view character number.
@@ -182,6 +185,8 @@ Diff::Data::Data( Diff& diff, Vis& vis, Key& key, LinesList& reg )
   , reg( reg )
   , mod_time_s( 0 )
   , mod_time_l( 0 )
+  , diff_ms( 0 )
+  , printed_diff_ms( false )
   , topLine( 0 )
   , leftChar( 0 )
   , crsRow( 0 )
@@ -809,14 +814,50 @@ void Popu_DI_List_NoSameArea( Diff::Data& m )
 //  DI_List.remove_n( first_to_remove, num___to_remove );
 //}
 
+// Returns true if the two lines, line_s and line_l, in the two files
+// being compared, are the names of files that differ
+bool Popu_DI_List_Have_Diff_Files( Diff::Data& m
+                                 , const unsigned line_s
+                                 , const unsigned line_l )
+{
+  bool files_differ = false;
+
+  if( m.pfS->IsDir() && m.pfL->IsDir() )
+  {
+    // fname_s and fname_l are head names
+    String fname_s = m.pfS->GetLine( line_s ).c_str(0);
+    String fname_l = m.pfL->GetLine( line_l ).c_str(0);
+
+    if( !(fname_s == "..") && !fname_s.ends_with( DirDelimStr() )
+     && !(fname_l == "..") && !fname_l.ends_with( DirDelimStr() ) )
+    {
+      // fname_s and fname_l should now be full path names,
+      // tail and head, of regular files
+      fname_s.insert( 0, m.pfS->GetPathName() );
+      fname_l.insert( 0, m.pfL->GetPathName() );
+
+      // Compare the files:
+      if( !Files_Are_Same( fname_s.c_str(), fname_l.c_str() ) )
+      {
+        files_differ = true;
+      }
+    }
+  }
+  return files_differ;
+}
+
 void Popu_DI_List_AddSame( Diff::Data& m, const SameArea sa )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
   for( unsigned k=0; k<sa.nlines; k++ )
   {
-    Diff_Info dis = { DT_SAME, sa.ln_s+k };
-    Diff_Info dil = { DT_SAME, sa.ln_l+k };
+    const Diff_Type DT = Popu_DI_List_Have_Diff_Files( m, sa.ln_s+k, sa.ln_l+k )
+                       ? DT_DIFF_FILES
+                       : DT_SAME;
+
+    Diff_Info dis = { DT, sa.ln_s+k };
+    Diff_Info dil = { DT, sa.ln_l+k };
 
     Insert_DI_List( m, dis, m.DI_List_S );
     Insert_DI_List( m, dil, m.DI_List_L ); m.DI_L_ins_idx++;
@@ -896,6 +937,8 @@ void RunDiff( Diff::Data& m, const DiffArea CA )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
+  const double t1_s = GetTimeSeconds();
+
   Popu_SameList( m, CA );
   Sort_SameList( m );
 //PrintSameList();
@@ -903,16 +946,34 @@ void RunDiff( Diff::Data& m, const DiffArea CA )
 //PrintDiffList();
   Popu_DI_List( m, CA );
 //PrintDI_List( CA );
+
+  const double t2_s = GetTimeSeconds();
+  m.diff_ms = (t2_s - t1_s)*1000 + 0.5;
+  m.printed_diff_ms = false;
 }
+
+//void Set_DiffContext_2_ViewContext( Diff::Data& m )
+//{
+//  View* pV = m.vis.CV();
+//
+//  m.topLine  = m.diff.DiffLine( pV, pV->GetTopLine() );
+//  m.leftChar =                  pV->GetLeftChar();
+//  m.crsRow   =                  pV->GetCrsRow  ();
+//  m.crsCol   =                  pV->GetCrsCol  ();
+//}
 
 void Set_DiffContext_2_ViewContext( Diff::Data& m )
 {
   View* pV = m.vis.CV();
 
-  m.topLine  = m.diff.DiffLine( pV, pV->GetTopLine() );
-  m.leftChar =                  pV->GetLeftChar();
-  m.crsRow   =                  pV->GetCrsRow  ();
-  m.crsCol   =                  pV->GetCrsCol  ();
+  const unsigned diff_topLine = m.diff.DiffLine( pV, pV->GetTopLine() );
+  const unsigned diff_crsLine = m.diff.DiffLine( pV, pV->CrsLine() );
+  const unsigned diff_crsRow  = diff_crsLine - diff_topLine;
+
+  m.topLine  = diff_topLine;
+  m.leftChar = pV->GetLeftChar();
+  m.crsRow   = diff_crsRow;
+  m.crsCol   = pV->GetCrsCol();
 }
 
 void Clear_DI_List( Diff::Data& m, Array_t<Diff_Info>& DI_List )
@@ -1073,10 +1134,51 @@ unsigned LineLen( Diff::Data& m )
 //}
 
 // Return the diff line of the view line on the short side
+//unsigned DiffLine_S( Diff::Data& m, const unsigned view_line )
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//  unsigned diff_line = 0;
+//  const unsigned NUM_LINES_VS = m.pvS->GetFB()->NumLines();
+//
+//  if( 0 < NUM_LINES_VS )
+//  {
+//    const unsigned DI_LEN = m.DI_List_S.len();
+//
+//    if( NUM_LINES_VS <= view_line ) diff_line = DI_LEN-1;
+//    else {
+//      // Diff line is greater or equal to view line,
+//      // so start at view line number and search forward
+//      unsigned k = view_line;
+//      Diff_Info di = m.DI_List_S[ view_line ];
+//      k += view_line - di.line_num;
+//      bool found = false;
+//      for( ; !found && k<DI_LEN; k += view_line - di.line_num )
+//      {
+//        di = m.DI_List_S[ k ];
+//        if( DT_SAME       == di.diff_type
+//         || DT_CHANGED    == di.diff_type
+//         || DT_INSERTED   == di.diff_type
+//         || DT_DIFF_FILES == di.diff_type )
+//        {
+//          if( view_line == di.line_num )
+//          {
+//            found = true;
+//            diff_line = k;
+//          }
+//        }
+//      }
+//      if( !found ) {
+//        ASSERT( __LINE__, 0, "view_line : %u : not found", view_line );
+//      }
+//    }
+//  }
+//  return diff_line;
+//}
+
+// Return the diff line of the view line on the short side
 unsigned DiffLine_S( Diff::Data& m, const unsigned view_line )
 {
   Trace trace( __PRETTY_FUNCTION__ );
-
   unsigned diff_line = 0;
   const unsigned NUM_LINES_VS = m.pvS->GetFB()->NumLines();
 
@@ -1088,20 +1190,19 @@ unsigned DiffLine_S( Diff::Data& m, const unsigned view_line )
     else {
       // Diff line is greater or equal to view line,
       // so start at view line number and search forward
+      unsigned k = view_line;
+      Diff_Info di = m.DI_List_S[ view_line ];
+      k += view_line - di.line_num;
       bool found = false;
-      for( unsigned k=view_line; !found && k<DI_LEN; k++ )
-      {
-        Diff_Info di = m.DI_List_S[ k ];
 
-        if( DT_SAME     == di.diff_type
-         || DT_CHANGED  == di.diff_type
-         || DT_INSERTED == di.diff_type )
+      for( ; !found && k<DI_LEN; k += view_line - di.line_num )
+      {
+        di = m.DI_List_S[ k ];
+
+        if( view_line == di.line_num )
         {
-          if( view_line == di.line_num )
-          {
-            found = true;
-            diff_line = k;
-          }
+          found = true;
+          diff_line = k;
         }
       }
       if( !found ) {
@@ -1140,11 +1241,52 @@ unsigned DiffLine_S( Diff::Data& m, const unsigned view_line )
 //  return 0;
 //}
 
+//// Return the diff line of the view line on the long side
+//unsigned DiffLine_L( Diff::Data& m, const unsigned view_line )
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//  unsigned diff_line = 0;
+//  const unsigned NUM_LINES_VL = m.pvL->GetFB()->NumLines();
+//
+//  if( 0 < NUM_LINES_VL )
+//  {
+//    const unsigned DI_LEN = m.DI_List_L.len();
+//
+//    if( NUM_LINES_VL <= view_line ) diff_line = DI_LEN-1;
+//    else {
+//      // Diff line is greater or equal to view line,
+//      // so start at view line number and search forward
+//      unsigned k = view_line;
+//      Diff_Info di = m.DI_List_L[ view_line ];
+//      k += view_line - di.line_num;
+//      bool found = false;
+//      for( ; !found && k<DI_LEN; k += view_line - di.line_num )
+//      {
+//        di = m.DI_List_L[ k ];
+//        if( DT_SAME       == di.diff_type
+//         || DT_CHANGED    == di.diff_type
+//         || DT_INSERTED   == di.diff_type
+//         || DT_DIFF_FILES == di.diff_type )
+//        {
+//          if( view_line == di.line_num )
+//          {
+//            found = true;
+//            diff_line = k;
+//          }
+//        }
+//      }
+//      if( !found ) {
+//        ASSERT( __LINE__, 0, "view_line : %u : not found", view_line );
+//      }
+//    }
+//  }
+//  return diff_line;
+//}
+
 // Return the diff line of the view line on the long side
 unsigned DiffLine_L( Diff::Data& m, const unsigned view_line )
 {
   Trace trace( __PRETTY_FUNCTION__ );
-
   unsigned diff_line = 0;
   const unsigned NUM_LINES_VL = m.pvL->GetFB()->NumLines();
 
@@ -1156,20 +1298,19 @@ unsigned DiffLine_L( Diff::Data& m, const unsigned view_line )
     else {
       // Diff line is greater or equal to view line,
       // so start at view line number and search forward
+      unsigned k = view_line;
+      Diff_Info di = m.DI_List_L[ view_line ];
+      k += view_line - di.line_num;
       bool found = false;
-      for( unsigned k=view_line; !found && k<DI_LEN; k++ )
-      {
-        Diff_Info di = m.DI_List_L[ k ];
 
-        if( DT_SAME     == di.diff_type
-         || DT_CHANGED  == di.diff_type
-         || DT_INSERTED == di.diff_type )
+      for( ; !found && k<DI_LEN; k += view_line - di.line_num )
+      {
+        di = m.DI_List_L[ k ];
+
+        if( view_line == di.line_num )
         {
-          if( view_line == di.line_num )
-          {
-            found = true;
-            diff_line = k;
-          }
+          found = true;
+          diff_line = k;
         }
       }
       if( !found ) {
@@ -1309,17 +1450,43 @@ Style DiffStyle( const Style s )
   return diff_s;
 }
 
+void PrintWorkingView_DT_UNKN0WN( Diff::Data& m
+                                , View* pV
+                                , const unsigned WC
+                                , const unsigned G_ROW )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  for( unsigned col=0; col<WC; col++ )
+  {
+    Console::Set( G_ROW, Col_Win_2_GL( m, pV, col ), '~', S_DIFF_DEL );
+  }
+}
+
+void PrintWorkingView_DT_DELETED( Diff::Data& m
+                                , View* pV
+                                , const unsigned WC
+                                , const unsigned G_ROW )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  for( unsigned col=0; col<WC; col++ )
+  {
+    Console::Set( G_ROW, Col_Win_2_GL( m, pV, col ), '-', S_DIFF_DEL );
+  }
+}
+
 void PrintWorkingView_DT_CHANGED( Diff::Data& m
                                 , View* pV
                                 , const unsigned WC
                                 , const unsigned G_ROW
-                                , const unsigned dl
-                                ,       unsigned col )
+                                , const unsigned dl )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   const unsigned vl = ViewLine( m, pV, dl ); //(vl=view line)
   const unsigned LL = pV->GetFB()->LineLen( vl );
   Diff_Info di = (pV == m.pvS) ? m.DI_List_S[ dl ] : m.DI_List_L[ dl ];
+  unsigned col = 0;
 
   if( di.pLineInfo )
   {
@@ -1372,55 +1539,67 @@ void PrintWorkingView_DT_CHANGED( Diff::Data& m
   }
 }
 
-void PrintWorkingView( Diff::Data& m, View* pV )
+void PrintWorkingView_DT_DIFF_FILES( Diff::Data& m
+                                   , View* pV
+                                   , const unsigned WC
+                                   , const unsigned G_ROW
+                                   , const unsigned dl )
 {
   Trace trace( __PRETTY_FUNCTION__ );
-  const unsigned NUM_LINES = NumLines(m);
-  const unsigned WR        = WorkingRows( pV );
-  const unsigned WC        = WorkingCols( pV );
 
-  unsigned row = 0; // (dl=diff line)
-  for( unsigned dl=m.topLine; dl<NUM_LINES && row<WR; dl++, row++ )
+  const unsigned vl = ViewLine( m, pV, dl ); //(vl=view line)
+  const unsigned LL = pV->GetFB()->LineLen( vl );
+  unsigned col = 0;
+
+  for( unsigned i=m.leftChar; i<LL && col<WC; i++, col++ )
   {
-    unsigned col=0;
-    const unsigned G_ROW = Row_Win_2_GL( m, pV, row );
-    const Diff_Type DT = DiffType( m, pV, dl );
-    if( DT == DT_UNKN0WN )
-    {
-      for( ; col<WC; col++ )
-      {
-        Console::Set( G_ROW, Col_Win_2_GL( m, pV, col ), '~', S_DIFF_DEL );
-      }
-    }
-    else if( DT == DT_DELETED )
-    {
-      for( ; col<WC; col++ )
-      {
-        Console::Set( G_ROW, Col_Win_2_GL( m, pV, col ), '-', S_DIFF_DEL );
-      }
-    }
-    else if( DT == DT_CHANGED )
-    {
-      PrintWorkingView_DT_CHANGED( m, pV, WC, G_ROW, dl, col );
-    }
-    else // DT == DT_INSERTED || DT == DT_SAME
-    {
-      const unsigned vl = ViewLine( m, pV, dl ); //(vl=view line)
-      const unsigned LL = pV->GetFB()->LineLen( vl );
-      for( unsigned i=m.leftChar; i<LL && col<WC; i++, col++ )
-      {
-        uint8_t c = pV->GetFB()->Get( vl, i );
-        Style   s = Get_Style( m, pV, dl, vl, i );
+    uint8_t c = pV->GetFB()->Get( vl, i );
+    Style   s = Get_Style( m, pV, dl, vl, i );
 
-        if( DT == DT_INSERTED ) s = DiffStyle( s );
-        pV->PrintWorkingView_Set( LL, G_ROW, col, i, c, s );
-      }
-      for( ; col<WC; col++ )
-      {
-        Console::Set( G_ROW, Col_Win_2_GL( m, pV, col ), ' ', DT==DT_SAME ? S_NORMAL : S_DIFF_NORMAL );
-      }
-    }
+    pV->PrintWorkingView_Set( LL, G_ROW, col, i, c, s );
   }
+  for( ; col<WC; col++ )
+  {
+    Console::Set( G_ROW, Col_Win_2_GL( m, pV, col ), ' '
+                , col%2==0 ? S_NORMAL : S_DIFF_NORMAL );
+  }
+}
+
+void PrintWorkingView_DT_INSERTED_SAME( Diff::Data& m
+                                      , View* pV
+                                      , const unsigned WC
+                                      , const unsigned G_ROW
+                                      , const unsigned dl
+                                      , const Diff_Type DT )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  const unsigned vl = ViewLine( m, pV, dl ); //(vl=view line)
+  const unsigned LL = pV->GetFB()->LineLen( vl );
+  unsigned col = 0;
+
+  for( unsigned i=m.leftChar; i<LL && col<WC; i++, col++ )
+  {
+    uint8_t c = pV->GetFB()->Get( vl, i );
+    Style   s = Get_Style( m, pV, dl, vl, i );
+
+    if( DT == DT_INSERTED ) s = DiffStyle( s );
+    pV->PrintWorkingView_Set( LL, G_ROW, col, i, c, s );
+  }
+  for( ; col<WC; col++ )
+  {
+    Console::Set( G_ROW, Col_Win_2_GL( m, pV, col ), ' ', DT==DT_SAME ? S_NORMAL : S_DIFF_NORMAL );
+  }
+}
+
+void PrintWorkingView_EOF( Diff::Data& m
+                         , View* pV
+                         , const unsigned WR
+                         , const unsigned WC
+                         ,       unsigned row )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
   // Not enough lines to display, fill in with ~
   for( ; row < WR; row++ )
   {
@@ -1433,6 +1612,45 @@ void PrintWorkingView( Diff::Data& m, View* pV )
       Console::Set( G_ROW, Col_Win_2_GL( m, pV, col ), ' ', S_EMPTY );
     }
   }
+}
+
+void PrintWorkingView( Diff::Data& m, View* pV )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  const unsigned NUM_LINES = NumLines(m);
+  const unsigned WR        = WorkingRows( pV );
+  const unsigned WC        = WorkingCols( pV );
+
+  unsigned row = 0; // (dl=diff line)
+  for( unsigned dl=m.topLine; dl<NUM_LINES && row<WR; dl++, row++ )
+  {
+    unsigned col=0;
+    const unsigned G_ROW = Row_Win_2_GL( m, pV, row );
+    const Diff_Type DT = DiffType( m, pV, dl );
+
+    if( DT == DT_UNKN0WN )
+    {
+      PrintWorkingView_DT_UNKN0WN( m, pV, WC, G_ROW );
+    }
+    else if( DT == DT_DELETED )
+    {
+      PrintWorkingView_DT_DELETED( m, pV, WC, G_ROW );
+    }
+    else if( DT == DT_CHANGED )
+    {
+      PrintWorkingView_DT_CHANGED( m, pV, WC, G_ROW, dl );
+    }
+    else if( DT == DT_DIFF_FILES )
+    {
+      PrintWorkingView_DT_DIFF_FILES( m, pV, WC, G_ROW, dl );
+    }
+    else // DT == DT_INSERTED || DT == DT_SAME
+    {
+      PrintWorkingView_DT_INSERTED_SAME( m, pV, WC, G_ROW, dl, DT );
+    }
+  }
+  PrintWorkingView_EOF( m, pV, WR, WC, row );
 }
 
 void PrintStsLine( Diff::Data& m, View* pV )
@@ -2372,7 +2590,10 @@ bool Do_n_Search_for_Diff( Diff::Data& m
     {
       const Diff_Type DT = DI_List[dl].diff_type;
 
-      if( DT == DT_CHANGED || DT == DT_INSERTED || DT == DT_DELETED )
+      if( DT == DT_CHANGED
+       || DT == DT_INSERTED
+       || DT == DT_DELETED
+       || DT == DT_DIFF_FILES )
       {
         found = true;
       }
@@ -2386,7 +2607,10 @@ bool Do_n_Search_for_Diff( Diff::Data& m
       {
         const Diff_Type DT = DI_List[dl].diff_type;
 
-        if( DT == DT_CHANGED || DT == DT_INSERTED || DT == DT_DELETED )
+        if( DT == DT_CHANGED
+         || DT == DT_INSERTED
+         || DT == DT_DELETED
+         || DT == DT_DIFF_FILES )
         {
           found = true;
         }
@@ -2415,7 +2639,10 @@ void Do_n_Diff( Diff::Data& m )
 
     bool found = true;
 
-    if( DT == DT_CHANGED || DT == DT_INSERTED || DT == DT_DELETED )
+    if( DT == DT_CHANGED
+     || DT == DT_INSERTED
+     || DT == DT_DELETED
+     || DT == DT_DIFF_FILES )
     {
       // If currently on a diff, search for same before searching for diff
       found = Do_n_Search_for_Same( m, dl, DI_List );
@@ -2602,7 +2829,10 @@ bool Do_N_Search_for_Diff( Diff::Data& m
     {
       const Diff_Type DT = DI_List[dl].diff_type;
 
-      if( DT == DT_CHANGED || DT == DT_INSERTED || DT == DT_DELETED )
+      if( DT == DT_CHANGED
+       || DT == DT_INSERTED
+       || DT == DT_DELETED
+       || DT == DT_DIFF_FILES )
       {
         found = true;
       }
@@ -2616,7 +2846,10 @@ bool Do_N_Search_for_Diff( Diff::Data& m
       {
         const Diff_Type DT = DI_List[dl].diff_type;
 
-        if( DT == DT_CHANGED || DT == DT_INSERTED || DT == DT_DELETED )
+        if( DT == DT_CHANGED
+         || DT == DT_INSERTED
+         || DT == DT_DELETED
+         || DT == DT_DIFF_FILES )
         {
           found = true;
         }
@@ -2645,7 +2878,10 @@ void Do_N_Diff( Diff::Data& m )
 
     bool found = true;
 
-    if( DT == DT_CHANGED || DT == DT_INSERTED || DT == DT_DELETED )
+    if( DT == DT_CHANGED
+     || DT == DT_INSERTED
+     || DT == DT_DELETED
+     || DT == DT_DIFF_FILES )
     {
       // If currently on a diff, search for same before searching for diff
       found = Do_N_Search_for_Same( m, dl, DI_List );
@@ -2662,6 +2898,8 @@ void Do_N_Diff( Diff::Data& m )
   }
 }
 
+// Since a line was just inserted, increment line numbers of all lines
+// following, and increment line number of inserted line if needed.
 void Patch_Diff_Info_Inserted_Inc( Diff::Data& m
                                  , const unsigned DPL
                                  , const bool ON_DELETED_VIEW_LINE_ZERO
@@ -2672,11 +2910,12 @@ void Patch_Diff_Info_Inserted_Inc( Diff::Data& m
   // If started inserting into empty first line in file, dont increment
   // Diff_Info line_num, because DELETED first line starts at zero:
   unsigned inc_st = DPL;
-  if( ON_DELETED_VIEW_LINE_ZERO ) {
-    // If there are DT_DELETED lines directly below where
-    // we inserted a line, decrement their Diff_Info.line_num's
-    // because they were incremented in Patch_Diff_Info_Inserted()
-    // and they should not be incremented here:
+  if( ON_DELETED_VIEW_LINE_ZERO )
+  {
+    inc_st = DPL+1;
+    // Since we just inserted into DELETED_VIEW_LINE_ZERO,
+    // current line is line zero.
+    // Move increment start down to first non-DELETED line after current line.
     for( unsigned k=DPL+1; k<cDI_List.len(); k++ )
     {
       Diff_Info& di = cDI_List[ k ];
@@ -4431,7 +4670,7 @@ bool Do_dw_get_fn( Diff::Data& m
   return false;
 }
 
-bool GoToFile_GetFileName( Diff::Data& m, String& fname )
+bool GetFileName_UnderCursor( Diff::Data& m, String& fname )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -4476,6 +4715,31 @@ bool GoToFile_GetFileName( Diff::Data& m, String& fname )
     }
   }
   return got_filename;
+}
+
+bool GetBufferIndex( Diff::Data& m
+                   , const char* file_path
+                   , unsigned* file_index )
+{
+  // 1. Search for file_path in buffer list
+  if( m.vis.HaveFile( file_path, file_index ) )
+  {
+    return true;
+  }
+  // 2. See if file exists, and if so, add a file buffer
+  if( FileExists( file_path ) )
+  {
+    // pfb gets added to m.vis.m.files in Add_FileBuf_2_Lists_Create_Views()
+    FileBuf* pfb = new(__FILE__,__LINE__)
+                   FileBuf( m.vis, file_path, true, FT_UNKNOWN );
+    pfb->ReadFile();
+
+    if( m.vis.HaveFile( file_path, file_index ) )
+    {
+      return true;
+    }
+  }
+  return false;
 }
 
 void Print_L( Diff::Data& m )
@@ -4678,8 +4942,6 @@ void Diff::Update()
   // Update long view:
   m.pfL->Find_Styles( ViewLine( m, m.pvL, m.topLine ) + WorkingRows( m.pvL ) );
   m.pfL->Find_Regexs( ViewLine( m, m.pvL, m.topLine ), WorkingRows( m.pvL ) );
-//m.pfL->ClearStars();
-//m.pfL->Find_Stars();
 
   RepositionViews( m );
 
@@ -4692,8 +4954,6 @@ void Diff::Update()
   // Update short view:
   m.pfS->Find_Styles( ViewLine( m, m.pvS, m.topLine ) + WorkingRows( m.pvS ) );
   m.pfS->Find_Regexs( ViewLine( m, m.pvS, m.topLine ), WorkingRows( m.pvS ) );
-//m.pfS->ClearStars();
-//m.pfS->Find_Stars();
 
   m.pvS->Print_Borders();
   PrintWorkingView( m, m.pvS );
@@ -4701,6 +4961,11 @@ void Diff::Update()
   m.pvS->PrintFileLine();
   PrintCmdLine( m, m.pvS );
 
+  if( ! m.printed_diff_ms )
+  {
+    m.vis.CmdLineMessage( "Diff took: %u ms", m.diff_ms );
+    m.printed_diff_ms = true;
+  }
   Console::Update();
 
   PrintCursor( m.vis.CV() );
@@ -5906,15 +6171,81 @@ String Diff::Do_Star_GetNewPattern()
   return pattern;
 }
 
+//void Diff::GoToFile()
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//
+//  // 1. Get fname underneath the cursor:
+//  String fname;
+//  bool ok = GetFileName_UnderCursor( m, fname );
+//
+//  if( ok ) m.vis.GoToBuffer_Fname( fname );
+//}
+
 void Diff::GoToFile()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  // 1. Get fname underneath the cursor:
-  String fname;
-  bool ok = GoToFile_GetFileName( m, fname );
+  View* pV = m.vis.CV();
 
-  if( ok ) m.vis.GoToBuffer_Fname( fname );
+  Array_t<Diff_Info> cDI_List = (pV == m.pvS) ? m.DI_List_S : m.DI_List_L;
+  Array_t<Diff_Info> oDI_List = (pV == m.pvS) ? m.DI_List_L : m.DI_List_S;
+
+  const Diff_Type cDT = cDI_List[ CrsLine(m) ].diff_type; // Current diff type
+  const Diff_Type oDT = oDI_List[ CrsLine(m) ].diff_type; // Other   diff type
+
+  String fname;
+  if( GetFileName_UnderCursor( m, fname ) )
+  {
+    bool did_diff = false;
+    // Special case, look at two file in diff mode:
+    View* cV = (pV == m.pvS) ? m.pvS : m.pvL; // Current view
+    View* oV = (pV == m.pvS) ? m.pvL : m.pvS; // Other   view
+
+    String cPath = fname; // Current side file to diff full fname
+    String oPath = fname; // Other   side file to diff full fname
+    if( FindFullFileNameRel2( cV->GetFB()->GetPathName(), cPath )
+     && FindFullFileNameRel2( oV->GetFB()->GetPathName(), oPath ) )
+    {
+      unsigned c_file_idx = 0; // Current side index of file to diff
+      unsigned o_file_idx = 0; // Other   side index of file to diff
+      if( GetBufferIndex( m, cPath.c_str(), &c_file_idx )
+       && GetBufferIndex( m, oPath.c_str(), &o_file_idx ) )
+      {
+        FileBuf* c_file_buf = m.vis.GetFileBuf( c_file_idx );
+        FileBuf* o_file_buf = m.vis.GetFileBuf( o_file_idx );
+        // Files with same name and different contents
+        // or directories with same name but different paths
+        if( (cDT == DT_DIFF_FILES && oDT == DT_DIFF_FILES)
+         || (cV->GetFB()->IsDir() && oV->GetFB()->IsDir()
+          && 0==strcmp(c_file_buf->GetHeadName(),o_file_buf->GetHeadName())
+          && 0!=strcmp(c_file_buf->GetPathName(),o_file_buf->GetPathName()) ) )
+        {
+          // Save current view context for when we come back
+          const unsigned cV_vl_cl = ViewLine( m, cV, CrsLine(m) );
+          const unsigned cV_vl_tl = ViewLine( m, cV, m.topLine );
+          cV->SetTopLine( cV_vl_tl );
+          cV->SetCrsRow( cV_vl_cl - cV_vl_tl );
+          cV->SetLeftChar( m.leftChar );
+          cV->SetCrsCol  ( m.crsCol );
+        
+          // Save other view context for when we come back
+          const unsigned oV_vl_cl = ViewLine( m, oV, CrsLine(m) );
+          const unsigned oV_vl_tl = ViewLine( m, oV, m.topLine );
+          oV->SetTopLine( oV_vl_tl );
+          oV->SetCrsRow( oV_vl_cl - oV_vl_tl );
+          oV->SetLeftChar( m.leftChar );
+          oV->SetCrsCol  ( m.crsCol );
+        
+          did_diff = m.vis.Diff_By_File_Indexes( cV, c_file_idx, oV, o_file_idx );
+        }
+      }
+    }
+    if( !did_diff ) {
+      // Normal case, dropping out of diff mode to look at file:
+      m.vis.GoToBuffer_Fname( fname );
+    }
+  }
 }
 
 void Diff::PrintCursor( View* pV )
@@ -6194,6 +6525,31 @@ bool ReDiff_GetDiffArea( Diff::Data& m
   return found_diff_area;
 }
 
+//unsigned Remove_From_DI_Lists( Diff::Data& m, DiffArea da )
+//{
+//  unsigned DI_lists_insert_idx = 0;
+//
+//  unsigned DI_list_s_remove_st = DiffLine_S( m, da.ln_s );
+//  unsigned DI_list_l_remove_st = DiffLine_L( m, da.ln_l );
+//  unsigned DI_list_remove_st = Min( DI_list_s_remove_st
+//                                  , DI_list_l_remove_st );
+//  DI_lists_insert_idx = DI_list_remove_st;
+//
+//  unsigned DI_list_s_remove_fn = DiffLine_S( m, da.fnl_s() );
+//  unsigned DI_list_l_remove_fn = DiffLine_L( m, da.fnl_l() );
+//  unsigned DI_list_remove_fn = Max( DI_list_s_remove_fn
+//                                  , DI_list_l_remove_fn );
+////Log.Log("(DI_list_remove_st,DI_list_remove_fn) = ("
+////       + (DI_list_remove_st+1)+","+(DI_list_remove_fn+1) +")");
+//
+//  for( unsigned k=DI_list_remove_st; k<DI_list_remove_fn; k++ )
+//  {
+//    m.DI_List_S.remove( DI_lists_insert_idx );
+//    m.DI_List_L.remove( DI_lists_insert_idx );
+//  }
+//  return DI_lists_insert_idx;
+//}
+
 unsigned Remove_From_DI_Lists( Diff::Data& m, DiffArea da )
 {
   unsigned DI_lists_insert_idx = 0;
@@ -6204,8 +6560,14 @@ unsigned Remove_From_DI_Lists( Diff::Data& m, DiffArea da )
                                   , DI_list_l_remove_st );
   DI_lists_insert_idx = DI_list_remove_st;
 
-  unsigned DI_list_s_remove_fn = DiffLine_S( m, da.fnl_s() );
-  unsigned DI_list_l_remove_fn = DiffLine_L( m, da.fnl_l() );
+  unsigned DI_list_s_remove_fn = m.pvS->GetFB()->NumLines() <= da.fnl_s()
+                               ? m.DI_List_S.len()
+                               : DiffLine_S( m, da.fnl_s() );
+
+  unsigned DI_list_l_remove_fn = m.pvL->GetFB()->NumLines() <= da.fnl_l()
+                               ? m.DI_List_L.len()
+                               : DiffLine_L( m, da.fnl_l() );
+
   unsigned DI_list_remove_fn = Max( DI_list_s_remove_fn
                                   , DI_list_l_remove_fn );
 //Log.Log("(DI_list_remove_st,DI_list_remove_fn) = ("

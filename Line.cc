@@ -172,6 +172,11 @@ bool Line::copy( const Line& a )
   return true;
 }
 
+bool Line::operator==( const Line& a ) const
+{
+  return m.s == a.m.s;
+}
+
 uint8_t Line::get( const unsigned i ) const
 {
   return m.s[i];

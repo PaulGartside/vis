@@ -27,7 +27,6 @@
 #include "Types.hh"
 
 class String;
-class View_IF;
 class View;
 class LineView;
 class Vis;

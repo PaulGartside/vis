@@ -76,6 +76,8 @@ public:
   void L_Handle_SemiColon();
   void Handle_Slash_GotPattern( const String& pattern
                               , const bool MOVE_TO_FIRST_PATTERN=true );
+  bool Diff_By_File_Indexes( View* cV, unsigned const c_file_idx
+                           , View* oV, unsigned const o_file_idx );
 
   Line* BorrowLine( const char* _FILE_, const unsigned _LINE_, const unsigned SIZE = 0 );
   Line* BorrowLine( const char* _FILE_, const unsigned _LINE_, const unsigned LEN, const uint8_t FILL );

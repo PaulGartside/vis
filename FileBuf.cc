@@ -2239,10 +2239,11 @@ unsigned RemoveTabs_from_line( FileBuf::Data& m
                              , const unsigned l
                              , const unsigned tab_sz )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
   unsigned tabs_removed = 0;
 
   Line* l_c = m.lines[l];
-  const unsigned LL = l_c->len();
+  unsigned LL = l_c->len();
   unsigned cnum_t = 0; // char number with respect to tabs
 
   for( unsigned p=0; p<LL; p++ )
@@ -2258,6 +2259,7 @@ unsigned RemoveTabs_from_line( FileBuf::Data& m
       {
         p++;
         m.self.InsertChar( l, p, ' ');
+        LL++;
       }
       cnum_t = 0;
     }
@@ -2268,6 +2270,7 @@ unsigned RemoveTabs_from_line( FileBuf::Data& m
 // Returns number of spaces removed
 unsigned RemoveSpcs_from_EOL( FileBuf::Data& m, const unsigned l )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
   unsigned spaces_removed = 0;
 
   Line* l_c = m.lines[l];
