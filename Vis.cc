@@ -275,7 +275,7 @@ void AdjustViews( Vis::Data& m )
 {
   for( unsigned w=0; w<m.num_wins; w++ )
   {
-    m.views[w][ m.file_hist[w][0] ]->SetViewPos();
+    GetView_Win( m, w )->SetViewPos();
   }
 }
 
@@ -717,8 +717,8 @@ void GoToNextWindow( Vis::Data& m )
 
     m.win = (++m.win) % m.num_wins;
 
-    View* pV     = m.views[m.win  ][ m.file_hist[m.win  ][0] ];
-    View* pV_old = m.views[win_old][ m.file_hist[win_old][0] ];
+    View* pV     = GetView_Win( m, m.win );
+    View* pV_old = GetView_Win( m, win_old );
 
     pV_old->Print_Borders();
     pV    ->Print_Borders();
@@ -735,14 +735,14 @@ bool GoToNextWindow_l_Find( Vis::Data& m )
 
   bool found = false; // Found next view to go to
 
-  const View*    curr_V  = m.views[m.win][ m.file_hist[m.win][0] ];
+  const View*    curr_V  = GetView_Win( m, m.win );
   const Tile_Pos curr_TP = curr_V->GetTilePos();
 
   if( curr_TP == TP_LEFT_HALF )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_RITE_HALF         == TP
        || TP_TOP__RITE_QTR     == TP
        || TP_BOT__RITE_QTR     == TP
@@ -755,7 +755,7 @@ bool GoToNextWindow_l_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_LEFT_HALF     == TP
        || TP_TOP__LEFT_QTR == TP
        || TP_BOT__LEFT_QTR == TP
@@ -768,7 +768,7 @@ bool GoToNextWindow_l_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_RITE_HALF         == TP
        || TP_TOP__RITE_QTR     == TP
        || TP_RITE_CTR__QTR     == TP
@@ -779,7 +779,7 @@ bool GoToNextWindow_l_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_LEFT_HALF     == TP
        || TP_LEFT_QTR      == TP
        || TP_TOP__LEFT_QTR == TP
@@ -790,7 +790,7 @@ bool GoToNextWindow_l_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_RITE_HALF         == TP
        || TP_BOT__RITE_QTR     == TP
        || TP_RITE_CTR__QTR     == TP
@@ -801,7 +801,7 @@ bool GoToNextWindow_l_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_LEFT_HALF     == TP
        || TP_LEFT_QTR      == TP
        || TP_BOT__LEFT_QTR == TP
@@ -812,7 +812,7 @@ bool GoToNextWindow_l_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_LEFT_CTR__QTR     == TP
        || TP_TOP__LEFT_CTR_8TH == TP
        || TP_BOT__LEFT_CTR_8TH == TP ) { m.win = k; found = true; }
@@ -822,7 +822,7 @@ bool GoToNextWindow_l_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_LEFT_HALF     == TP
        || TP_LEFT_QTR      == TP
        || TP_TOP__LEFT_8TH == TP
@@ -833,7 +833,7 @@ bool GoToNextWindow_l_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_RITE_HALF         == TP
        || TP_RITE_CTR__QTR     == TP
        || TP_TOP__RITE_CTR_8TH == TP
@@ -844,7 +844,7 @@ bool GoToNextWindow_l_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_RITE_QTR      == TP
        || TP_TOP__RITE_8TH == TP
        || TP_BOT__RITE_8TH == TP ) { m.win = k; found = true; }
@@ -854,7 +854,7 @@ bool GoToNextWindow_l_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_LEFT_CTR__QTR     == TP
        || TP_TOP__LEFT_CTR_8TH == TP ) { m.win = k; found = true; }
     }
@@ -863,7 +863,7 @@ bool GoToNextWindow_l_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_LEFT_CTR__QTR     == TP
        || TP_BOT__LEFT_CTR_8TH == TP ) { m.win = k; found = true; }
     }
@@ -872,7 +872,7 @@ bool GoToNextWindow_l_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_RITE_HALF         == TP
        || TP_RITE_CTR__QTR     == TP
        || TP_TOP__RITE_QTR     == TP
@@ -883,7 +883,7 @@ bool GoToNextWindow_l_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_RITE_HALF         == TP
        || TP_RITE_CTR__QTR     == TP
        || TP_BOT__RITE_QTR     == TP
@@ -894,7 +894,7 @@ bool GoToNextWindow_l_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_RITE_QTR      == TP
        || TP_TOP__RITE_8TH == TP ) { m.win = k; found = true; }
     }
@@ -903,7 +903,7 @@ bool GoToNextWindow_l_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_RITE_QTR      == TP
        || TP_BOT__RITE_8TH == TP ) { m.win = k; found = true; }
     }
@@ -912,7 +912,7 @@ bool GoToNextWindow_l_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_LEFT_HALF     == TP
        || TP_LEFT_QTR      == TP
        || TP_TOP__LEFT_QTR == TP
@@ -923,7 +923,7 @@ bool GoToNextWindow_l_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_LEFT_HALF     == TP
        || TP_LEFT_QTR      == TP
        || TP_BOT__LEFT_QTR == TP
@@ -945,8 +945,8 @@ void GoToNextWindow_l( Vis::Data& m )
     // If next view to go to is found, m.win will be updated to new value
     if( GoToNextWindow_l_Find(m) )
     {
-      View* pV     = m.views[m.win  ][ m.file_hist[m.win  ][0] ];
-      View* pV_old = m.views[win_old][ m.file_hist[win_old][0] ];
+      View* pV     = GetView_Win( m, m.win );
+      View* pV_old = GetView_Win( m, win_old );
 
       pV_old->Print_Borders();
       pV    ->Print_Borders();
@@ -964,14 +964,14 @@ bool GoToNextWindow_h_Find( Vis::Data& m )
 
   bool found = false; // Found next view to go to
 
-  const View*    curr_V  = m.views[m.win][ m.file_hist[m.win][0] ];
+  const View*    curr_V  = GetView_Win( m, m.win );
   const Tile_Pos curr_TP = curr_V->GetTilePos();
 
   if( curr_TP == TP_LEFT_HALF )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_RITE_HALF     == TP
        || TP_TOP__RITE_QTR == TP
        || TP_BOT__RITE_QTR == TP
@@ -984,7 +984,7 @@ bool GoToNextWindow_h_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_LEFT_HALF         == TP
        || TP_TOP__LEFT_QTR     == TP
        || TP_BOT__LEFT_QTR     == TP
@@ -997,7 +997,7 @@ bool GoToNextWindow_h_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_RITE_HALF     == TP
        || TP_TOP__RITE_QTR == TP
        || TP_RITE_QTR      == TP
@@ -1008,7 +1008,7 @@ bool GoToNextWindow_h_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_LEFT_HALF         == TP
        || TP_LEFT_CTR__QTR     == TP
        || TP_TOP__LEFT_QTR     == TP
@@ -1019,7 +1019,7 @@ bool GoToNextWindow_h_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_RITE_HALF     == TP
        || TP_BOT__RITE_QTR == TP
        || TP_RITE_QTR      == TP
@@ -1030,7 +1030,7 @@ bool GoToNextWindow_h_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_LEFT_HALF         == TP
        || TP_LEFT_CTR__QTR     == TP
        || TP_BOT__LEFT_QTR     == TP
@@ -1041,7 +1041,7 @@ bool GoToNextWindow_h_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_RITE_HALF     == TP
        || TP_RITE_QTR      == TP
        || TP_TOP__RITE_8TH == TP
@@ -1052,7 +1052,7 @@ bool GoToNextWindow_h_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_RITE_CTR__QTR     == TP
        || TP_TOP__LEFT_CTR_8TH == TP
        || TP_BOT__LEFT_CTR_8TH == TP ) { m.win = k; found = true; }
@@ -1062,7 +1062,7 @@ bool GoToNextWindow_h_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_LEFT_QTR      == TP
        || TP_TOP__LEFT_8TH == TP
        || TP_BOT__LEFT_8TH == TP ) { m.win = k; found = true; }
@@ -1072,7 +1072,7 @@ bool GoToNextWindow_h_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_LEFT_HALF         == TP
        || TP_LEFT_CTR__QTR     == TP
        || TP_TOP__LEFT_QTR     == TP
@@ -1085,7 +1085,7 @@ bool GoToNextWindow_h_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_RITE_HALF     == TP
        || TP_TOP__RITE_QTR == TP
        || TP_RITE_QTR      == TP
@@ -1096,7 +1096,7 @@ bool GoToNextWindow_h_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_RITE_HALF     == TP
        || TP_BOT__RITE_QTR == TP
        || TP_RITE_QTR      == TP
@@ -1107,7 +1107,7 @@ bool GoToNextWindow_h_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_LEFT_QTR      == TP
        || TP_TOP__LEFT_8TH == TP ) { m.win = k; found = true; }
     }
@@ -1116,7 +1116,7 @@ bool GoToNextWindow_h_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_LEFT_QTR      == TP
        || TP_BOT__LEFT_8TH == TP ) { m.win = k; found = true; }
     }
@@ -1125,7 +1125,7 @@ bool GoToNextWindow_h_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_LEFT_HALF         == TP
        || TP_TOP__LEFT_QTR     == TP
        || TP_LEFT_CTR__QTR     == TP
@@ -1136,7 +1136,7 @@ bool GoToNextWindow_h_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_LEFT_HALF         == TP
        || TP_BOT__LEFT_QTR     == TP
        || TP_LEFT_CTR__QTR     == TP
@@ -1147,7 +1147,7 @@ bool GoToNextWindow_h_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_RITE_CTR__QTR     == TP
        || TP_TOP__RITE_CTR_8TH == TP ) { m.win = k; found = true; }
     }
@@ -1156,7 +1156,7 @@ bool GoToNextWindow_h_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_RITE_CTR__QTR     == TP
        || TP_BOT__RITE_CTR_8TH == TP ) { m.win = k; found = true; }
     }
@@ -1176,8 +1176,8 @@ void GoToNextWindow_h( Vis::Data& m )
     // If next view to go to is found, m.win will be updated to new value
     if( GoToNextWindow_h_Find(m) )
     {
-      View* pV     = m.views[m.win  ][ m.file_hist[m.win  ][0] ];
-      View* pV_old = m.views[win_old][ m.file_hist[win_old][0] ];
+      View* pV     = GetView_Win( m, m.win   );
+      View* pV_old = GetView_Win( m, win_old );
 
       pV_old->Print_Borders();
       pV    ->Print_Borders();
@@ -1195,14 +1195,14 @@ bool GoToNextWindow_jk_Find( Vis::Data& m )
 
   bool found = false; // Found next view to go to
 
-  const View*    curr_V  = m.views[m.win][ m.file_hist[m.win][0] ];
+  const View*    curr_V  = GetView_Win( m, m.win );
   const Tile_Pos curr_TP = curr_V->GetTilePos();
 
   if( curr_TP == TP_TOP__HALF )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_BOT__HALF         == TP
        || TP_BOT__LEFT_QTR     == TP
        || TP_BOT__RITE_QTR     == TP
@@ -1216,7 +1216,7 @@ bool GoToNextWindow_jk_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_TOP__HALF         == TP
        || TP_TOP__LEFT_QTR     == TP
        || TP_TOP__RITE_QTR     == TP
@@ -1230,7 +1230,7 @@ bool GoToNextWindow_jk_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_BOT__HALF         == TP
        || TP_BOT__LEFT_QTR     == TP
        || TP_BOT__LEFT_8TH     == TP
@@ -1241,7 +1241,7 @@ bool GoToNextWindow_jk_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_BOT__HALF         == TP
        || TP_BOT__RITE_QTR     == TP
        || TP_BOT__RITE_8TH     == TP
@@ -1252,7 +1252,7 @@ bool GoToNextWindow_jk_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_TOP__HALF         == TP
        || TP_TOP__LEFT_QTR     == TP
        || TP_TOP__LEFT_8TH     == TP
@@ -1263,7 +1263,7 @@ bool GoToNextWindow_jk_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_TOP__HALF         == TP
        || TP_TOP__RITE_QTR     == TP
        || TP_TOP__RITE_8TH     == TP
@@ -1274,7 +1274,7 @@ bool GoToNextWindow_jk_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_BOT__HALF     == TP
        || TP_BOT__LEFT_QTR == TP
        || TP_BOT__LEFT_8TH == TP ) { m.win = k; found = true; }
@@ -1284,7 +1284,7 @@ bool GoToNextWindow_jk_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_BOT__HALF     == TP
        || TP_BOT__RITE_QTR == TP
        || TP_BOT__RITE_8TH == TP ) { m.win = k; found = true; }
@@ -1294,7 +1294,7 @@ bool GoToNextWindow_jk_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_BOT__HALF         == TP
        || TP_BOT__LEFT_QTR     == TP
        || TP_BOT__LEFT_CTR_8TH == TP ) { m.win = k; found = true; }
@@ -1304,7 +1304,7 @@ bool GoToNextWindow_jk_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_BOT__HALF         == TP
        || TP_BOT__RITE_QTR     == TP
        || TP_BOT__RITE_CTR_8TH == TP ) { m.win = k; found = true; }
@@ -1314,7 +1314,7 @@ bool GoToNextWindow_jk_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_TOP__HALF     == TP
        || TP_TOP__LEFT_QTR == TP
        || TP_TOP__LEFT_8TH == TP ) { m.win = k; found = true; }
@@ -1324,7 +1324,7 @@ bool GoToNextWindow_jk_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_TOP__HALF     == TP
        || TP_TOP__RITE_QTR == TP
        || TP_TOP__RITE_8TH == TP ) { m.win = k; found = true; }
@@ -1334,7 +1334,7 @@ bool GoToNextWindow_jk_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_TOP__HALF         == TP
        || TP_TOP__LEFT_QTR     == TP
        || TP_TOP__LEFT_CTR_8TH == TP ) { m.win = k; found = true; }
@@ -1344,7 +1344,7 @@ bool GoToNextWindow_jk_Find( Vis::Data& m )
   {
     for( unsigned k=0; !found && k<m.num_wins; k++ )
     {
-      const Tile_Pos TP = (m.views[k][ m.file_hist[k][0] ])->GetTilePos();
+      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
       if( TP_TOP__HALF         == TP
        || TP_TOP__RITE_QTR     == TP
        || TP_TOP__RITE_CTR_8TH == TP ) { m.win = k; found = true; }
@@ -1365,8 +1365,8 @@ void GoToNextWindow_jk( Vis::Data& m )
     // If next view to go to is found, m.win will be updated to new value
     if( GoToNextWindow_jk_Find(m) )
     {
-      View* pV     = m.views[m.win  ][ m.file_hist[m.win  ][0] ];
-      View* pV_old = m.views[win_old][ m.file_hist[win_old][0] ];
+      View* pV     = GetView_Win( m, m.win   );
+      View* pV_old = GetView_Win( m, win_old );
 
       pV_old->Print_Borders();
       pV    ->Print_Borders();
@@ -1378,21 +1378,108 @@ void GoToNextWindow_jk( Vis::Data& m )
   }
 }
 
+//void FlipWindows( Vis::Data& m )
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//  if( 1 < m.num_wins )
+//  {
+//    // This code only works for MAX_WINS == 2
+//    View* pV1 = GetView_Win( m, 0 );
+//    View* pV2 = GetView_Win( m, 1 );
+//
+//    if( pV1 != pV2 )
+//    {
+//      // Swap pV1 and pV2 Tile Positions:
+//      Tile_Pos tp_v1 = pV1->GetTilePos();
+//      pV1->SetTilePos( pV2->GetTilePos() );
+//      pV2->SetTilePos( tp_v1 );
+//    }
+//    m.vis.UpdateAll();
+//  }
+//}
+
+Tile_Pos FlipWindows_Horizontally( const Tile_Pos OTP )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  Tile_Pos NTP = TP_NONE;
+
+  if     ( OTP == TP_LEFT_HALF         ) NTP = TP_RITE_HALF        ;
+  else if( OTP == TP_RITE_HALF         ) NTP = TP_LEFT_HALF        ;
+  else if( OTP == TP_TOP__LEFT_QTR     ) NTP = TP_TOP__RITE_QTR    ;
+  else if( OTP == TP_TOP__RITE_QTR     ) NTP = TP_TOP__LEFT_QTR    ;
+  else if( OTP == TP_BOT__LEFT_QTR     ) NTP = TP_BOT__RITE_QTR    ;
+  else if( OTP == TP_BOT__RITE_QTR     ) NTP = TP_BOT__LEFT_QTR    ;
+  else if( OTP == TP_LEFT_QTR          ) NTP = TP_RITE_QTR         ;
+  else if( OTP == TP_RITE_QTR          ) NTP = TP_LEFT_QTR         ;
+  else if( OTP == TP_LEFT_CTR__QTR     ) NTP = TP_RITE_CTR__QTR    ;
+  else if( OTP == TP_RITE_CTR__QTR     ) NTP = TP_LEFT_CTR__QTR    ;
+  else if( OTP == TP_TOP__LEFT_8TH     ) NTP = TP_TOP__RITE_8TH    ;
+  else if( OTP == TP_TOP__RITE_8TH     ) NTP = TP_TOP__LEFT_8TH    ;
+  else if( OTP == TP_TOP__LEFT_CTR_8TH ) NTP = TP_TOP__RITE_CTR_8TH;
+  else if( OTP == TP_TOP__RITE_CTR_8TH ) NTP = TP_TOP__LEFT_CTR_8TH;
+  else if( OTP == TP_BOT__LEFT_8TH     ) NTP = TP_BOT__RITE_8TH    ;
+  else if( OTP == TP_BOT__RITE_8TH     ) NTP = TP_BOT__LEFT_8TH    ;
+  else if( OTP == TP_BOT__LEFT_CTR_8TH ) NTP = TP_BOT__RITE_CTR_8TH;
+  else if( OTP == TP_BOT__RITE_CTR_8TH ) NTP = TP_BOT__LEFT_CTR_8TH;
+
+  return NTP;
+}
+
+Tile_Pos FlipWindows_Vertically( const Tile_Pos OTP )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  Tile_Pos NTP = TP_NONE;
+
+  if     ( OTP == TP_TOP__HALF         ) NTP = TP_BOT__HALF        ;
+  else if( OTP == TP_BOT__HALF         ) NTP = TP_TOP__HALF        ;
+  else if( OTP == TP_TOP__LEFT_QTR     ) NTP = TP_BOT__LEFT_QTR    ;
+  else if( OTP == TP_TOP__RITE_QTR     ) NTP = TP_BOT__RITE_QTR    ;
+  else if( OTP == TP_BOT__LEFT_QTR     ) NTP = TP_TOP__LEFT_QTR    ;
+  else if( OTP == TP_BOT__RITE_QTR     ) NTP = TP_TOP__RITE_QTR    ;
+  else if( OTP == TP_TOP__LEFT_8TH     ) NTP = TP_BOT__LEFT_8TH    ;
+  else if( OTP == TP_TOP__RITE_8TH     ) NTP = TP_BOT__RITE_8TH    ;
+  else if( OTP == TP_TOP__LEFT_CTR_8TH ) NTP = TP_BOT__LEFT_CTR_8TH;
+  else if( OTP == TP_TOP__RITE_CTR_8TH ) NTP = TP_BOT__RITE_CTR_8TH;
+  else if( OTP == TP_BOT__LEFT_8TH     ) NTP = TP_TOP__LEFT_8TH    ;
+  else if( OTP == TP_BOT__RITE_8TH     ) NTP = TP_TOP__RITE_8TH    ;
+  else if( OTP == TP_BOT__LEFT_CTR_8TH ) NTP = TP_TOP__LEFT_CTR_8TH;
+  else if( OTP == TP_BOT__RITE_CTR_8TH ) NTP = TP_TOP__RITE_CTR_8TH;
+
+  return NTP;
+}
+
 void FlipWindows( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
+
   if( 1 < m.num_wins )
   {
-    // This code only works for MAX_WINS == 2
-    View* pV1 = m.views[0][ m.file_hist[0][0] ];
-    View* pV2 = m.views[1][ m.file_hist[1][0] ];
+    bool split_horizontally = false;
 
-    if( pV1 != pV2 )
+    for( unsigned k=0; !split_horizontally && k<m.num_wins; k++ )
     {
-      // Swap pV1 and pV2 Tile Positions:
-      Tile_Pos tp_v1 = pV1->GetTilePos();
-      pV1->SetTilePos( pV2->GetTilePos() );
-      pV2->SetTilePos( tp_v1 );
+      // pV is View of displayed window k
+      View* pV = GetView_Win( m, k );
+
+      split_horizontally = pV->GetTilePos() == TP_TOP__HALF
+                        || pV->GetTilePos() == TP_BOT__HALF;
+    }
+    for( unsigned k=0; k<m.num_wins; k++ )
+    {
+      // pV is View of displayed window k
+            View*    pV  = GetView_Win( m, k );
+      const Tile_Pos OTP = pV->GetTilePos(); // Old tile position
+
+      // New tile position:
+      const Tile_Pos NTP = split_horizontally
+                         ? FlipWindows_Vertically( OTP )
+                         : FlipWindows_Horizontally( OTP );
+      if( NTP != TP_NONE )
+      {
+        pV->SetTilePos( NTP );
+      }
     }
     m.vis.UpdateAll();
   }
@@ -1402,7 +1489,7 @@ bool Have_TP_BOT__HALF( Vis::Data& m )
 {
   for( unsigned k=0; k<m.num_wins; k++ )
   {
-    View* v = m.views[k][ m.file_hist[k][0] ];
+    View* v = GetView_Win( m, k );
     const Tile_Pos TP = v->GetTilePos();
 
     if( TP == TP_BOT__HALF ) return true;
@@ -1414,7 +1501,7 @@ bool Have_TP_TOP__HALF( Vis::Data& m )
 {
   for( unsigned k=0; k<m.num_wins; k++ )
   {
-    View* v = m.views[k][ m.file_hist[k][0] ];
+    View* v = GetView_Win( m, k );
     const Tile_Pos TP = v->GetTilePos();
 
     if( TP == TP_TOP__HALF ) return true;
@@ -1426,7 +1513,7 @@ bool Have_TP_BOT__LEFT_QTR( Vis::Data& m )
 {
   for( unsigned k=0; k<m.num_wins; k++ )
   {
-    View* v = m.views[k][ m.file_hist[k][0] ];
+    View* v = GetView_Win( m, k );
     const Tile_Pos TP = v->GetTilePos();
 
     if( TP == TP_BOT__LEFT_QTR ) return true;
@@ -1438,7 +1525,7 @@ bool Have_TP_TOP__LEFT_QTR( Vis::Data& m )
 {
   for( unsigned k=0; k<m.num_wins; k++ )
   {
-    View* v = m.views[k][ m.file_hist[k][0] ];
+    View* v = GetView_Win( m, k );
     const Tile_Pos TP = v->GetTilePos();
 
     if( TP == TP_TOP__LEFT_QTR ) return true;
@@ -1450,7 +1537,7 @@ bool Have_TP_BOT__RITE_QTR( Vis::Data& m )
 {
   for( unsigned k=0; k<m.num_wins; k++ )
   {
-    View* v = m.views[k][ m.file_hist[k][0] ];
+    View* v = GetView_Win( m, k );
     const Tile_Pos TP = v->GetTilePos();
 
     if( TP == TP_BOT__RITE_QTR ) return true;
@@ -1462,7 +1549,7 @@ bool Have_TP_TOP__RITE_QTR( Vis::Data& m )
 {
   for( unsigned k=0; k<m.num_wins; k++ )
   {
-    View* v = m.views[k][ m.file_hist[k][0] ];
+    View* v = GetView_Win( m, k );
     const Tile_Pos TP = v->GetTilePos();
 
     if( TP == TP_TOP__RITE_QTR ) return true;
@@ -1474,7 +1561,7 @@ void Quit_JoinTiles_TP_LEFT_HALF( Vis::Data& m )
 {
   for( unsigned k=0; k<m.num_wins; k++ )
   {
-    View* v = m.views[k][ m.file_hist[k][0] ];
+    View* v = GetView_Win( m, k );
     const Tile_Pos TP = v->GetTilePos();
 
     if     ( TP == TP_RITE_HALF         ) { v->SetTilePos( TP_FULL ); break; }
@@ -1493,7 +1580,7 @@ void Quit_JoinTiles_TP_RITE_HALF( Vis::Data& m )
 {
   for( unsigned k=0; k<m.num_wins; k++ )
   {
-    View* v = m.views[k][ m.file_hist[k][0] ];
+    View* v = GetView_Win( m, k );
     const Tile_Pos TP = v->GetTilePos();
 
     if     ( TP == TP_LEFT_HALF         ) { v->SetTilePos( TP_FULL ); break; }
@@ -1512,7 +1599,7 @@ void Quit_JoinTiles_TP_TOP__HALF( Vis::Data& m )
 {
   for( unsigned k=0; k<m.num_wins; k++ )
   {
-    View* v = m.views[k][ m.file_hist[k][0] ];
+    View* v = GetView_Win( m, k );
     const Tile_Pos TP = v->GetTilePos();
 
     if     ( TP == TP_BOT__HALF         ) { v->SetTilePos( TP_FULL ); break; }
@@ -1529,7 +1616,7 @@ void Quit_JoinTiles_TP_BOT__HALF( Vis::Data& m )
 {
   for( unsigned k=0; k<m.num_wins; k++ )
   {
-    View* v = m.views[k][ m.file_hist[k][0] ];
+    View* v = GetView_Win( m, k );
     const Tile_Pos TP = v->GetTilePos();
 
     if     ( TP == TP_TOP__HALF         ) { v->SetTilePos( TP_FULL ); break; }
@@ -1548,7 +1635,7 @@ void Quit_JoinTiles_TP_TOP__LEFT_QTR( Vis::Data& m )
   {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
-      View* v = m.views[k][ m.file_hist[k][0] ];
+      View* v = GetView_Win( m, k );
       const Tile_Pos TP = v->GetTilePos();
 
       if     ( TP == TP_TOP__RITE_QTR     ) { v->SetTilePos( TP_TOP__HALF ); break; }
@@ -1559,7 +1646,7 @@ void Quit_JoinTiles_TP_TOP__LEFT_QTR( Vis::Data& m )
   else {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
-      View* v = m.views[k][ m.file_hist[k][0] ];
+      View* v = GetView_Win( m, k );
       const Tile_Pos TP = v->GetTilePos();
 
       if     ( TP == TP_BOT__LEFT_QTR     ) { v->SetTilePos( TP_LEFT_HALF ); break; }
@@ -1575,7 +1662,7 @@ void Quit_JoinTiles_TP_TOP__RITE_QTR( Vis::Data& m )
   {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
-      View* v = m.views[k][ m.file_hist[k][0] ];
+      View* v = GetView_Win( m, k );
       const Tile_Pos TP = v->GetTilePos();
 
       if     ( TP == TP_TOP__LEFT_QTR     ) { v->SetTilePos( TP_TOP__HALF ); break; }
@@ -1586,7 +1673,7 @@ void Quit_JoinTiles_TP_TOP__RITE_QTR( Vis::Data& m )
   else {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
-      View* v = m.views[k][ m.file_hist[k][0] ];
+      View* v = GetView_Win( m, k );
       const Tile_Pos TP = v->GetTilePos();
 
       if     ( TP == TP_BOT__RITE_QTR     ) { v->SetTilePos( TP_RITE_HALF ); break; }
@@ -1602,7 +1689,7 @@ void Quit_JoinTiles_TP_BOT__LEFT_QTR( Vis::Data& m )
   {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
-      View* v = m.views[k][ m.file_hist[k][0] ];
+      View* v = GetView_Win( m, k );
       const Tile_Pos TP = v->GetTilePos();
 
       if     ( TP == TP_BOT__RITE_QTR     ) { v->SetTilePos( TP_BOT__HALF ); break; }
@@ -1613,7 +1700,7 @@ void Quit_JoinTiles_TP_BOT__LEFT_QTR( Vis::Data& m )
   else {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
-      View* v = m.views[k][ m.file_hist[k][0] ];
+      View* v = GetView_Win( m, k );
       const Tile_Pos TP = v->GetTilePos();
 
       if     ( TP == TP_TOP__LEFT_QTR     ) { v->SetTilePos( TP_LEFT_HALF ); break; }
@@ -1629,7 +1716,7 @@ void Quit_JoinTiles_TP_BOT__RITE_QTR( Vis::Data& m )
   {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
-      View* v = m.views[k][ m.file_hist[k][0] ];
+      View* v = GetView_Win( m, k );
       const Tile_Pos TP = v->GetTilePos();
 
       if     ( TP == TP_BOT__LEFT_QTR     ) { v->SetTilePos( TP_BOT__HALF ); break; }
@@ -1640,7 +1727,7 @@ void Quit_JoinTiles_TP_BOT__RITE_QTR( Vis::Data& m )
   else {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
-      View* v = m.views[k][ m.file_hist[k][0] ];
+      View* v = GetView_Win( m, k );
       const Tile_Pos TP = v->GetTilePos();
 
       if     ( TP == TP_TOP__RITE_QTR     ) { v->SetTilePos( TP_RITE_HALF ); break; }
@@ -1654,7 +1741,7 @@ void Quit_JoinTiles_TP_LEFT_QTR( Vis::Data& m )
 {
   for( unsigned k=0; k<m.num_wins; k++ )
   {
-    View* v = m.views[k][ m.file_hist[k][0] ];
+    View* v = GetView_Win( m, k );
     const Tile_Pos TP = v->GetTilePos();
 
     if     ( TP == TP_LEFT_CTR__QTR     ) { v->SetTilePos( TP_LEFT_HALF ); break; }
@@ -1667,7 +1754,7 @@ void Quit_JoinTiles_TP_RITE_QTR( Vis::Data& m )
 {
   for( unsigned k=0; k<m.num_wins; k++ )
   {
-    View* v = m.views[k][ m.file_hist[k][0] ];
+    View* v = GetView_Win( m, k );
     const Tile_Pos TP = v->GetTilePos();
 
     if     ( TP == TP_RITE_CTR__QTR     ) { v->SetTilePos( TP_RITE_HALF ); break; }
@@ -1680,7 +1767,7 @@ void Quit_JoinTiles_TP_LEFT_CTR__QTR( Vis::Data& m )
 {
   for( unsigned k=0; k<m.num_wins; k++ )
   {
-    View* v = m.views[k][ m.file_hist[k][0] ];
+    View* v = GetView_Win( m, k );
     const Tile_Pos TP = v->GetTilePos();
 
     if     ( TP == TP_LEFT_QTR      ) { v->SetTilePos( TP_LEFT_HALF ); break; }
@@ -1693,7 +1780,7 @@ void Quit_JoinTiles_TP_RITE_CTR__QTR( Vis::Data& m )
 {
   for( unsigned k=0; k<m.num_wins; k++ )
   {
-    View* v = m.views[k][ m.file_hist[k][0] ];
+    View* v = GetView_Win( m, k );
     const Tile_Pos TP = v->GetTilePos();
 
     if     ( TP == TP_RITE_QTR      ) { v->SetTilePos( TP_RITE_HALF ); break; }
@@ -1708,7 +1795,7 @@ void Quit_JoinTiles_TP_TOP__LEFT_8TH( Vis::Data& m )
   {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
-      View* v = m.views[k][ m.file_hist[k][0] ];
+      View* v = GetView_Win( m, k );
       const Tile_Pos TP = v->GetTilePos();
 
       if( TP == TP_TOP__LEFT_CTR_8TH ) { v->SetTilePos( TP_TOP__LEFT_QTR ); break; }
@@ -1717,7 +1804,7 @@ void Quit_JoinTiles_TP_TOP__LEFT_8TH( Vis::Data& m )
   else {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
-      View* v = m.views[k][ m.file_hist[k][0] ];
+      View* v = GetView_Win( m, k );
       const Tile_Pos TP = v->GetTilePos();
 
       if( TP == TP_BOT__LEFT_8TH ) { v->SetTilePos( TP_LEFT_QTR ); break; }
@@ -1731,7 +1818,7 @@ void Quit_JoinTiles_TP_TOP__RITE_8TH( Vis::Data& m )
   {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
-      View* v = m.views[k][ m.file_hist[k][0] ];
+      View* v = GetView_Win( m, k );
       const Tile_Pos TP = v->GetTilePos();
 
       if( TP == TP_TOP__RITE_CTR_8TH ) { v->SetTilePos( TP_TOP__RITE_QTR ); break; }
@@ -1740,7 +1827,7 @@ void Quit_JoinTiles_TP_TOP__RITE_8TH( Vis::Data& m )
   else {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
-      View* v = m.views[k][ m.file_hist[k][0] ];
+      View* v = GetView_Win( m, k );
       const Tile_Pos TP = v->GetTilePos();
 
       if( TP == TP_BOT__RITE_8TH ) { v->SetTilePos( TP_RITE_QTR ); break; }
@@ -1754,7 +1841,7 @@ void Quit_JoinTiles_TP_TOP__LEFT_CTR_8TH( Vis::Data& m )
   {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
-      View* v = m.views[k][ m.file_hist[k][0] ];
+      View* v = GetView_Win( m, k );
       const Tile_Pos TP = v->GetTilePos();
 
       if( TP == TP_TOP__LEFT_8TH ) { v->SetTilePos( TP_TOP__LEFT_QTR ); break; }
@@ -1763,7 +1850,7 @@ void Quit_JoinTiles_TP_TOP__LEFT_CTR_8TH( Vis::Data& m )
   else {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
-      View* v = m.views[k][ m.file_hist[k][0] ];
+      View* v = GetView_Win( m, k );
       const Tile_Pos TP = v->GetTilePos();
 
       if( TP == TP_BOT__LEFT_CTR_8TH ) { v->SetTilePos( TP_LEFT_CTR__QTR ); break; }
@@ -1777,7 +1864,7 @@ void Quit_JoinTiles_TP_TOP__RITE_CTR_8TH( Vis::Data& m )
   {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
-      View* v = m.views[k][ m.file_hist[k][0] ];
+      View* v = GetView_Win( m, k );
       const Tile_Pos TP = v->GetTilePos();
 
       if( TP == TP_TOP__RITE_8TH ) { v->SetTilePos( TP_TOP__RITE_QTR ); break; }
@@ -1786,7 +1873,7 @@ void Quit_JoinTiles_TP_TOP__RITE_CTR_8TH( Vis::Data& m )
   else {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
-      View* v = m.views[k][ m.file_hist[k][0] ];
+      View* v = GetView_Win( m, k );
       const Tile_Pos TP = v->GetTilePos();
 
       if( TP == TP_BOT__RITE_CTR_8TH ) { v->SetTilePos( TP_RITE_CTR__QTR ); break; }
@@ -1800,7 +1887,7 @@ void Quit_JoinTiles_TP_BOT__LEFT_8TH( Vis::Data& m )
   {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
-      View* v = m.views[k][ m.file_hist[k][0] ];
+      View* v = GetView_Win( m, k );
       const Tile_Pos TP = v->GetTilePos();
 
       if( TP == TP_BOT__LEFT_CTR_8TH ) { v->SetTilePos( TP_BOT__LEFT_QTR ); break; }
@@ -1809,7 +1896,7 @@ void Quit_JoinTiles_TP_BOT__LEFT_8TH( Vis::Data& m )
   else {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
-      View* v = m.views[k][ m.file_hist[k][0] ];
+      View* v = GetView_Win( m, k );
       const Tile_Pos TP = v->GetTilePos();
 
       if( TP == TP_TOP__LEFT_8TH ) { v->SetTilePos( TP_LEFT_QTR ); break; }
@@ -1823,7 +1910,7 @@ void Quit_JoinTiles_TP_BOT__RITE_8TH( Vis::Data& m )
   {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
-      View* v = m.views[k][ m.file_hist[k][0] ];
+      View* v = GetView_Win( m, k );
       const Tile_Pos TP = v->GetTilePos();
 
       if( TP == TP_BOT__RITE_CTR_8TH ) { v->SetTilePos( TP_BOT__RITE_QTR ); break; }
@@ -1832,7 +1919,7 @@ void Quit_JoinTiles_TP_BOT__RITE_8TH( Vis::Data& m )
   else {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
-      View* v = m.views[k][ m.file_hist[k][0] ];
+      View* v = GetView_Win( m, k );
       const Tile_Pos TP = v->GetTilePos();
 
       if( TP == TP_TOP__RITE_8TH ) { v->SetTilePos( TP_RITE_QTR ); break; }
@@ -1846,7 +1933,7 @@ void Quit_JoinTiles_TP_BOT__LEFT_CTR_8TH( Vis::Data& m )
   {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
-      View* v = m.views[k][ m.file_hist[k][0] ];
+      View* v = GetView_Win( m, k );
       const Tile_Pos TP = v->GetTilePos();
 
       if( TP == TP_BOT__LEFT_8TH ) { v->SetTilePos( TP_BOT__LEFT_QTR ); break; }
@@ -1855,7 +1942,7 @@ void Quit_JoinTiles_TP_BOT__LEFT_CTR_8TH( Vis::Data& m )
   else {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
-      View* v = m.views[k][ m.file_hist[k][0] ];
+      View* v = GetView_Win( m, k );
       const Tile_Pos TP = v->GetTilePos();
 
       if( TP == TP_TOP__LEFT_CTR_8TH ) { v->SetTilePos( TP_LEFT_CTR__QTR ); break; }
@@ -1869,7 +1956,7 @@ void Quit_JoinTiles_TP_BOT__RITE_CTR_8TH( Vis::Data& m )
   {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
-      View* v = m.views[k][ m.file_hist[k][0] ];
+      View* v = GetView_Win( m, k );
       const Tile_Pos TP = v->GetTilePos();
 
       if( TP == TP_BOT__RITE_8TH ) { v->SetTilePos( TP_BOT__RITE_QTR ); break; }
@@ -1878,7 +1965,7 @@ void Quit_JoinTiles_TP_BOT__RITE_CTR_8TH( Vis::Data& m )
   else {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
-      View* v = m.views[k][ m.file_hist[k][0] ];
+      View* v = GetView_Win( m, k );
       const Tile_Pos TP = v->GetTilePos();
 
       if( TP == TP_TOP__RITE_CTR_8TH ) { v->SetTilePos( TP_RITE_CTR__QTR ); break; }
@@ -2080,8 +2167,8 @@ void SetWinToBuffer( Vis::Data& m
       {
         if( buf_idx == m.file_hist[win_idx][k] ) m.file_hist[win_idx].remove( k );
       }
-      View* pV_curr = m.views[win_idx][ m.file_hist[win_idx][0] ];
-      View* pV_prev = m.views[win_idx][ m.file_hist[win_idx][1] ];
+      View* pV_curr = GetView_WinPrev( m, win_idx, 0 );
+      View* pV_prev = GetView_WinPrev( m, win_idx, 1 );
 
                    pV_curr->SetTilePos( pV_prev->GetTilePos() );
       if( update ) pV_curr->Update();
@@ -2109,7 +2196,7 @@ View* Diff_CheckPossibleFile( Vis::Data& m
   {
     SetWinToBuffer( m, win_idx, file_index, false );
 
-    return m.views[win_idx][ m.file_hist[win_idx][0] ];
+    return GetView_Win( m, win_idx );
   }
   return 0;
 }
@@ -2157,8 +2244,8 @@ void Diff_Files_Displayed( Vis::Data& m )
   // Must be exactly 2 buffers to do diff:
   if( 2 == m.num_wins )
   {
-    View* pv0 = m.views[0][ m.file_hist[0][0] ];
-    View* pv1 = m.views[1][ m.file_hist[1][0] ];
+    View* pv0 = GetView_Win( m, 0 );
+    View* pv1 = GetView_Win( m, 1 );
     FileBuf* pfb0 = pv0->GetFB();
     FileBuf* pfb1 = pv1->GetFB();
 
@@ -2228,7 +2315,7 @@ void VSplitWindow( Vis::Data& m )
 
     m.file_hist[m.num_wins] = m.file_hist[m.win];
 
-    View* nv = m.views[m.num_wins][ m.file_hist[m.num_wins][0] ];
+    View* nv = GetView_Win( m, m.num_wins );
 
     nv->SetTopLine ( cv->GetTopLine () );
     nv->SetLeftChar( cv->GetLeftChar() );
@@ -2309,7 +2396,7 @@ void HSplitWindow( Vis::Data& m )
 
     m.file_hist[m.num_wins] = m.file_hist[m.win];
 
-    View* nv = m.views[m.num_wins][ m.file_hist[m.num_wins][0] ];
+    View* nv = GetView_Win( m, m.num_wins );
 
     nv->SetTopLine ( cv->GetTopLine () );
     nv->SetLeftChar( cv->GetLeftChar() );
@@ -2413,10 +2500,10 @@ void HandleColon_e( Vis::Data& m )
 
     for( unsigned w=0; w<m.num_wins; w++ )
     {
-      if( pfb == m.views[w][ m.file_hist[w][0] ]->GetFB() )
+      if( pfb == GetView_Win( m, w )->GetFB() )
       {
         // View is currently displayed, perform needed update:
-        m.views[w][ m.file_hist[w][0] ]->Update();
+        GetView_Win( m, w )->Update();
       }
     }
   }
@@ -3735,7 +3822,7 @@ void Handle_Star( Vis::Data& m )
       // in the current window.
       for( unsigned w=0; w<m.num_wins; w++ )
       {
-        View* const pV = m.views[w][ m.file_hist[w][0] ];
+        View* const pV = GetView_Win( m, w );
 
         if( pV != m.vis.CV() ) pV->Update();
       }
@@ -4187,8 +4274,8 @@ void Vis::Init( const int ARGC, const char* const ARGV[] )
     m.num_wins = 2;
     m.file_hist[ 0 ][0] = USER_FILE;
     m.file_hist[ 1 ][0] = USER_FILE+1;
-    m.views[0][ m.file_hist[ 0 ][0] ]->SetTilePos( TP_LEFT_HALF );
-    m.views[1][ m.file_hist[ 1 ][0] ]->SetTilePos( TP_RITE_HALF );
+    GetView_Win( m, 0 )->SetTilePos( TP_LEFT_HALF );
+    GetView_Win( m, 1 )->SetTilePos( TP_RITE_HALF );
 
     Diff_Files_Displayed(m);
   }
@@ -4235,12 +4322,12 @@ void Vis::Stop()
 
 View* Vis::CV() const
 {
-  return m.views[m.win][ m.file_hist[m.win][0] ];
+  return GetView_Win( m, m.win );
 }
 
 View* Vis::WinView( const unsigned w ) const
 {
-  return m.views[w][ m.file_hist[w][0] ];
+  return GetView_Win( m, w );
 }
 
 FileBuf* Vis::FileNum2Buf( const unsigned file_num ) const
@@ -4372,10 +4459,10 @@ void Vis::CheckFileModTime()
 
       for( unsigned w=0; w<m.num_wins; w++ )
       {
-        if( pfb == m.views[w][ m.file_hist[w][0] ]->GetFB() )
+        if( pfb == GetView_Win( m, w )->GetFB() )
         {
           // View is currently displayed, perform needed update:
-          m.views[w][ m.file_hist[w][0] ]->Update();
+          GetView_Win( m, w )->Update();
         }
       }
     }
@@ -4451,7 +4538,7 @@ void Vis::UpdateAll()
   else {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
-      m.views[k][ m.file_hist[k][0] ]->Update( false );
+      GetView_Win( m, k )->Update( false );
     }
     PrintCursor();
   }
@@ -4471,7 +4558,7 @@ bool Vis::Update_Status_Lines()
     for( unsigned w=0; w<m.num_wins; w++ )
     {
       // pV points to currently displayed view in window w:
-      View* const pV = m.views[w][ m.file_hist[w][0] ];
+      View* const pV = GetView_Win( m, w );
 
       if( pV->GetStsLineNeedsUpdate() )
       {
@@ -4500,7 +4587,7 @@ bool Vis::Update_Change_Statuses()
   for( unsigned w=0; w<m.num_wins; w++ )
   {
     // pV points to currently displayed view in window w:
-    View* const pV = m.views[w][ m.file_hist[w][0] ];
+    View* const pV = GetView_Win( m, w );
 
     if( pV->GetUnSavedChangeSts() != pV->GetFB()->Changed() )
     {
@@ -4663,7 +4750,7 @@ void Vis::Handle_Slash_GotPattern( const String& pattern
     // in the current window.
     for( unsigned w=0; w<m.num_wins; w++ )
     {
-      View* const pV = m.views[w][ m.file_hist[w][0] ];
+      View* const pV = GetView_Win( m, w );
 
       if( pV != CV() ) pV->Update();
     }

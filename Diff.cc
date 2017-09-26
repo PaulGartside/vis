@@ -22,6 +22,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include <ctype.h>     // is(alnum|punct|space|print|lower...)
+#include <string.h>    // strcmp
 
 #include "MemLog.hh"
 #include "String.hh"
@@ -1418,34 +1419,40 @@ Style Get_Style( Diff::Data& m
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  Style s = S_NORMAL;
+  Style S = S_EMPTY;
 
-  if     (  InVisualArea( m, pV, DL, pos ) ) s = S_RV_VISUAL;
-  else if( pV->InStar       ( VL, pos ) ) s = S_STAR;
-  else if( pV->InDefine     ( VL, pos ) ) s = S_DEFINE;
-  else if( pV->InComment    ( VL, pos ) ) s = S_COMMENT;
-  else if( pV->InConst      ( VL, pos ) ) s = S_CONST;
-  else if( pV->InControl    ( VL, pos ) ) s = S_CONTROL;
-  else if( pV->InVarType    ( VL, pos ) ) s = S_VARTYPE;
+  FileBuf* pfb = pV->GetFB();
 
-  return s;
+  if( VL < pfb->NumLines() && pos < pfb->LineLen( VL ) )
+  {
+    S = S_NORMAL;
+
+    if     (  InVisualArea( m, pV, DL, pos ) ) S = S_RV_VISUAL;
+    else if( pV->InStar       ( VL, pos ) ) S = S_STAR;
+    else if( pV->InDefine     ( VL, pos ) ) S = S_DEFINE;
+    else if( pV->InComment    ( VL, pos ) ) S = S_COMMENT;
+    else if( pV->InConst      ( VL, pos ) ) S = S_CONST;
+    else if( pV->InControl    ( VL, pos ) ) S = S_CONTROL;
+    else if( pV->InVarType    ( VL, pos ) ) S = S_VARTYPE;
+  }
+  return S;
 }
 
-Style DiffStyle( const Style s )
+Style DiffStyle( const Style S )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  // If s is already a DIFF style, just return it
-  Style diff_s = s;
+  // If S is already a DIFF style, just return it
+  Style diff_s = S;
 
-  if     ( s == S_NORMAL   ) diff_s = S_DIFF_NORMAL   ;
-  else if( s == S_STAR     ) diff_s = S_DIFF_STAR     ;
-  else if( s == S_COMMENT  ) diff_s = S_DIFF_COMMENT  ;
-  else if( s == S_DEFINE   ) diff_s = S_DIFF_DEFINE   ;
-  else if( s == S_CONST    ) diff_s = S_DIFF_CONST    ;
-  else if( s == S_CONTROL  ) diff_s = S_DIFF_CONTROL  ;
-  else if( s == S_VARTYPE  ) diff_s = S_DIFF_VARTYPE  ;
-  else if( s == S_VISUAL   ) diff_s = S_DIFF_VISUAL   ;
+  if     ( S == S_NORMAL   ) diff_s = S_DIFF_NORMAL   ;
+  else if( S == S_STAR     ) diff_s = S_DIFF_STAR     ;
+  else if( S == S_COMMENT  ) diff_s = S_DIFF_COMMENT  ;
+  else if( S == S_DEFINE   ) diff_s = S_DIFF_DEFINE   ;
+  else if( S == S_CONST    ) diff_s = S_DIFF_CONST    ;
+  else if( S == S_CONTROL  ) diff_s = S_DIFF_CONTROL  ;
+  else if( S == S_VARTYPE  ) diff_s = S_DIFF_VARTYPE  ;
+  else if( S == S_VISUAL   ) diff_s = S_DIFF_VISUAL   ;
 
   return diff_s;
 }

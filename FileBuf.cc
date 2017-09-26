@@ -1235,13 +1235,11 @@ unsigned FileBuf::LineLen( const unsigned line_num ) const
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  // line_num decremented from 0 to -1:
-  const unsigned MAX = ~0;
-  if( line_num == MAX ) return 0;
-
-  ASSERT( __LINE__, line_num < m.lines.len(), "line_num=%u < m.lines.len()=%u", line_num, m.lines.len() );
-
-  return m.lines[ line_num ]->len();
+  if( line_num < m.lines.len() )
+  {
+    return m.lines[ line_num ]->len();
+  }
+  return 0;
 }
 
 // Get byte on line l_num at position c_num
@@ -1250,13 +1248,16 @@ uint8_t FileBuf::Get( const unsigned l_num, const unsigned c_num ) const
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  ASSERT( __LINE__, l_num < m.lines.len(), "l_num < m.lines.len()" );
+  if( l_num < m.lines.len() )
+  {
+    Line* lp = m.lines[ l_num ];
 
-  Line* lp = m.lines[ l_num ];
-
-  ASSERT( __LINE__, c_num < lp->len(), "c_num=%u < lp->len()=%u", c_num, lp->len() );
-
-  return lp->get(c_num);
+    if( c_num < lp->len() )
+    {
+      return lp->get(c_num);
+    }
+  }
+  return ' ';
 }
 
 // Set byte on line l_num at position c_num
