@@ -72,6 +72,7 @@ struct LineView::Data
   char*       cbuf;
   String&     sbuf;
   const char  banner_delim;
+  Line*       saved_line;
 
   unsigned nCols;     // number of rows in buffer view
   unsigned x;         // Top left x-position of buffer view in parent window
@@ -127,6 +128,7 @@ LineView::Data::Data( LineView&   view
   , cbuf( cbuf )
   , sbuf( sbuf )
   , banner_delim( banner_delim )
+  , saved_line(0)
   , nCols( Console::Num_Cols() )
   , x( 0 )
   , y( 0 )
@@ -151,6 +153,16 @@ LineView::Data::Data( LineView&   view
 
 LineView::Data::~Data()
 {
+}
+
+void Save_Line( LineView::Data& m )
+{
+  if( 0 == m.saved_line || 0==m.saved_line->len() )
+  {
+    const Line* lp = m.fb.GetLineP( m.view.CrsLine() );
+
+    m.saved_line = m.vis.BorrowLine( __FILE__, __LINE__, *lp );
+  }
 }
 
 Style Get_Style( LineView::Data& m
@@ -1971,6 +1983,8 @@ bool LineView::Do_i()
 
   if( 0 == m.fb.NumLines() ) m.fb.PushLine();
 
+  Save_Line(m);
+
   m.inInsertMode = true;
   Update(); //< Clear any possible message left on command line
 
@@ -2053,6 +2067,7 @@ bool LineView::Do_v()
   Trace trace( __PRETTY_FUNCTION__ );
 
   if( 0 == m.fb.NumLines() ) m.fb.PushLine();
+  Save_Line(m);
 
   m.inVisualMode = true;
   DisplayBanner(m);
@@ -2108,6 +2123,8 @@ void LineView::Do_x()
   // If there is nothing to 'x', just return:
   if( !m.fb.NumLines() ) return;
 
+  Save_Line(m);
+
   const unsigned CL = CrsLine();
   const unsigned LL = m.fb.LineLen( CL );
 
@@ -2146,6 +2163,7 @@ void LineView::Do_s()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
+  Save_Line(m);
   const unsigned CL  = CrsLine();
   const unsigned LL  = m.fb.LineLen( CL );
   const unsigned EOL = LL ? LL-1 : 0;
@@ -2165,6 +2183,8 @@ void LineView::Do_s()
 
 void LineView::Do_cw()
 {
+  Save_Line(m);
+
   const unsigned result = Do_dw();
 
   if     ( result==1 ) Do_i();
@@ -2182,6 +2202,7 @@ int LineView::Do_dw()
 
   if( 0< NUM_LINES )
   {
+    Save_Line(m);
     const unsigned st_line = CrsLine();
     const unsigned st_char = CrsChar();
 
@@ -2219,6 +2240,8 @@ void LineView::Do_D()
   // If there is nothing to 'D', just return:
   if( 0<NUM_LINES && 0<OLL && OCP<OLL )
   {
+    Save_Line(m);
+
     Line* lpd = m.vis.BorrowLine( __FILE__,__LINE__ );
 
     for( unsigned k=OCP; k<OLL; k++ )
@@ -2398,6 +2421,8 @@ bool LineView::Do_R()
 
   if( m.fb.NumLines()==0 ) m.fb.PushLine();
 
+  Save_Line(m);
+
   m.inReplaceMode = true;
   DisplayBanner_PrintCursor(m);
 
@@ -2427,6 +2452,7 @@ void LineView::Do_J()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
+  Save_Line(m);
   const unsigned NUM_LINES = m.fb.NumLines(); // Number of lines
   const unsigned CL        = CrsLine();       // Cursor line
 
@@ -2450,6 +2476,7 @@ void LineView::Do_Tilda()
 
   if( 0==m.fb.NumLines() ) return;
 
+  Save_Line(m);
   const unsigned OCL = CrsLine(); // Old cursor line
   const unsigned OCP = CrsChar(); // Old cursor position
   const unsigned LL  = m.fb.LineLen( OCL );
@@ -2698,7 +2725,6 @@ bool LineView::HandleReturn()
   {
     m.fb.RemoveLine( NL-1 ); NL--;
   }
-
   // 3. Remove any other lines in colon file that match current colon command:
   for( int ln=0; ln<NL; ln++ )
   {
@@ -2710,14 +2736,15 @@ bool LineView::HandleReturn()
       m.fb.RemoveLine( ln ); NL--; ln--;
     }
   }
-
   // 4. Add current colon command to end of colon file:
+  if( 0 != m.saved_line && 0 < m.saved_line->len() )
+  {
+    m.fb.PushLine( m.saved_line ); NL++;
+    m.saved_line = 0;
+  }
   m.fb.PushLine( lp ); NL++;
 
-  if( 0 < LL )
-  {
-    m.fb.PushLine(); NL++;
-  }
+  if( 0 < LL ) { m.fb.PushLine(); NL++; }
   GoToCrsPos_NoWrite( NL-1, 0 );
 
   m.fb.UpdateCmd();
