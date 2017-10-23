@@ -1481,7 +1481,7 @@ void Do_p_or_P_st_fn( LineView::Data& m, Paste_Pos paste_pos )
   for( unsigned k=0; k<N_REG_LINES; k++ )
   {
     const unsigned NLL = m.reg[k]->len();  // New line length
-    const unsigned OCL = m.view.CrsLine();               // Old cursor line
+    const unsigned OCL = m.view.CrsLine(); // Old cursor line
 
     if( 0 == k ) // Add to current line
     {
@@ -2394,14 +2394,34 @@ void LineView::Do_yw()
   }
 }
 
+//void LineView::Do_p()
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//
+//  const Paste_Mode PM = m.vis.GetPasteMode();
+//
+//  if     ( PM_ST_FN == PM ) Do_p_or_P_st_fn( m, PP_After );
+//  else /*( PM_LINE  == PM*/ Do_p_line(m);
+//}
+
 void LineView::Do_p()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
   const Paste_Mode PM = m.vis.GetPasteMode();
 
-  if     ( PM_ST_FN == PM ) Do_p_or_P_st_fn( m, PP_After );
-  else /*( PM_LINE  == PM*/ Do_p_line(m);
+  if( PM_ST_FN == PM )
+  {
+    Do_p_or_P_st_fn( m, PP_After );
+  }
+  else { // PM_LINE == PM
+    const unsigned LL  = m.fb.LineLen( CrsLine() );
+
+    // If there is nothing on the current line, paste onto current line,
+    // else insert into line below:
+    if( 0 == LL ) Do_p_or_P_st_fn( m, PP_After );
+    else          Do_p_line(m);
+  }
 }
 
 void LineView::Do_P()

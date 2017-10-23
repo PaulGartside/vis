@@ -2675,6 +2675,12 @@ void L_Handle_i( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
+  if( !m.key.get_from_dot_buf )
+  {
+    m.key.dot_buf.clear();
+    m.key.dot_buf.push('i');
+    m.key.save_2_dot_buf = true;
+  }
   if( m.colon_mode )
   {
     bool end_of_line_delim = m.colon_view->Do_i();
@@ -2698,6 +2704,10 @@ void L_Handle_i( Vis::Data& m )
 
       m.vis.Handle_Slash_GotPattern( slash_pattern );
     }
+  }
+  if( !m.key.get_from_dot_buf )
+  {
+    m.key.save_2_dot_buf = false;
   }
 }
 
@@ -2729,8 +2739,26 @@ void L_Handle_v( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if     ( m.colon_mode ) m.colon_view->Do_v();
-  else if( m.slash_mode ) m.slash_view->Do_v();
+  if( !m.key.get_from_dot_buf )
+  {
+    m.key.vis_buf.clear();
+    m.key.vis_buf.push('v');
+    m.key.save_2_vis_buf = true;
+  }
+  bool copy_vis_buf_2_dot_buf = false;
+
+  if     ( m.colon_mode ) copy_vis_buf_2_dot_buf = m.colon_view->Do_v();
+  else if( m.slash_mode ) copy_vis_buf_2_dot_buf = m.slash_view->Do_v();
+
+  if( !m.key.get_from_dot_buf )
+  {
+    m.key.save_2_vis_buf = false;
+
+    if( copy_vis_buf_2_dot_buf )
+    {
+      m.key.dot_buf.copy( m.key.vis_buf );
+    }
+  }
 }
 
 void Handle_V( Vis::Data& m )
@@ -2781,6 +2809,12 @@ void L_Handle_a( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
+  if( !m.key.get_from_dot_buf )
+  {
+    m.key.dot_buf.clear();
+    m.key.dot_buf.push('a');
+    m.key.save_2_dot_buf = true;
+  }
   if( m.colon_mode )
   {
     bool end_of_line_delim = m.colon_view->Do_a();
@@ -2804,6 +2838,10 @@ void L_Handle_a( Vis::Data& m )
 
       m.vis.Handle_Slash_GotPattern( slash_pattern );
     }
+  }
+  if( !m.key.get_from_dot_buf )
+  {
+    m.key.save_2_dot_buf = false;
   }
 }
 
@@ -2944,6 +2982,11 @@ void L_Handle_x( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
+  if( !m.key.get_from_dot_buf )
+  {
+    m.key.dot_buf.clear();
+    m.key.dot_buf.push('x');
+  }
   if     ( m.colon_mode ) m.colon_view->Do_x();
   else if( m.slash_mode ) m.slash_view->Do_x();
 }
@@ -2972,8 +3015,20 @@ void L_Handle_s( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
+  if( !m.key.get_from_dot_buf )
+  {
+    m.key.dot_buf.clear();
+    m.key.dot_buf.push('s');
+    m.key.save_2_dot_buf = true;
+  }
+
   if     ( m.colon_mode ) m.colon_view->Do_s();
   else if( m.slash_mode ) m.slash_view->Do_s();
+
+  if( !m.key.get_from_dot_buf )
+  {
+    m.key.save_2_dot_buf = false;
+  }
 }
 
 void Handle_c( Vis::Data& m )
@@ -3026,11 +3081,27 @@ void L_Handle_c( Vis::Data& m )
 
   if( C == 'w' )
   {
+    if( !m.key.get_from_dot_buf )
+    {
+      m.key.dot_buf.clear();
+      m.key.dot_buf.push('c');
+      m.key.dot_buf.push('w');
+      m.key.save_2_dot_buf = true;
+    }
     if     ( m.colon_mode ) m.colon_view->Do_cw();
     else if( m.slash_mode ) m.slash_view->Do_cw();
+
+    if( !m.key.get_from_dot_buf )
+    {
+      m.key.save_2_dot_buf = false;
+    }
   }
   else if( C == '$' )
   {
+    if( !m.key.get_from_dot_buf )
+    {
+      m.key.dot_buf.clear();
+    }
     if( m.colon_mode )
     {
       m.colon_view->Do_D();
@@ -3071,6 +3142,32 @@ void Handle_Dot( Vis::Data& m )
     else {
       // Dont update until after all the commands have been executed:
       CV(m)->GetFB()->Update();
+    }
+  }
+}
+
+void L_Handle_Dot( Vis::Data& m )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( 0<m.key.dot_buf.len() )
+  {
+    m.key.get_from_dot_buf = true;
+
+    while( m.key.get_from_dot_buf )
+    {
+      const char CC = m.key.In();
+
+      Vis::Data::CmdFunc cf = m.LineFuncs[ CC ];
+      if( cf ) (*cf)(m);
+    }
+    if( m.diff_mode ) {
+      // Diff does its own update every time a command is run
+    }
+    else {
+      // Dont update until after all the commands have been executed:
+      if     ( m.colon_mode ) m.colon_view->Update();
+      else if( m.slash_mode ) m.slash_view->Update();
     }
   }
 }
@@ -3505,11 +3602,21 @@ void L_Handle_d( Vis::Data& m )
 
   if( C == 'd' )
   {
+    if( !m.key.get_from_dot_buf )
+    {
+      m.key.dot_buf.clear();
+    }
     if     ( m.colon_mode ) m.colon_view->Do_dd();
     else if( m.slash_mode ) m.slash_view->Do_dd();
   }
   else if( C == 'w' )
   {
+    if( !m.key.get_from_dot_buf )
+    {
+      m.key.dot_buf.clear();
+      m.key.dot_buf.push('d');
+      m.key.dot_buf.push('w');
+    }
     if     ( m.colon_mode ) m.colon_view->Do_dw();
     else if( m.slash_mode ) m.slash_view->Do_dw();
   }
@@ -3848,6 +3955,10 @@ void L_Handle_D( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
+  if( !m.key.get_from_dot_buf )
+  {
+    m.key.dot_buf.clear();
+  }
   if     ( m.colon_mode ) m.colon_view->Do_D();
   else if( m.slash_mode ) m.slash_view->Do_D();
 }
@@ -3869,6 +3980,10 @@ void L_Handle_p( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
+  if( !m.key.get_from_dot_buf )
+  {
+    m.key.dot_buf.clear();
+  }
   if     ( m.colon_mode ) m.colon_view->Do_p();
   else if( m.slash_mode ) m.slash_view->Do_p();
 }
@@ -3890,6 +4005,10 @@ void L_Handle_P( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
+  if( !m.key.get_from_dot_buf )
+  {
+    m.key.dot_buf.clear();
+  }
   if     ( m.colon_mode ) m.colon_view->Do_P();
   else if( m.slash_mode ) m.slash_view->Do_P();
 }
@@ -3917,6 +4036,12 @@ void L_Handle_R( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
+  if( !m.key.get_from_dot_buf )
+  {
+    m.key.dot_buf.clear();
+    m.key.dot_buf.push('R');
+    m.key.save_2_dot_buf = true;
+  }
   if( m.colon_mode )
   {
     bool end_of_line_delim = m.colon_view->Do_R();
@@ -3941,6 +4066,10 @@ void L_Handle_R( Vis::Data& m )
       m.vis.Handle_Slash_GotPattern( slash_pattern );
     }
   }
+  if( !m.key.get_from_dot_buf )
+  {
+    m.key.save_2_dot_buf = false;
+  }
 }
 
 void Handle_J( Vis::Data& m )
@@ -3960,6 +4089,10 @@ void L_Handle_J( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
+  if( !m.key.get_from_dot_buf )
+  {
+    m.key.dot_buf.clear();
+  }
   if     ( m.colon_mode ) m.colon_view->Do_J();
   else if( m.slash_mode ) m.slash_view->Do_J();
 }
@@ -3981,6 +4114,11 @@ void L_Handle_Tilda( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
+  if( !m.key.get_from_dot_buf )
+  {
+    m.key.dot_buf.clear();
+    m.key.dot_buf.push('~');
+  }
   if     ( m.colon_mode ) m.colon_view->Do_Tilda();
   else if( m.slash_mode ) m.slash_view->Do_Tilda();
 }
@@ -4076,6 +4214,7 @@ void InitCmd_Funcs( Vis::Data& m )
   m.LineFuncs[ ':' ] = &L_Handle_Colon;
   m.LineFuncs[ '\E'] = &L_Handle_Escape;
   m.LineFuncs[ '/' ] = &L_Handle_Slash;
+  m.LineFuncs[ '.' ] = &L_Handle_Dot;
   m.LineFuncs[ 'g' ] = &L_Handle_g;
   m.LineFuncs[ 'd' ] = &L_Handle_d;
   m.LineFuncs[ 'y' ] = &L_Handle_y;
