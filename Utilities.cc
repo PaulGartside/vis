@@ -782,6 +782,44 @@ bool Files_Are_Same( const char* fname_s, const char* fname_l )
   return files_are_same;
 }
 
+bool Line_Has_Regex( const Line& line, const String& regex )
+{
+  // Find the patterns for the line:
+  const unsigned LL = line.len();
+
+        bool     slash    = true;
+        unsigned star_len = regex.len();
+  const char*    star_str = regex.c_str();
+  if( 4<regex.len()
+   && regex.has_at("\\b", 0)
+   && regex.ends_with("\\b") )
+  {
+    star_str += 2;
+    star_len -= 4;
+    slash     = false;
+  }
+  if( star_len<=LL )
+  {
+    for( unsigned p=0; p<LL; p++ )
+    {
+      bool matches = slash || line_start_or_prev_C_non_ident( line, p );
+      for( unsigned k=0; matches && (p+k)<LL && k<star_len; k++ )
+      {
+        if( star_str[k] != line.get(p+k) ) matches = false;
+        else {
+          if( k+1 == star_len ) // Found pattern
+          {
+            matches = slash || line_end_or_non_ident( line, LL, p+k );
+
+            if( matches ) return true;
+          }
+        }
+      }
+    }
+  }
+  return false;
+}
+
 ConstCharList* Trace::mp_Call_Stack = 0;
 
 void Trace::Allocate()

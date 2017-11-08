@@ -4544,6 +4544,20 @@ FileBuf* Vis::GetFileBuf( const unsigned index ) const
   return m.files[ index ];
 }
 
+FileBuf* Vis::GetFileBuf( const String& fname ) const
+{
+  for( unsigned k=0; k<m.files.len(); k++ )
+  {
+    FileBuf* pfb_k = m.files[ k ];
+
+    if( fname == pfb_k->GetFileName() )
+    {
+      return pfb_k;
+    }
+  }
+  return 0;
+}
+
 Diff& Vis::GetDiff() const
 {
   return m.diff;

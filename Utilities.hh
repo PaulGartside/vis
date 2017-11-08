@@ -103,6 +103,7 @@ bool line_end_or_non_ident( const Line& line
                           , const unsigned p );
 
 bool Files_Are_Same( const char* fname_s, const char* fname_l );
+bool Line_Has_Regex( const Line& line, const String& regex );
 
 class Trace
 {

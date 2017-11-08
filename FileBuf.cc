@@ -65,6 +65,13 @@ extern MemLog<MEM_LOG_BUF_SIZE> Log;
 
 extern const unsigned USER_FILE;  // First user file
 
+extern const char* EDIT_BUF_NAME;
+extern const char* HELP_BUF_NAME;
+extern const char* MSG__BUF_NAME;
+extern const char* SHELL_BUF_NAME;
+extern const char* COLON_BUF_NAME;
+extern const char* SLASH_BUF_NAME;
+
 struct FileBuf::Data
 {
   Data( FileBuf& parent
@@ -104,7 +111,8 @@ struct FileBuf::Data
   unsigned   hi_touched_line; // Line before which highlighting is valid
   bool       LF_at_EOF; // Line feed at end of file
   File_Type  file_type;
-  const bool m_mutable;
+  const bool m_mutable; // mutable is used by preprocessor, so use m_mutable instead
+  Line       line_buf;
 };
 
 FileBuf::Data::Data( FileBuf& parent
@@ -2047,12 +2055,13 @@ void FileBuf::Find_Regexs( const unsigned start_line
 
 void FileBuf::Check_4_New_Regex()
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   if( m.regex != m.vis.GetRegex() )
   {
     // Invalidate all regexes
     for( unsigned k=0; k<m.lineRegexsValid.len(); k++ )
     {
-    //m.lineRegexsValid[k] = false;
       m.lineRegexsValid.set( k, false );
     }
     m.regex = m.vis.GetRegex();
@@ -2092,6 +2101,8 @@ bool Regex_Search( FileBuf::Data& m
 
 void FileBuf::Find_Regexs_4_Line( const unsigned line_num )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   if( line_num < m.lineRegexsValid.len() && !m.lineRegexsValid[line_num] )
   {
     Line* lp = m.lines[line_num];
@@ -2102,7 +2113,6 @@ void FileBuf::Find_Regexs_4_Line( const unsigned line_num )
     {
       ClearStarStyle( m, line_num, pos );
     }
-
     // Find the patterns for the line:
     bool found = true;
     for( unsigned p=0; found && p<LL; )
@@ -2131,8 +2141,254 @@ void FileBuf::Find_Regexs_4_Line( const unsigned line_num )
 
 #else
 
+void Find_patterns_for_line( FileBuf::Data& m
+                           , const unsigned line_num
+                           , Line* lp
+                           , const unsigned LL )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  // Find the patterns for the line:
+        bool     boundary = false; // word boundary
+        unsigned star_len = m.regex.len();
+  const char*    star_str = m.regex.c_str();
+  if( 4<m.regex.len()
+   && m.regex.has_at("\\b", 0)
+   && m.regex.ends_with("\\b") )
+  {
+    star_str += 2;
+    star_len -= 4;
+    boundary  = true;
+  }
+  if( star_len<=LL )
+  {
+    for( unsigned p=0; p<LL; p++ )
+    {
+      bool matches = !boundary || line_start_or_prev_C_non_ident( *lp, p );
+      for( unsigned k=0; matches && (p+k)<LL && k<star_len; k++ )
+      {
+        if( star_str[k] != lp->get(p+k) ) matches = false;
+        else {
+          if( k+1 == star_len ) // Found pattern
+          {
+            matches = !boundary || line_end_or_non_ident( *lp, LL, p+k );
+            if( matches ) {
+              for( unsigned n=p; n<p+star_len; n++ ) Set__StarStyle( m, line_num, n );
+              // Increment p one less than star_len, because p
+              // will be incremented again by the for loop
+              p += star_len-1;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+bool Line_Has_Pattern( const Line* lp, const String& pattern )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  // Find the patterns for the line:
+  const unsigned LL = lp->len();
+        bool     boundary = false;
+        unsigned star_len = pattern.len();
+  const char*    star_str = pattern.c_str();
+  if( 4<pattern.len()
+   && pattern.has_at("\\b", 0)
+   && pattern.ends_with("\\b") )
+  {
+    star_str += 2;
+    star_len -= 4;
+    boundary  = true;
+  }
+  if( star_len<=LL )
+  {
+    for( unsigned p=0; p<LL; p++ )
+    {
+      bool matches = !boundary || line_start_or_prev_C_non_ident( *lp, p );
+      for( unsigned k=0; matches && (p+k)<LL && k<star_len; k++ )
+      {
+        if( star_str[k] != lp->get(p+k) ) matches = false;
+        else {
+          if( k+1 == star_len ) // Found pattern
+          {
+            matches = !boundary || line_end_or_non_ident( *lp, LL, p+k );
+            if( matches )
+            {
+              return true;
+            }
+          }
+        }
+      }
+    }
+  }
+  return false;
+}
+
+bool Have_Regex_In_File( FileBuf::Data& m, const String& fname )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  bool found = false;
+  if( IsReg( fname.c_str() ) )
+  {
+    FILE* fp = fopen( fname.c_str(), "rb" );
+    if( fp )
+    {
+      m.line_buf.clear();
+      int C = 0;
+      while( !found && EOF != (C = fgetc( fp )) )
+      {
+        if( '\n' == C )
+        {
+          found = Line_Has_Regex( m.line_buf, m.regex );
+          m.line_buf.clear();
+        }
+        else {
+          bool ok = m.line_buf.push( C );
+          if( !ok ) DIE("Line.push() failed");
+        }
+      }
+      fclose( fp );
+    }
+  }
+  return found;
+}
+
+bool Filename_Is_Relevant( String fname )
+{
+  return fname.ends_with(".txt")
+      || fname.ends_with(".txt.new")
+      || fname.ends_with(".txt.old")
+      || fname.ends_with(".sh")
+      || fname.ends_with(".sh.new"  )
+      || fname.ends_with(".sh.old"  )
+      || fname.ends_with(".bash"    )
+      || fname.ends_with(".bash.new")
+      || fname.ends_with(".bash.old")
+      || fname.ends_with(".alias"   )
+      || fname.ends_with(".bash_profile")
+      || fname.ends_with(".bash_logout")
+      || fname.ends_with(".bashrc" )
+      || fname.ends_with(".profile")
+      || fname.ends_with(".h"      )
+      || fname.ends_with(".h.new"  )
+      || fname.ends_with(".h.old"  )
+      || fname.ends_with(".c"      )
+      || fname.ends_with(".c.new"  )
+      || fname.ends_with(".c.old"  )
+      || fname.ends_with(".hh"     )
+      || fname.ends_with(".hh.new" )
+      || fname.ends_with(".hh.old" )
+      || fname.ends_with(".cc"     )
+      || fname.ends_with(".cc.new" )
+      || fname.ends_with(".cc.old" )
+      || fname.ends_with(".hpp"    )
+      || fname.ends_with(".hpp.new")
+      || fname.ends_with(".hpp.old")
+      || fname.ends_with(".cpp"    )
+      || fname.ends_with(".cpp.new")
+      || fname.ends_with(".cpp.old")
+      || fname.ends_with(".cxx"    )
+      || fname.ends_with(".cxx.new")
+      || fname.ends_with(".cxx.old")
+      || fname.ends_with(".idl"    )
+      || fname.ends_with(".idl.new")
+      || fname.ends_with(".idl.old")
+      || fname.ends_with(".html"    )
+      || fname.ends_with(".html.new")
+      || fname.ends_with(".html.old")
+      || fname.ends_with(".htm"     )
+      || fname.ends_with(".htm.new" )
+      || fname.ends_with(".htm.old" )
+      || fname.ends_with(".java"    )
+      || fname.ends_with(".java.new")
+      || fname.ends_with(".java.old")
+      || fname.ends_with(".js"    )
+      || fname.ends_with(".js.new")
+      || fname.ends_with(".js.old")
+      || fname.ends_with(".Make"    )
+      || fname.ends_with(".make"    )
+      || fname.ends_with(".Make.new")
+      || fname.ends_with(".make.new")
+      || fname.ends_with(".Make.old")
+      || fname.ends_with(".make.old")
+      || fname.ends_with("Makefile" )
+      || fname.ends_with("makefile" )
+      || fname.ends_with("Makefile.new")
+      || fname.ends_with("makefile.new")
+      || fname.ends_with("Makefile.old")
+      || fname.ends_with("makefile.old")
+      || fname.ends_with(".stl"    )
+      || fname.ends_with(".stl.new")
+      || fname.ends_with(".stl.old")
+      || fname.ends_with(".ste"    )
+      || fname.ends_with(".ste.new")
+      || fname.ends_with(".ste.old")
+      || fname.ends_with(".py"    )
+      || fname.ends_with(".py.new")
+      || fname.ends_with(".py.old")
+      || fname.ends_with(".sql"    )
+      || fname.ends_with(".sql.new")
+      || fname.ends_with(".sql.old")
+      || fname.ends_with(".xml"     )
+      || fname.ends_with(".xml.new" )
+      || fname.ends_with(".xml.old" )
+      || fname.ends_with(".xml.in"    )
+      || fname.ends_with(".xml.in.new")
+      || fname.ends_with(".xml.in.old")
+      || fname.ends_with(".cmake"     )
+      || fname.ends_with(".cmake.new" )
+      || fname.ends_with(".cmake.old" )
+      || fname.ends_with(".cmake"     )
+      || fname.ends_with(".cmake.new" )
+      || fname.ends_with(".cmake.old" )
+      || fname.ends_with("CMakeLists.txt")
+      || fname.ends_with("CMakeLists.txt.old")
+      || fname.ends_with("CMakeLists.txt.new");
+}
+
+bool File_Has_Regex( FileBuf::Data& m, Line* lp )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( m.file_type == FT_DIR )
+  {
+    String hname = lp->c_str(0);
+    String fname = m.path_name; fname.append( hname );
+
+    if( Filename_Is_Relevant( hname ) )
+    {
+      return Have_Regex_In_File( m, fname );
+    }
+  }
+  else if( m.file_type == FT_BUFFER_EDITOR )
+  {
+    String fname = lp->c_str(0);
+
+    if( fname !=  EDIT_BUF_NAME
+     && fname !=  HELP_BUF_NAME
+     && fname !=  MSG__BUF_NAME
+     && fname != SHELL_BUF_NAME
+     && fname != COLON_BUF_NAME
+     && fname != SLASH_BUF_NAME
+     && !fname.ends_with( DirDelimStr() ) )
+    {
+      FileBuf* pfb = m.vis.GetFileBuf( fname );
+      if( 0 != pfb )
+      {
+        return pfb->Has_Pattern( m.regex );
+      }
+    }
+  }
+  return false;
+}
+
 void FileBuf::Find_Regexs_4_Line( const unsigned line_num )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   if( line_num < m.lineRegexsValid.len() && !m.lineRegexsValid.at(line_num) )
   {
     Line* lp = m.lines[line_num];
@@ -2143,44 +2399,74 @@ void FileBuf::Find_Regexs_4_Line( const unsigned line_num )
     {
       ClearStarStyle( m, line_num, pos );
     }
-    // Find the patterns for the line:
-          bool     slash     = true;
-          unsigned star_len = m.regex.len();
-    const char*    star_str = m.regex.c_str();
-    if( 4<m.regex.len()
-     && m.regex.has_at("\\b", 0)
-     && m.regex.ends_with("\\b") )
+    if( 0<m.regex.len() )
     {
-      star_str += 2;
-      star_len -= 4;
-      slash     = false;
-    }
-    if( star_len<=LL )
-    {
-      for( unsigned p=0; p<LL; p++ )
+      if( m.file_type == FT_BUFFER_EDITOR
+       || m.file_type == FT_DIR )
       {
-        bool matches = slash || line_start_or_prev_C_non_ident( *lp, p );
-        for( unsigned k=0; matches && (p+k)<LL && k<star_len; k++ )
+        if( File_Has_Regex( m, lp ) )
         {
-          if( star_str[k] != lp->get(p+k) ) matches = false;
-          else {
-            if( k+1 == star_len ) // Found pattern
-            {
-              matches = slash || line_end_or_non_ident( *lp, LL, p+k );
-              if( matches ) {
-                for( unsigned n=p; n<p+star_len; n++ ) Set__StarStyle( m, line_num, n );
-                // Increment p one less than star_len, because p
-                // will be incremented again by the for loop
-                p += star_len-1;
-              }
-            }
-          }
+          for( int k=0; k<LL; k++ ) Set__StarStyle( m, line_num, k );
         }
       }
+      Find_patterns_for_line( m, line_num, lp, LL );
     }
     m.lineRegexsValid.set( line_num, true );
   }
 }
+
+//void FileBuf::Find_Regexs_4_Line( const unsigned line_num )
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//
+//  if( line_num < m.lineRegexsValid.len() && !m.lineRegexsValid.at(line_num) )
+//  {
+//    Line* lp = m.lines[line_num];
+//    const unsigned LL = lp->len();
+//
+//    // Clear the patterns for the line:
+//    for( unsigned pos=0; pos<LL; pos++ )
+//    {
+//      ClearStarStyle( m, line_num, pos );
+//    }
+//    // Find the patterns for the line:
+//          bool     slash     = true;
+//          unsigned star_len = m.regex.len();
+//    const char*    star_str = m.regex.c_str();
+//    if( 4<m.regex.len()
+//     && m.regex.has_at("\\b", 0)
+//     && m.regex.ends_with("\\b") )
+//    {
+//      star_str += 2;
+//      star_len -= 4;
+//      slash     = false;
+//    }
+//    if( star_len<=LL )
+//    {
+//      for( unsigned p=0; p<LL; p++ )
+//      {
+//        bool matches = slash || line_start_or_prev_C_non_ident( *lp, p );
+//        for( unsigned k=0; matches && (p+k)<LL && k<star_len; k++ )
+//        {
+//          if( star_str[k] != lp->get(p+k) ) matches = false;
+//          else {
+//            if( k+1 == star_len ) // Found pattern
+//            {
+//              matches = slash || line_end_or_non_ident( *lp, LL, p+k );
+//              if( matches ) {
+//                for( unsigned n=p; n<p+star_len; n++ ) Set__StarStyle( m, line_num, n );
+//                // Increment p one less than star_len, because p
+//                // will be incremented again by the for loop
+//                p += star_len-1;
+//              }
+//            }
+//          }
+//        }
+//      }
+//    }
+//    m.lineRegexsValid.set( line_num, true );
+//  }
+//}
 
 #endif
 
@@ -2396,5 +2682,25 @@ void FileBuf::unix2dos()
   else {
     m.vis.CmdLineMessage("No CRs added");
   }
+}
+
+// Returns true if this FileBuf has pattern
+bool FileBuf::Has_Pattern( const String& pattern ) const
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  for( unsigned k=0; k<NumLines(); k++ )
+  {
+    const Line* l_k = GetLineP( k );
+
+    if( 0 < l_k->len() )
+    {
+      if( Line_Has_Pattern( l_k, pattern ) )
+      {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 

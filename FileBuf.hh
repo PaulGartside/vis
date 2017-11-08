@@ -116,6 +116,7 @@ public:
   void RemoveTabs_SpacesAtEOLs( const unsigned tab_sz );
   void dos2unix();
   void unix2dos();
+  bool Has_Pattern( const String& pattern ) const;
 
   struct Data;
 

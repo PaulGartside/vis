@@ -266,7 +266,7 @@ bool String::replace( const String& s1, const String& s2 )
 }
 
 // If this string has pat at pos, returns 1, else returns 0
-bool String::has_at( const char* pat, unsigned pos )
+bool String::has_at( const char* pat, unsigned pos ) const
 {
   if( pat && pat[0] )
   {
@@ -280,7 +280,7 @@ bool String::has_at( const char* pat, unsigned pos )
   return false;
 }
 
-bool String::ends_with( const char* pat )
+bool String::ends_with( const char* pat ) const
 {
   if( pat && pat[0] )
   {

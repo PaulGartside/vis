@@ -52,6 +52,7 @@ public:
   bool        Shell_Running() const;
   void        Update_Shell();
   FileBuf*    GetFileBuf( const unsigned index ) const;
+  FileBuf*    GetFileBuf( const String& fname ) const;
   Diff&       GetDiff() const;
   unsigned    GetRegexLen() const;
   String      GetRegex() const;

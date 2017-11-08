@@ -74,8 +74,8 @@ public:
   bool replace( const String& s1, const String& s2 );
 
   // If this string has pat at pos, returns 1, else returns 0
-  bool has_at( const char* pat, unsigned pos );
-  bool ends_with( const char* pat );
+  bool has_at( const char* pat, unsigned pos ) const;
+  bool ends_with( const char* pat ) const;
   bool split( const char* delim, String& part );
 
   unsigned esc_len();
