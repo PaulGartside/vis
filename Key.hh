@@ -33,20 +33,25 @@ public:
 
   char In();
 
-  bool save_2_dot_buf;
+  bool save_2_dot_buf_n; // Normal view
+  bool save_2_dot_buf_l; // Line view
   bool save_2_vis_buf;
   bool save_2_map_buf;
-  bool get_from_dot_buf;
+  bool get_from_dot_buf_n; // Normal view
+  bool get_from_dot_buf_l; // Line view
   bool get_from_map_buf;
-  Line dot_buf;
+  Line dot_buf_n; // Dot buf for normal view
+  Line dot_buf_l; // Dot buf for line view
   Line vis_buf;
   Line map_buf;
 
 private:
-  char In_DotBuf();
+  char In_DotBuf_n();
+  char In_DotBuf_l();
   char In_MapBuf();
 
-  unsigned dot_buf_index;
+  unsigned dot_buf_index_n; // Normal view
+  unsigned dot_buf_index_l; // Line view
   unsigned map_buf_index;
 };
 

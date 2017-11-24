@@ -3615,7 +3615,8 @@ void View::Update( const bool PRINT_CURSOR )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( !m.key.get_from_dot_buf )
+  if( !m.key.get_from_dot_buf_n
+   && !m.key.get_from_dot_buf_l )
   {
     m.fb.Find_Styles( m.topLine + WorkingRows() );
     m.fb.Find_Regexs( m.topLine, WorkingRows() );

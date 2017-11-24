@@ -28,15 +28,19 @@
 #include "Key.hh"
 
 Key::Key()
-  : save_2_dot_buf  ( false )
+  : save_2_dot_buf_n( false )
+  , save_2_dot_buf_l( false )
   , save_2_vis_buf  ( false )
   , save_2_map_buf  ( false )
-  , get_from_dot_buf( false )
+  , get_from_dot_buf_n( false )
+  , get_from_dot_buf_l( false )
   , get_from_map_buf( false )
-  , dot_buf()
+  , dot_buf_n()
+  , dot_buf_l()
   , vis_buf()
   , map_buf()
-  , dot_buf_index( 0 )
+  , dot_buf_index_n( 0 )
+  , dot_buf_index_l( 0 )
   , map_buf_index( 0 )
 {
 }
@@ -46,32 +50,53 @@ char Key::In()
   Trace trace( __PRETTY_FUNCTION__ );
 
   char C = 0;
-  if     ( get_from_map_buf ) C = In_MapBuf();
-  else if( get_from_dot_buf ) C = In_DotBuf();
-  else                        C = Console::KeyIn();
+  if     ( get_from_map_buf   ) C = In_MapBuf();
+  else if( get_from_dot_buf_n ) C = In_DotBuf_n();
+  else if( get_from_dot_buf_l ) C = In_DotBuf_l();
+  else                          C = Console::KeyIn();
 
-  if( save_2_map_buf ) map_buf.push( C );
-  if( save_2_dot_buf ) dot_buf.push( C );
-  if( save_2_vis_buf ) vis_buf.push( C );
+  if( save_2_map_buf   ) map_buf.push( C );
+  if( save_2_dot_buf_n ) dot_buf_n.push( C );
+  if( save_2_dot_buf_l ) dot_buf_l.push( C );
+  if( save_2_vis_buf   ) vis_buf.push( C );
 
   return C;
 }
 
-char Key::In_DotBuf()
+char Key::In_DotBuf_n()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  const unsigned DOT_BUF_LEN = dot_buf.len();
+  const unsigned DOT_BUF_LEN = dot_buf_n.len();
 
-  ASSERT( __LINE__, dot_buf_index < DOT_BUF_LEN
-                  ,"dot_buf_index < DOT_BUF_LEN" );
+  ASSERT( __LINE__, dot_buf_index_n < DOT_BUF_LEN
+                  ,"dot_buf_index_n < DOT_BUF_LEN" );
 
-  const uint8_t C = dot_buf.get( dot_buf_index++ );
+  const uint8_t C = dot_buf_n.get( dot_buf_index_n++ );
 
-  if( DOT_BUF_LEN <= dot_buf_index )
+  if( DOT_BUF_LEN <= dot_buf_index_n )
   {
-    get_from_dot_buf = false;
-    dot_buf_index    = 0;
+    get_from_dot_buf_n = false;
+    dot_buf_index_n    = 0;
+  }
+  return C;
+}
+
+char Key::In_DotBuf_l()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  const unsigned DOT_BUF_LEN = dot_buf_l.len();
+
+  ASSERT( __LINE__, dot_buf_index_l < DOT_BUF_LEN
+                  ,"dot_buf_index_l < DOT_BUF_LEN" );
+
+  const uint8_t C = dot_buf_l.get( dot_buf_index_l++ );
+
+  if( DOT_BUF_LEN <= dot_buf_index_l )
+  {
+    get_from_dot_buf_l = false;
+    dot_buf_index_l    = 0;
   }
   return C;
 }
