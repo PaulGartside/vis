@@ -2372,59 +2372,134 @@ void View::SetInsertMode( const bool val ) { m.inInsertMode = val; }
 bool View::GetReplaceMode() const { return m.inReplaceMode; }
 void View::SetReplaceMode( const bool val ) { m.inReplaceMode = val; }
 
-void View::GoUp()
+//void View::GoUp()
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//
+//  const unsigned NUM_LINES = m.fb.NumLines();
+//  const unsigned OCL       = CrsLine(); // Old cursor line
+//
+//  if( 0<NUM_LINES && 0<OCL )
+//  {
+//    const unsigned NCL = OCL-1; // New cursor line
+//
+//    GoToCrsPos_Write( NCL, CrsChar() );
+//  }
+//}
+
+void View::GoUp( const int num )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  const unsigned NUM_LINES = m.fb.NumLines();
+  const int      OCL       = CrsLine(); // Old cursor line
+
+  if( 0<NUM_LINES && 0 < OCL )
+  {
+    int NCL = OCL-num; // New cursor line
+
+    if( NCL < 0 ) NCL = 0;
+
+    GoToCrsPos_Write( NCL, CrsChar() );
+  }
+}
+
+//void View::GoDown()
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//
+//  const unsigned NUM_LINES = m.fb.NumLines();
+//  const unsigned NCL       = CrsLine()+1; // New cursor line
+//
+//  if( 0<NUM_LINES && NCL<NUM_LINES )
+//  {
+//    GoToCrsPos_Write( NCL, CrsChar() );
+//  }
+//}
+
+void View::GoDown( const unsigned num )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
   const unsigned NUM_LINES = m.fb.NumLines();
   const unsigned OCL       = CrsLine(); // Old cursor line
 
-  if( 0<NUM_LINES && 0<OCL )
+  if( 0<NUM_LINES && OCL < NUM_LINES-1 )
   {
-    const unsigned NCL = OCL-1; // New cursor line
+    unsigned NCL = OCL+num; // New cursor line
+
+    if( NUM_LINES-1 < NCL ) NCL = NUM_LINES-1;
 
     GoToCrsPos_Write( NCL, CrsChar() );
   }
 }
 
-void View::GoDown()
+//void View::GoLeft()
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//
+//  const unsigned CP = CrsChar(); // Cursor position
+//
+//  if( 0<m.fb.NumLines() && 0<CP )
+//  {
+//    GoToCrsPos_Write( CrsLine(), CP-1 );
+//  }
+//}
+
+void View::GoLeft( const int num )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
   const unsigned NUM_LINES = m.fb.NumLines();
-  const unsigned NCL       = CrsLine()+1; // New cursor line
 
-  if( 0<NUM_LINES && NCL<NUM_LINES )
+  const unsigned OCP = CrsChar(); // Old cursor position
+
+  if( 0<NUM_LINES && 0 < OCP )
   {
-    GoToCrsPos_Write( NCL, CrsChar() );
+    int NCP = OCP-num; // New cursor position
+
+    if( NCP < 0 ) NCP = 0;
+
+    GoToCrsPos_Write( CrsLine(), NCP );
   }
 }
 
-void View::GoLeft()
+//void View::GoRight()
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//
+//  if( 0<m.fb.NumLines() )
+//  {
+//    const unsigned CL = CrsLine(); // Cursor line
+//    const unsigned LL = m.fb.LineLen( CL );
+//    const unsigned CP = CrsChar(); // Cursor position
+//
+//    if( 0<LL && CP < LL-1 )
+//    {
+//      GoToCrsPos_Write( CL, CP+1 );
+//    }
+//  }
+//}
+
+void View::GoRight( const unsigned num )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  const unsigned CP = CrsChar(); // Cursor position
+  const unsigned NUM_LINES = m.fb.NumLines();
 
-  if( 0<m.fb.NumLines() && 0<CP )
+  if( 0<NUM_LINES )
   {
-    GoToCrsPos_Write( CrsLine(), CP-1 );
-  }
-}
+    const unsigned CL  = CrsLine(); // Cursor line
+    const unsigned LL  = m.fb.LineLen( CL );
+    const unsigned OCP = CrsChar(); // Old cursor position
 
-void View::GoRight()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  if( 0<m.fb.NumLines() )
-  {
-    const unsigned CL = CrsLine(); // Cursor line
-    const unsigned LL = m.fb.LineLen( CL );
-    const unsigned CP = CrsChar(); // Cursor position
-
-    if( 0<LL && CP < LL-1 )
+    if( 0<LL && OCP < LL-1 )
     {
-      GoToCrsPos_Write( CL, CP+1 );
+      unsigned NCP = OCP+num; // New cursor position
+
+      if( LL-1 < NCP ) NCP = LL-1;
+
+      GoToCrsPos_Write( CL, NCP );
     }
   }
 }
@@ -3949,6 +4024,19 @@ void View::Set_Context( View& vr )
   m.leftChar = vr.GetLeftChar();
   m.crsRow   = vr.GetCrsRow  ();
   m.crsCol   = vr.GetCrsCol  ();
+}
+
+void View::Set_Context( const unsigned topLine
+                      , const unsigned leftChar
+                      , const unsigned crsRow
+                      , const unsigned crsCol )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  m.topLine  = topLine ;
+  m.leftChar = leftChar;
+  m.crsRow   = crsRow  ;
+  m.crsCol   = crsCol  ;
 }
 
 void View::Clear_Context()

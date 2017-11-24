@@ -43,6 +43,7 @@ public:
   View* CV() const;
   View* WinView( const unsigned w ) const;
   FileBuf*    FileNum2Buf( const unsigned file_num ) const;
+  unsigned    Buf2FileNum( const FileBuf* pfb ) const;
   unsigned    GetNumWins() const;
   Paste_Mode  GetPasteMode() const;
   void        SetPasteMode( Paste_Mode pm );

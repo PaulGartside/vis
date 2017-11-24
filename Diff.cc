@@ -977,6 +977,20 @@ void Set_DiffContext_2_ViewContext( Diff::Data& m )
   m.crsCol   = pV->GetCrsCol();
 }
 
+void Diff::Set_Remaining_ViewContext_2_DiffContext()
+{
+  View* shrt_view = GetViewShort();
+  View* long_view = GetViewLong ();
+
+  View* cV = m.vis.CV();
+  View* remaining_view = cV == long_view ? shrt_view : shrt_view;
+
+  remaining_view->Set_Context( GetTopLine( remaining_view )
+                             , GetLeftChar()
+                             , GetCrsRow()
+                             , GetCrsCol() );
+}
+
 void Clear_DI_List( Diff::Data& m, Array_t<Diff_Info>& DI_List )
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -5002,12 +5016,12 @@ unsigned Diff::GetLeftChar() const
   return m.leftChar;
 }
 
-unsigned Diff::GetCrsRow  () const
+unsigned Diff::GetCrsRow() const
 {
   return m.crsRow;
 }
 
-unsigned Diff::GetCrsCol  () const
+unsigned Diff::GetCrsCol() const
 {
   return m.crsCol;
 }
@@ -5073,66 +5087,136 @@ void Diff::PageUp()
   }
 }
 
-void Diff::GoDown()
+//void Diff::GoDown()
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//
+//  const unsigned NUM_LINES = NumLines(m);
+//  const unsigned OCL       = CrsLine(m); // Old cursor line
+//  const unsigned NCL       = OCL+1;     // New cursor line
+//
+//  if( 0 < NUM_LINES && NCL < NUM_LINES )
+//  {
+//    const unsigned OCP = CrsChar(m); // Old cursor position
+//          unsigned NCP = OCP;
+//
+//    GoToCrsPos_Write( m, NCL, NCP );
+//  }
+//}
+
+void Diff::GoDown( const unsigned num )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
   const unsigned NUM_LINES = NumLines(m);
   const unsigned OCL       = CrsLine(m); // Old cursor line
-  const unsigned NCL       = OCL+1;     // New cursor line
 
-  if( 0 < NUM_LINES && NCL < NUM_LINES )
+  if( 0 < NUM_LINES && OCL < NUM_LINES-1 )
   {
-    const unsigned OCP = CrsChar(m); // Old cursor position
-          unsigned NCP = OCP;
+    unsigned NCL = OCL+num; // New cursor line
 
-    GoToCrsPos_Write( m, NCL, NCP );
+    if( NUM_LINES-1 < NCL ) NCL = NUM_LINES-1;
+
+    GoToCrsPos_Write( m, NCL, CrsChar(m) );
   }
 }
 
-void Diff::GoUp()
+//void Diff::GoUp()
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//
+//  const unsigned NUM_LINES = NumLines(m);
+//  const unsigned OCL       = CrsLine(m); // Old cursor line
+//  const unsigned NCL       = OCL-1; // New cursor line
+//
+//  if( 0 < NUM_LINES && 0 < OCL )
+//  {
+//    const unsigned OCP = CrsChar(m); // Old cursor position
+//          unsigned NCP = OCP;
+//
+//    GoToCrsPos_Write( m, NCL, NCP );
+//  }
+//}
+
+void Diff::GoUp( const int num )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
   const unsigned NUM_LINES = NumLines(m);
-  const unsigned OCL       = CrsLine(m); // Old cursor line
-  const unsigned NCL       = OCL-1; // New cursor line
+  const int      OCL       = CrsLine(m); // Old cursor line
 
   if( 0 < NUM_LINES && 0 < OCL )
   {
+    int NCL = OCL-num; // New cursor line
+
+    if( NCL < 0 ) NCL = 0;
+
+    GoToCrsPos_Write( m, NCL, CrsChar(m) );
+  }
+}
+
+//void Diff::GoRight()
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//
+//  const unsigned LL = LineLen(m);
+//  const unsigned CP = CrsChar(m); // Cursor position
+//
+//  if( 0<NumLines(m) && 0<LL && CP<LL-1 )
+//  {
+//    const unsigned CL = CrsLine(m); // Cursor line
+//
+//    GoToCrsPos_Write( m, CL, CP+1 );
+//  }
+//}
+
+void Diff::GoRight( const unsigned num )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( 0<NumLines(m) )
+  {
+    const unsigned LL  = LineLen(m);
     const unsigned OCP = CrsChar(m); // Old cursor position
-          unsigned NCP = OCP;
 
-    GoToCrsPos_Write( m, NCL, NCP );
+    if( 0<LL && OCP < LL-1 )
+    {
+      unsigned NCP = OCP+num; // New cursor position
+
+      if( LL-1 < NCP ) NCP = LL-1;
+
+      GoToCrsPos_Write( m, CrsLine(m), NCP );
+    }
   }
 }
 
-void Diff::GoRight()
+//void Diff::GoLeft()
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//
+//  const unsigned CP = CrsChar(m); // Cursor position
+//
+//  if( 0<NumLines(m) && 0<CP )
+//  {
+//    const unsigned CL = CrsLine(m); // Cursor line
+//
+//    GoToCrsPos_Write( m, CL, CP-1 );
+//  }
+//}
+
+void Diff::GoLeft( const int num )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  const unsigned LL = LineLen(m);
-  const unsigned CP = CrsChar(m); // Cursor position
+  const unsigned OCP = CrsChar(m); // Old cursor position
 
-  if( 0<NumLines(m) && 0<LL && CP<LL-1 )
+  if( 0 < NumLines(m) && 0 < OCP )
   {
-    const unsigned CL = CrsLine(m); // Cursor line
+    int NCP = OCP-num; // New cursor position
 
-    GoToCrsPos_Write( m, CL, CP+1 );
-  }
-}
+    if( NCP < 0 ) NCP = 0;
 
-void Diff::GoLeft()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  const unsigned CP = CrsChar(m); // Cursor position
-
-  if( 0<NumLines(m) && 0<CP )
-  {
-    const unsigned CL = CrsLine(m); // Cursor line
-
-    GoToCrsPos_Write( m, CL, CP-1 );
+    GoToCrsPos_Write( m, CrsLine(m), NCP );
   }
 }
 

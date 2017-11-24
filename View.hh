@@ -77,10 +77,10 @@ public:
   bool GetReplaceMode() const;
   void SetReplaceMode( const bool val );
 
-  void GoUp();
-  void GoDown();
-  void GoLeft();
-  void GoRight();
+  void GoUp( const int num=1 );
+  void GoDown( const unsigned num=1 );
+  void GoLeft( const int num=1 );
+  void GoRight( const unsigned num=1 );
   void PageDown();
   void PageUp();
   void GoToBegOfLine();
@@ -176,6 +176,10 @@ public:
 
   bool Has_Context();
   void Set_Context( View& vr );
+  void Set_Context( const unsigned topLine
+                  , const unsigned leftChar
+                  , const unsigned crsRow
+                  , const unsigned crsCol );
   void Clear_Context();
   void Check_Context();
 

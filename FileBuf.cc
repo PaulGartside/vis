@@ -2415,59 +2415,6 @@ void FileBuf::Find_Regexs_4_Line( const unsigned line_num )
   }
 }
 
-//void FileBuf::Find_Regexs_4_Line( const unsigned line_num )
-//{
-//  Trace trace( __PRETTY_FUNCTION__ );
-//
-//  if( line_num < m.lineRegexsValid.len() && !m.lineRegexsValid.at(line_num) )
-//  {
-//    Line* lp = m.lines[line_num];
-//    const unsigned LL = lp->len();
-//
-//    // Clear the patterns for the line:
-//    for( unsigned pos=0; pos<LL; pos++ )
-//    {
-//      ClearStarStyle( m, line_num, pos );
-//    }
-//    // Find the patterns for the line:
-//          bool     slash     = true;
-//          unsigned star_len = m.regex.len();
-//    const char*    star_str = m.regex.c_str();
-//    if( 4<m.regex.len()
-//     && m.regex.has_at("\\b", 0)
-//     && m.regex.ends_with("\\b") )
-//    {
-//      star_str += 2;
-//      star_len -= 4;
-//      slash     = false;
-//    }
-//    if( star_len<=LL )
-//    {
-//      for( unsigned p=0; p<LL; p++ )
-//      {
-//        bool matches = slash || line_start_or_prev_C_non_ident( *lp, p );
-//        for( unsigned k=0; matches && (p+k)<LL && k<star_len; k++ )
-//        {
-//          if( star_str[k] != lp->get(p+k) ) matches = false;
-//          else {
-//            if( k+1 == star_len ) // Found pattern
-//            {
-//              matches = slash || line_end_or_non_ident( *lp, LL, p+k );
-//              if( matches ) {
-//                for( unsigned n=p; n<p+star_len; n++ ) Set__StarStyle( m, line_num, n );
-//                // Increment p one less than star_len, because p
-//                // will be incremented again by the for loop
-//                p += star_len-1;
-//              }
-//            }
-//          }
-//        }
-//      }
-//    }
-//    m.lineRegexsValid.set( line_num, true );
-//  }
-//}
-
 #endif
 
 // Leave star style unchanged, and clear syntax m.styles

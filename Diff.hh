@@ -40,6 +40,8 @@ public:
   View* GetViewShort() const;
   View* GetViewLong() const;
 
+  void Set_Remaining_ViewContext_2_DiffContext();
+
   unsigned GetTopLine ( View* const pV ) const;
   unsigned GetLeftChar() const;
   unsigned GetCrsRow  () const;
@@ -57,10 +59,10 @@ public:
   void Patch_Diff_Info_Changed( View* pV, const unsigned DPL );
   bool On_Deleted_View_Line_Zero( const unsigned DL );
 
-  void GoUp();
-  void GoDown();
-  void GoLeft();
-  void GoRight();
+  void GoUp( const int num=1 );
+  void GoDown( const unsigned num=1 );
+  void GoLeft( const int num=1 );
+  void GoRight( const unsigned num=1 );
   void PageDown();
   void PageUp();
   void GoToBegOfLine();

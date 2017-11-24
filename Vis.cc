@@ -111,6 +111,8 @@ struct Vis::Data
   bool       slash_mode;// true if cursor is on vis slash line
   String     regex;     // current regular expression pattern to highlight
   int        fast_char; // Char on line to goto when ';' is entered
+  unsigned   repeat;
+  String     repeat_buf;
 
   typedef void (*CmdFunc) ( Data& m );
   CmdFunc ViewFuncs[128];
@@ -140,6 +142,8 @@ Vis::Data::Data( Vis& vis )
   , slash_mode( false )
   , regex()
   , fast_char( -1 )
+  , repeat( 1 )
+  , repeat_buf()
 {
 }
 
@@ -150,12 +154,27 @@ Vis::Data::~Data()
 void Handle_Cmd( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
+
   const char CC = m.key.In();
 
-  Vis::Data::CmdFunc cf = ( m.colon_mode || m.slash_mode )
-                        ? m.LineFuncs[ CC ]
-                        : m.ViewFuncs[ CC ];
-  if( cf ) (*cf)(m);
+  if( ('1' <= CC && CC <= '9')
+   || ('0' == CC && 0 < m.repeat_buf.len()) ) //< Dont override 0 movement
+  {
+    m.repeat_buf.push( CC );
+  }
+  else {
+    if( 0 < m.repeat_buf.len() )
+    {
+      m.repeat = atol( m.repeat_buf.c_str() );
+    }
+    Vis::Data::CmdFunc cf = ( m.colon_mode || m.slash_mode )
+                          ? m.LineFuncs[ CC ]
+                          : m.ViewFuncs[ CC ];
+    if( cf ) (*cf)(m);
+
+    m.repeat = 1;
+    m.repeat_buf.clear();
+  }
 }
 
 View* CV( Vis::Data& m )
@@ -2038,6 +2057,10 @@ void Quit( Vis::Data& m )
 
   if( m.num_wins <= 1 ) QuitAll(m);
   else {
+    if( m.diff_mode )
+    {
+      m.diff.Set_Remaining_ViewContext_2_DiffContext();
+    }
     m.diff_mode = false;
 
     if( m.win < m.num_wins-1 )
@@ -3176,8 +3199,8 @@ void Handle_j( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( m.diff_mode ) m.diff.GoDown();
-  else              CV(m)->GoDown();
+  if( m.diff_mode ) m.diff.GoDown( m.repeat );
+  else              CV(m)->GoDown( m.repeat );
 }
 
 void L_Handle_j( Vis::Data& m )
@@ -3192,8 +3215,8 @@ void Handle_k( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( m.diff_mode ) m.diff.GoUp();
-  else              CV(m)->GoUp();
+  if( m.diff_mode ) m.diff.GoUp( m.repeat );
+  else              CV(m)->GoUp( m.repeat );
 }
 
 void L_Handle_k( Vis::Data& m )
@@ -3208,8 +3231,8 @@ void Handle_h( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( m.diff_mode ) m.diff.GoLeft();
-  else              CV(m)->GoLeft();
+  if( m.diff_mode ) m.diff.GoLeft( m.repeat );
+  else              CV(m)->GoLeft( m.repeat );
 }
 
 void L_Handle_h( Vis::Data& m )
@@ -3224,8 +3247,8 @@ void Handle_l( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( m.diff_mode ) m.diff.GoRight();
-  else              CV(m)->GoRight();
+  if( m.diff_mode ) m.diff.GoRight( m.repeat );
+  else              CV(m)->GoRight( m.repeat );
 }
 
 void L_Handle_l( Vis::Data& m )
@@ -4474,6 +4497,18 @@ FileBuf* Vis::FileNum2Buf( const unsigned file_num ) const
   return m.views[0][ file_num ]->GetFB();
 }
 
+unsigned Vis::Buf2FileNum( const FileBuf* pfb ) const
+{
+  for( unsigned k=0; k<m.views[0].len(); k++ )
+  {
+    if( m.views[0][ k ]->GetFB() == pfb )
+    {
+      return k;
+    }
+  }
+  return 0;
+}
+
 unsigned Vis::GetNumWins() const
 {
   return m.num_wins;
@@ -4598,34 +4633,38 @@ void Vis::CheckFileModTime()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  FileBuf* pfb = CV()->GetFB();
-  const char* fname = pfb->GetFileName();
-
-  const double curr_mod_time = ModificationTime( fname );
-
-  if( pfb->GetModTime() < curr_mod_time )
+  // m.file_hist[m.win][0] is the current file number of the current window
+  if( USER_FILE <= m.file_hist[m.win][0] )
   {
-    if( pfb->IsDir() )
-    {
-      // Dont ask the user, just read in the directory.
-      // pfb->GetModTime() will get updated in pfb->ReReadFile()
-      pfb->ReReadFile();
+    FileBuf* pfb = CV()->GetFB();
+    const char* fname = pfb->GetFileName();
 
-      for( unsigned w=0; w<m.num_wins; w++ )
+    const double curr_mod_time = ModificationTime( fname );
+
+    if( pfb->GetModTime() < curr_mod_time )
+    {
+      if( pfb->IsDir() )
       {
-        if( pfb == GetView_Win( m, w )->GetFB() )
+        // Dont ask the user, just read in the directory.
+        // pfb->GetModTime() will get updated in pfb->ReReadFile()
+        pfb->ReReadFile();
+
+        for( unsigned w=0; w<m.num_wins; w++ )
         {
-          // View is currently displayed, perform needed update:
-          GetView_Win( m, w )->Update();
+          if( pfb == GetView_Win( m, w )->GetFB() )
+          {
+            // View is currently displayed, perform needed update:
+            GetView_Win( m, w )->Update();
+          }
         }
       }
-    }
-    else { // Regular file
-      // Update file modification time so that the message window
-      // will not keep popping up:
-      pfb->SetModTime( curr_mod_time );
+      else { // Regular file
+        // Update file modification time so that the message window
+        // will not keep popping up:
+        pfb->SetModTime( curr_mod_time );
 
-      m.vis.Window_Message("\n%s\n\nhas changed since it was read in\n\n", fname );
+        m.vis.Window_Message("\n%s\n\nhas changed since it was read in\n\n", fname );
+      }
     }
   }
 }
