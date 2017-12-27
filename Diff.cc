@@ -983,7 +983,7 @@ void Diff::Set_Remaining_ViewContext_2_DiffContext()
   View* long_view = GetViewLong ();
 
   View* cV = m.vis.CV();
-  View* remaining_view = cV == long_view ? shrt_view : shrt_view;
+  View* remaining_view = cV == long_view ? shrt_view : long_view;
 
   remaining_view->Set_Context( GetTopLine( remaining_view )
                              , GetLeftChar()

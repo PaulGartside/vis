@@ -68,7 +68,9 @@ void Highlight_Bash::Hi_In_None( unsigned& l, unsigned& p )
 
       const char* s = lr.c_str( p );
 
-      if     ( 0==strncmp( s, "#" , 1 ) ) { m_state = &ME::Hi_In_Comment; }
+      const bool comment = lr.get(p)=='#' && (0==p || lr.get(p-1)!='$');
+
+      if     ( comment )                  { m_state = &ME::Hi_In_Comment; }
       else if( 0==strncmp( s, "\'", 1 ) ) { m_state = &ME::Hi_SingleQuote; }
       else if( 0==strncmp( s, "\"", 1 ) ) { m_state = &ME::Hi_DoubleQuote; }
       else if( 0<p && !IsIdent((s-1)[0])
@@ -90,7 +92,7 @@ void Highlight_Bash::Hi_In_None( unsigned& l, unsigned& p )
                                               m_fb.SetSyntaxStyle( l, p  , HI_CONTROL ); }
 
       else if( s[0]=='$' ) { m_fb.SetSyntaxStyle( l, p, HI_DEFINE ); }
-      else if( s[0]=='&'
+      else if( s[0]=='&' || s[0]=='#'
             || s[0]=='.' || s[0]=='*'
             || s[0]=='[' || s[0]==']' ) { m_fb.SetSyntaxStyle( l, p, HI_VARTYPE ); }
 

@@ -1992,6 +1992,63 @@ void Quit_JoinTiles_TP_BOT__RITE_CTR_8TH( Vis::Data& m )
   }
 }
 
+void Quit_JoinTiles_TP_LEFT_THIRD( Vis::Data& m )
+{
+  for( unsigned k=0; k<m.num_wins; k++ )
+  {
+    View* v = GetView_Win( m, k );
+    const Tile_Pos TP = v->GetTilePos();
+
+    if     ( TP == TP_CTR__THIRD      ) v->SetTilePos( TP_LEFT_TWO_THIRDS );
+    else if( TP == TP_RITE_TWO_THIRDS ) v->SetTilePos( TP_FULL );
+  }
+}
+
+void Quit_JoinTiles_TP_CTR__THIRD( Vis::Data& m )
+{
+  for( unsigned k=0; k<m.num_wins; k++ )
+  {
+    View* v = GetView_Win( m, k );
+    const Tile_Pos TP = v->GetTilePos();
+
+    if( TP == TP_RITE_THIRD ) v->SetTilePos( TP_RITE_TWO_THIRDS );
+  }
+}
+
+void Quit_JoinTiles_TP_RITE_THIRD( Vis::Data& m )
+{
+  for( unsigned k=0; k<m.num_wins; k++ )
+  {
+    View* v = GetView_Win( m, k );
+    const Tile_Pos TP = v->GetTilePos();
+
+    if     ( TP == TP_CTR__THIRD      ) v->SetTilePos( TP_RITE_TWO_THIRDS );
+    else if( TP == TP_LEFT_TWO_THIRDS ) v->SetTilePos( TP_FULL );
+  }
+}
+
+void Quit_JoinTiles_TP_LEFT_TWO_THIRDS( Vis::Data& m )
+{
+  for( unsigned k=0; k<m.num_wins; k++ )
+  {
+    View* v = GetView_Win( m, k );
+    const Tile_Pos TP = v->GetTilePos();
+
+    if( TP == TP_RITE_THIRD ) v->SetTilePos( TP_FULL );
+  }
+}
+
+void Quit_JoinTiles_TP_RITE_TWO_THIRDS( Vis::Data& m )
+{
+  for( unsigned k=0; k<m.num_wins; k++ )
+  {
+    View* v = GetView_Win( m, k );
+    const Tile_Pos TP = v->GetTilePos();
+
+    if( TP == TP_LEFT_THIRD ) v->SetTilePos( TP_FULL );
+  }
+}
+
 void Quit_JoinTiles( Vis::Data& m, const Tile_Pos TP )
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -2015,7 +2072,12 @@ void Quit_JoinTiles( Vis::Data& m, const Tile_Pos TP )
   else if( TP == TP_BOT__LEFT_8TH )     Quit_JoinTiles_TP_BOT__LEFT_8TH(m);
   else if( TP == TP_BOT__RITE_8TH )     Quit_JoinTiles_TP_BOT__RITE_8TH(m);
   else if( TP == TP_BOT__LEFT_CTR_8TH ) Quit_JoinTiles_TP_BOT__LEFT_CTR_8TH(m);
-  else /*( TP == TP_BOT__RITE_CTR_8TH*/ Quit_JoinTiles_TP_BOT__RITE_CTR_8TH(m);
+  else if( TP == TP_BOT__RITE_CTR_8TH ) Quit_JoinTiles_TP_BOT__RITE_CTR_8TH(m);
+  else if( TP == TP_LEFT_THIRD )        Quit_JoinTiles_TP_LEFT_THIRD(m);
+  else if( TP == TP_CTR__THIRD )        Quit_JoinTiles_TP_CTR__THIRD(m);
+  else if( TP == TP_RITE_THIRD )        Quit_JoinTiles_TP_RITE_THIRD(m);
+  else if( TP == TP_LEFT_TWO_THIRDS )   Quit_JoinTiles_TP_LEFT_TWO_THIRDS(m);
+  else if( TP == TP_RITE_TWO_THIRDS )   Quit_JoinTiles_TP_RITE_TWO_THIRDS(m);
 }
 
 void Quit_ShiftDown( Vis::Data& m )
@@ -2323,6 +2385,7 @@ void VSplitWindow( Vis::Data& m )
   View* cv = CV(m);
   const Tile_Pos cv_tp = cv->GetTilePos();
 
+  // Make sure current view can be vertically split:
   if( m.num_wins < MAX_WINS
    && ( cv_tp == TP_FULL
      || cv_tp == TP_TOP__HALF
@@ -2336,18 +2399,20 @@ void VSplitWindow( Vis::Data& m )
   {
     ASSERT( __LINE__, m.win < m.num_wins, "m.win < m.num_wins" );
 
+    // New window will be m.num_wins.
+    // Duplicate file hist of current window into new window.
     m.file_hist[m.num_wins] = m.file_hist[m.win];
 
+    // Copy current view context into new view
     View* nv = GetView_Win( m, m.num_wins );
 
-    nv->SetTopLine ( cv->GetTopLine () );
-    nv->SetLeftChar( cv->GetLeftChar() );
-    nv->SetCrsRow  ( cv->GetCrsRow  () );
-    nv->SetCrsCol  ( cv->GetCrsCol  () );
+    nv->Set_Context( *cv );
 
+    // Make new window the current window:
     m.win = m.num_wins;
     m.num_wins++;
 
+    // Set the new tile positions of the old view cv, and the new view nv:
     if( cv_tp == TP_FULL )
     {
       cv->SetTilePos( TP_LEFT_HALF );
@@ -2394,6 +2459,32 @@ void VSplitWindow( Vis::Data& m )
       nv->SetTilePos( TP_BOT__RITE_8TH );
     }
   }
+  else if( m.num_wins+1 < MAX_WINS
+        && ( cv_tp == TP_LEFT_TWO_THIRDS
+          || cv_tp == TP_RITE_TWO_THIRDS ) )
+  {
+    m.file_hist[m.num_wins] = m.file_hist[m.win];
+
+    // Copy current view context into new view
+    View* nv = GetView_Win( m, m.num_wins );
+
+    nv->Set_Context( *cv );
+
+    // Make new window the current window:
+    m.num_wins += 1;
+
+    // Set the new tile positions.
+    if( cv_tp == TP_LEFT_TWO_THIRDS )
+    {
+      cv->SetTilePos( TP_LEFT_THIRD );
+      nv->SetTilePos( TP_CTR__THIRD );
+    }
+    else //( cv_tp == TP_RITE_TWO_THIRDS )
+    {
+      cv->SetTilePos( TP_CTR__THIRD );
+      nv->SetTilePos( TP_RITE_THIRD );
+    }
+  }
   m.vis.UpdateAll();
 }
 
@@ -2406,6 +2497,7 @@ void HSplitWindow( Vis::Data& m )
   View* cv = CV(m);
   const Tile_Pos cv_tp = cv->GetTilePos();
 
+  // Make sure current view can be horizontally split:
   if( m.num_wins < MAX_WINS
    && ( cv_tp == TP_FULL
      || cv_tp == TP_LEFT_HALF
@@ -2417,18 +2509,20 @@ void HSplitWindow( Vis::Data& m )
   {
     ASSERT( __LINE__, m.win < m.num_wins, "m.win < m.num_wins" );
 
+    // New window will be m.num_wins.
+    // Duplicate file hist of current window into new window.
     m.file_hist[m.num_wins] = m.file_hist[m.win];
 
+    // Copy current view context into new view
     View* nv = GetView_Win( m, m.num_wins );
 
-    nv->SetTopLine ( cv->GetTopLine () );
-    nv->SetLeftChar( cv->GetLeftChar() );
-    nv->SetCrsRow  ( cv->GetCrsRow  () );
-    nv->SetCrsCol  ( cv->GetCrsCol  () );
+    nv->Set_Context( *cv );
 
+    // Make new window the current window:
     m.win = m.num_wins;
     m.num_wins++;
 
+    // Set the new tile positions of the old view cv, and the new view nv:
     if( cv_tp == TP_FULL )
     {
       cv->SetTilePos( TP_TOP__HALF );
@@ -2464,6 +2558,44 @@ void HSplitWindow( Vis::Data& m )
       cv->SetTilePos( TP_TOP__RITE_CTR_8TH );
       nv->SetTilePos( TP_BOT__RITE_CTR_8TH );
     }
+  }
+  m.vis.UpdateAll();
+}
+
+void _3SplitWindow( Vis::Data& m )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  m.vis.NoDiff();
+
+  View* cv = CV(m);
+  const Tile_Pos cv_tp = cv->GetTilePos();
+
+  // Make sure current view can be 3 split:
+  if( m.num_wins+1 < MAX_WINS
+   && ( cv_tp == TP_FULL ) )
+  {
+    ASSERT( __LINE__, m.win < m.num_wins, "m.win < m.num_wins" );
+
+    // New windows will be m.num_wins, and m.num_wins+1.
+    // Duplicate file hist of current window into new windows.
+    m.file_hist[m.num_wins]   = m.file_hist[m.win];
+    m.file_hist[m.num_wins+1] = m.file_hist[m.win];
+
+    // Copy current view context into new views
+    View* nv1 = GetView_Win( m, m.num_wins );
+    View* nv2 = GetView_Win( m, m.num_wins+1 );
+
+    nv1->Set_Context( *cv );
+    nv2->Set_Context( *cv );
+
+    // Current window, does not change, but there are 2 new windows:
+    m.num_wins += 2;
+
+    // Set the new tile positions.
+    cv ->SetTilePos( TP_LEFT_THIRD );
+    nv1->SetTilePos( TP_CTR__THIRD );
+    nv2->SetTilePos( TP_RITE_THIRD );
   }
   m.vis.UpdateAll();
 }
@@ -2639,6 +2771,7 @@ void Handle_Colon_Cmd( Vis::Data& m )
   else if( strcmp( m.cbuf,"se"  )==0 ) GoToSearchBuffer(m);
   else if( strcmp( m.cbuf,"vsp" )==0 ) VSplitWindow(m);
   else if( strcmp( m.cbuf,"sp"  )==0 ) HSplitWindow(m);
+  else if( strcmp( m.cbuf,"3sp" )==0 ) _3SplitWindow(m);
   else if( strcmp( m.cbuf,"cs1" )==0 ) { Console::Set_Color_Scheme_1(); }
   else if( strcmp( m.cbuf,"cs2" )==0 ) { Console::Set_Color_Scheme_2(); }
   else if( strcmp( m.cbuf,"cs3" )==0 ) { Console::Set_Color_Scheme_3(); }
@@ -4931,7 +5064,7 @@ void Vis::Handle_Slash_GotPattern( const String& pattern
   {
     Do_Star_Update_Search_Editor(m);
   }
-  if( MOVE_TO_FIRST_PATTERN )
+  if( MOVE_TO_FIRST_PATTERN && 0<pattern.len() )
   {
     if( m.diff_mode ) m.diff.Do_n();
     else               CV()->Do_n();

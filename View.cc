@@ -120,13 +120,85 @@ View::Data::~Data()
 {
 }
 
-void TilePos_2_x( View::Data& m )
+unsigned Cols_Left_Half()
 {
   const unsigned CON_COLS = Console::Num_Cols();
 
+  return ( CON_COLS%2 )
+         ? CON_COLS/2+1 //< Left side gets extra column
+         : CON_COLS/2;  //< Both sides get equal
+}
+
+unsigned Cols_Rite_Half()
+{
+  const unsigned CON_COLS = Console::Num_Cols();
+
+  return CON_COLS - Cols_Left_Half();
+}
+
+unsigned Cols_Left_Far_Qtr()
+{
+  const unsigned COLS_LEFT_HALF = Cols_Left_Half();
+
+  return ( COLS_LEFT_HALF%2 )
+         ? COLS_LEFT_HALF/2  //< Left ctr qtr gets extra column
+         : COLS_LEFT_HALF/2; //< Both qtrs get equal
+}
+
+unsigned Cols_Left_Ctr_Qtr()
+{
+  return Cols_Left_Half() - Cols_Left_Far_Qtr();
+}
+
+unsigned Cols_Rite_Far_Qtr()
+{
+  const unsigned COLS_RITE_HALF = Cols_Rite_Half();
+
+  return ( COLS_RITE_HALF%2 )
+         ? COLS_RITE_HALF/2  //< Rite ctr qtr gets extra column
+         : COLS_RITE_HALF/2; //< Both sides get equal
+}
+
+unsigned Cols_Rite_Ctr_Qtr()
+{
+  return Cols_Rite_Half() - Cols_Rite_Far_Qtr();
+}
+
+unsigned Cols_Left_Third()
+{
+  const unsigned CON_COLS = Console::Num_Cols();
+
+  return ( CON_COLS%3 )
+         ? ( (CON_COLS%3==1)
+           ? CON_COLS/3     // Ctr third gets extra column
+           : CON_COLS/3+1 ) // Ctr and left get extra column
+         : CON_COLS/3; // All thirds equal
+}
+
+unsigned Cols_Ctr__Third()
+{
+  const unsigned CON_COLS = Console::Num_Cols();
+
+  return ( CON_COLS%3 )
+         ? ( (CON_COLS%3==1)
+           ? CON_COLS/3+1   // Ctr third gets extra column
+           : CON_COLS/3+1 ) // Ctr and left get extra column
+         : CON_COLS/3; // All thirds equal
+}
+
+unsigned Cols_Rite_Third()
+{
+  const unsigned CON_COLS = Console::Num_Cols();
+
+  return CON_COLS - Cols_Left_Third() - Cols_Ctr__Third();
+}
+
+void TilePos_2_x( View::Data& m )
+{
   // TP_FULL     , TP_BOT__HALF    , TP_LEFT_QTR
   // TP_LEFT_HALF, TP_TOP__LEFT_QTR, TP_TOP__LEFT_8TH
   // TP_TOP__HALF, TP_BOT__LEFT_QTR, TP_BOT__LEFT_8TH
+  // TP_LEFT_THIRD, TP_LEFT_TWO_THIRDS
   m.x = 0;
 
   if( TP_RITE_HALF         == m.tile_pos
@@ -136,19 +208,28 @@ void TilePos_2_x( View::Data& m )
    || TP_TOP__RITE_CTR_8TH == m.tile_pos
    || TP_BOT__RITE_CTR_8TH == m.tile_pos )
   {
-    m.x = CON_COLS/2;
+    m.x = Cols_Left_Half();
   }
   else if( TP_LEFT_CTR__QTR     == m.tile_pos
         || TP_TOP__LEFT_CTR_8TH == m.tile_pos
         || TP_BOT__LEFT_CTR_8TH == m.tile_pos )
   {
-    m.x = CON_COLS/4;
+    m.x = Cols_Left_Far_Qtr();
   }
   else if( TP_RITE_QTR      == m.tile_pos
         || TP_TOP__RITE_8TH == m.tile_pos
         || TP_BOT__RITE_8TH == m.tile_pos )
   {
-    m.x = CON_COLS*3/4;
+    m.x = Cols_Left_Half() + Cols_Rite_Ctr_Qtr();
+  }
+  else if( TP_CTR__THIRD      == m.tile_pos
+        || TP_RITE_TWO_THIRDS == m.tile_pos )
+  {
+    m.x = Cols_Left_Third();
+  }
+  else if( TP_RITE_THIRD == m.tile_pos )
+  {
+    m.x = Cols_Left_Third() + Cols_Ctr__Third();
   }
 }
 
@@ -163,6 +244,8 @@ void TilePos_2_y( View::Data& m )
   // TP_TOP__LEFT_QTR, TP_TOP__LEFT_CTR_8TH
   // TP_TOP__RITE_QTR, TP_TOP__RITE_CTR_8TH
   // TP_LEFT_QTR     , TP_TOP__RITE_8TH
+  // TP_LEFT_THIRD   , TP_CTR__THIRD, TP_RITE_THIRD
+  // TP_LEFT_TWO_THIRDS, TP_RITE_TWO_THIRDS
   m.y = 0;
 
   if( TP_BOT__HALF         == m.tile_pos
@@ -191,13 +274,18 @@ void TilePos_2_nRows( View::Data& m )
   // TP_TOP__RITE_8TH    , TP_BOT__RITE_8TH    ,
   m.nRows = CON_ROWS/2;
 
-  if( TP_FULL          == m.tile_pos
-   || TP_LEFT_HALF     == m.tile_pos
-   || TP_RITE_HALF     == m.tile_pos
-   || TP_LEFT_QTR      == m.tile_pos
-   || TP_LEFT_CTR__QTR == m.tile_pos
-   || TP_RITE_CTR__QTR == m.tile_pos
-   || TP_RITE_QTR      == m.tile_pos )
+  if( TP_FULL            == m.tile_pos
+   || TP_LEFT_HALF       == m.tile_pos
+   || TP_RITE_HALF       == m.tile_pos
+   || TP_LEFT_QTR        == m.tile_pos
+   || TP_LEFT_CTR__QTR   == m.tile_pos
+   || TP_RITE_CTR__QTR   == m.tile_pos
+   || TP_RITE_QTR        == m.tile_pos
+   || TP_LEFT_THIRD      == m.tile_pos
+   || TP_CTR__THIRD      == m.tile_pos
+   || TP_RITE_THIRD      == m.tile_pos
+   || TP_LEFT_TWO_THIRDS == m.tile_pos
+   || TP_RITE_TWO_THIRDS == m.tile_pos )
   {
     m.nRows = CON_ROWS;
   }
@@ -215,56 +303,68 @@ void TilePos_2_nRows( View::Data& m )
 
 void TilePos_2_nCols( View::Data& m )
 {
-  const unsigned CON_COLS = Console::Num_Cols();
-  const unsigned ODD_COLS = CON_COLS%4;
-
-  // TP_LEFT_QTR     , TP_TOP__LEFT_8TH    , TP_BOT__LEFT_8TH    ,
-  // TP_LEFT_CTR__QTR, TP_TOP__LEFT_CTR_8TH, TP_BOT__LEFT_CTR_8TH,
-  // TP_RITE_CTR__QTR, TP_TOP__RITE_CTR_8TH, TP_BOT__RITE_CTR_8TH,
-  // TP_RITE_QTR     , TP_TOP__RITE_8TH    , TP_BOT__RITE_8TH    ,
-  m.nCols = CON_COLS/4;
-
   if( TP_FULL      == m.tile_pos
    || TP_TOP__HALF == m.tile_pos
    || TP_BOT__HALF == m.tile_pos )
   {
-    m.nCols = CON_COLS;
+    m.nCols = Console::Num_Cols();
   }
   else if( TP_LEFT_HALF     == m.tile_pos
-        || TP_RITE_HALF     == m.tile_pos
         || TP_TOP__LEFT_QTR == m.tile_pos
+        || TP_BOT__LEFT_QTR == m.tile_pos )
+  {
+    m.nCols = Cols_Left_Half();
+  }
+  else if( TP_RITE_HALF     == m.tile_pos
         || TP_TOP__RITE_QTR == m.tile_pos
-        || TP_BOT__LEFT_QTR == m.tile_pos
         || TP_BOT__RITE_QTR == m.tile_pos )
   {
-    m.nCols = CON_COLS/2;
+    m.nCols = Cols_Rite_Half();
   }
-  if( ((TP_RITE_HALF         == m.tile_pos) && (ODD_COLS==1 || ODD_COLS==3))
-   || ((TP_TOP__RITE_QTR     == m.tile_pos) && (ODD_COLS==1 || ODD_COLS==3))
-   || ((TP_BOT__RITE_QTR     == m.tile_pos) && (ODD_COLS==1 || ODD_COLS==3))
-
-   || ((TP_RITE_QTR          == m.tile_pos) && (ODD_COLS==1 || ODD_COLS==2 || ODD_COLS==3))
-   || ((TP_TOP__RITE_8TH     == m.tile_pos) && (ODD_COLS==1 || ODD_COLS==2 || ODD_COLS==3))
-   || ((TP_BOT__RITE_8TH     == m.tile_pos) && (ODD_COLS==1 || ODD_COLS==2 || ODD_COLS==3))
-
-   || ((TP_LEFT_CTR__QTR     == m.tile_pos) && (ODD_COLS==2 || ODD_COLS==3))
-   || ((TP_TOP__LEFT_CTR_8TH == m.tile_pos) && (ODD_COLS==2 || ODD_COLS==3))
-   || ((TP_BOT__LEFT_CTR_8TH == m.tile_pos) && (ODD_COLS==2 || ODD_COLS==3))
-
-   || ((TP_RITE_CTR__QTR     == m.tile_pos) && (ODD_COLS==3))
-   || ((TP_TOP__RITE_CTR_8TH == m.tile_pos) && (ODD_COLS==3))
-   || ((TP_BOT__RITE_CTR_8TH == m.tile_pos) && (ODD_COLS==3)) )
+  else if( TP_LEFT_QTR      == m.tile_pos
+        || TP_TOP__LEFT_8TH == m.tile_pos
+        || TP_BOT__LEFT_8TH == m.tile_pos )
   {
-    m.nCols++;
+    m.nCols = Cols_Left_Far_Qtr();
   }
-}
-
-void SetViewPos( View::Data& m )
-{
-  TilePos_2_x(m);
-  TilePos_2_y(m);
-  TilePos_2_nRows(m);
-  TilePos_2_nCols(m);
+  else if( TP_LEFT_CTR__QTR     == m.tile_pos
+        || TP_TOP__LEFT_CTR_8TH == m.tile_pos
+        || TP_BOT__LEFT_CTR_8TH == m.tile_pos )
+  {
+    m.nCols = Cols_Left_Ctr_Qtr();
+  }
+  else if( TP_RITE_CTR__QTR     == m.tile_pos
+        || TP_TOP__RITE_CTR_8TH == m.tile_pos
+        || TP_BOT__RITE_CTR_8TH == m.tile_pos )
+  {
+    m.nCols = Cols_Rite_Ctr_Qtr();
+  }
+  else if( TP_RITE_QTR      == m.tile_pos
+        || TP_TOP__RITE_8TH == m.tile_pos
+        || TP_BOT__RITE_8TH == m.tile_pos )
+  {
+    m.nCols = Cols_Rite_Far_Qtr();
+  }
+  else if( TP_LEFT_THIRD == m.tile_pos )
+  {
+    m.nCols = Cols_Left_Third();
+  }
+  else if( TP_CTR__THIRD == m.tile_pos )
+  {
+    m.nCols = Cols_Ctr__Third();
+  }
+  else if( TP_RITE_THIRD == m.tile_pos )
+  {
+    m.nCols = Cols_Rite_Third();
+  }
+  else if( TP_LEFT_TWO_THIRDS == m.tile_pos )
+  {
+    m.nCols = Cols_Left_Third() + Cols_Ctr__Third();
+  }
+  else if( TP_RITE_TWO_THIRDS == m.tile_pos )
+  {
+    m.nCols = Cols_Ctr__Third() + Cols_Rite_Third();
+  }
 }
 
 Style Get_Style( View::Data& m
@@ -2356,7 +2456,7 @@ void View::SetTilePos( const Tile_Pos tp )
 {
   m.tile_pos = tp;
 
-  SetViewPos();
+  m.view.SetViewPos();
 }
 
 void View::SetViewPos()
