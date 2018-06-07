@@ -546,7 +546,7 @@ void Sig_Handle_SIGCONT( int signo )
   ioctl( FD_IO, TCSETA, &t );
 #endif
 
-  mp_vis->UpdateAll();
+  mp_vis->UpdateAll( false );
 }
 
 void Sig_Handle_HW( int signo )

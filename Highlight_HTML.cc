@@ -906,6 +906,7 @@ bool JS_OneVarType( const char c0 )
       || c0=='.' || c0=='*'
       || c0=='[' || c0==']';
 }
+
 bool JS_OneControl( const char c0 )
 {
   return c0=='=' || c0=='^' || c0=='~'
@@ -918,6 +919,7 @@ bool JS_OneControl( const char c0 )
       || c0==',' || c0==';'
       || c0=='/' || c0=='|';
 }
+
 bool JS_TwoControl( const char c1, const char c0 )
 {
   return (c1=='=' && c0=='=')

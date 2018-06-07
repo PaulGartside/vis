@@ -158,7 +158,7 @@ void Handle_Cmd( Vis::Data& m )
   const char CC = m.key.In();
 
   if( ('1' <= CC && CC <= '9')
-   || ('0' == CC && 0 < m.repeat_buf.len()) ) //< Dont override 0 movement
+   || ('0' == CC && 0 < m.repeat_buf.len()) ) //< Dont override [1-9]0 movement
   {
     m.repeat_buf.push( CC );
   }
@@ -643,7 +643,12 @@ bool WentBackToPrevDirDiff( Vis::Data& m )
 
           went_back = m.diff.Run( cV_prev, oV_prev );
 
-          if( went_back ) m.diff_mode = true;
+          if( went_back ) {
+            m.diff_mode = true;
+            m.diff.GetViewShort()->SetInDiff( true );
+            m.diff.GetViewLong() ->SetInDiff( true );
+            m.diff.Update();
+          }
         }
       }
     }
@@ -664,7 +669,8 @@ void GoToPrevBuffer( Vis::Data& m )
   }
   else {
     bool went_back_to_prev_dir_diff = false;
-    if( m.diff_mode )
+
+    if( CV(m)->GetInDiff() )
     {
       went_back_to_prev_dir_diff = WentBackToPrevDirDiff(m);
 
@@ -1500,7 +1506,7 @@ void FlipWindows( Vis::Data& m )
         pV->SetTilePos( NTP );
       }
     }
-    m.vis.UpdateAll();
+    m.vis.UpdateAll( false );
   }
 }
 
@@ -2084,7 +2090,7 @@ void Quit_ShiftDown( Vis::Data& m )
 {
   // Make copy of win's list of views and view history:
   ViewList win_views    ( m.views    [m.win] );
-   unsList win_view_hist( m.file_hist[m.win] );
+   unsList win_file_hist( m.file_hist[m.win] );
 
   // Shift everything down
   for( unsigned w=m.win+1; w<m.num_wins; w++ )
@@ -2095,7 +2101,7 @@ void Quit_ShiftDown( Vis::Data& m )
   // Put win's list of views at end of views:
   // Put win's view history at end of view historys:
   m.views    [m.num_wins-1] = win_views;
-  m.file_hist[m.num_wins-1] = win_view_hist;
+  m.file_hist[m.num_wins-1] = win_file_hist;
 }
 
 void QuitAll( Vis::Data& m )
@@ -2115,16 +2121,19 @@ void Quit( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  const Tile_Pos TP = CV(m)->GetTilePos();
-
   if( m.num_wins <= 1 ) QuitAll(m);
   else {
-    if( m.diff_mode )
-    {
-      m.diff.Set_Remaining_ViewContext_2_DiffContext();
-    }
-    m.diff_mode = false;
+    View* cv = CV(m);
 
+    const Tile_Pos TP = CV(m)->GetTilePos();
+
+    if( cv->GetInDiff() )
+    {
+      m.diff.GetViewShort()->SetInDiff( false );
+      m.diff.GetViewLong() ->SetInDiff( false );
+      m.diff.Set_Remaining_ViewContext_2_DiffContext();
+      m.diff_mode = false;
+    }
     if( m.win < m.num_wins-1 )
     {
       Quit_ShiftDown(m);
@@ -2134,7 +2143,7 @@ void Quit( Vis::Data& m )
 
     Quit_JoinTiles( m, TP );
 
-    m.vis.UpdateAll();
+    m.vis.UpdateAll( false );
 
     CV(m)->PrintCursor();
   }
@@ -2203,8 +2212,9 @@ void MapShow( Vis::Data& m )
     Console::Set( ROW, ST+offset+k, ' ', S_NORMAL );
   }
   Console::Update();
-  if( m.vis.InDiffMode() ) m.diff.PrintCursor( cv );
-  else                        cv->PrintCursor();
+
+  if( cv->GetInDiff() ) m.diff.PrintCursor( cv );
+  else                     cv->PrintCursor();
 }
 
 void Help( Vis::Data& m )
@@ -2321,16 +2331,76 @@ View* Diff_FindRegFileView( Vis::Data& m
   return pv;
 }
 
+Tile_Pos DoDiff_Find_Matching_Tile_Pos( const Tile_Pos tp_c )
+{
+  Tile_Pos tp_m = TP_NONE; // Matching tile pos
+
+  if     ( tp_c == TP_LEFT_HALF         ) tp_m = TP_RITE_HALF;
+  else if( tp_c == TP_RITE_HALF         ) tp_m = TP_LEFT_HALF;
+  else if( tp_c == TP_TOP__HALF         ) tp_m = TP_BOT__HALF;
+  else if( tp_c == TP_BOT__HALF         ) tp_m = TP_TOP__HALF;
+  else if( tp_c == TP_TOP__LEFT_QTR     ) tp_m = TP_TOP__RITE_QTR;
+  else if( tp_c == TP_TOP__RITE_QTR     ) tp_m = TP_TOP__LEFT_QTR;
+  else if( tp_c == TP_BOT__LEFT_QTR     ) tp_m = TP_BOT__RITE_QTR;
+  else if( tp_c == TP_BOT__RITE_QTR     ) tp_m = TP_BOT__LEFT_QTR;
+  else if( tp_c == TP_LEFT_QTR          ) tp_m = TP_LEFT_CTR__QTR;
+  else if( tp_c == TP_LEFT_CTR__QTR     ) tp_m = TP_LEFT_QTR;
+  else if( tp_c == TP_RITE_CTR__QTR     ) tp_m = TP_RITE_QTR;
+  else if( tp_c == TP_RITE_QTR          ) tp_m = TP_RITE_CTR__QTR;
+  else if( tp_c == TP_TOP__LEFT_8TH     ) tp_m = TP_TOP__LEFT_CTR_8TH;
+  else if( tp_c == TP_TOP__LEFT_CTR_8TH ) tp_m = TP_TOP__LEFT_8TH;
+  else if( tp_c == TP_TOP__RITE_CTR_8TH ) tp_m = TP_TOP__RITE_8TH;
+  else if( tp_c == TP_TOP__RITE_8TH     ) tp_m = TP_TOP__RITE_CTR_8TH;
+  else if( tp_c == TP_BOT__LEFT_8TH     ) tp_m = TP_BOT__LEFT_CTR_8TH;
+  else if( tp_c == TP_BOT__LEFT_CTR_8TH ) tp_m = TP_BOT__LEFT_8TH;
+  else if( tp_c == TP_BOT__RITE_CTR_8TH ) tp_m = TP_BOT__RITE_8TH;
+  else if( tp_c == TP_BOT__RITE_8TH     ) tp_m = TP_BOT__RITE_CTR_8TH;
+
+  return tp_m;
+}
+
+int DoDiff_Find_Win_2_Diff( Vis::Data& m )
+{
+  int diff_win_num = -1; // Failure value
+
+  // Must be not already doing a diff and at least 2 buffers to do diff:
+  if( !m.diff_mode && 2 <= m.num_wins )
+  {
+    View*     v_c = GetView_Win( m, m.win ); // Current View
+    Tile_Pos tp_c = v_c->GetTilePos();       // Current Tile_Pos
+
+    // tp_m = matching Tile_Pos to tp_c
+    const Tile_Pos tp_m = DoDiff_Find_Matching_Tile_Pos( tp_c );
+
+    if( TP_NONE != tp_m )
+    {
+      // See if one of the other views is in tp_m
+      for( unsigned k=0; -1 == diff_win_num && k<m.num_wins; k++ )
+      {
+        if( k != m.win )
+        {
+          View* v_k = GetView_Win( m, k );
+          if( tp_m == v_k->GetTilePos() )
+          {
+            diff_win_num = k;
+          }
+        }
+      }
+    }
+  }
+  return diff_win_num;
+}
+
 // Execute user diff command
 void Diff_Files_Displayed( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  // Must be exactly 2 buffers to do diff:
-  if( 2 == m.num_wins )
+  const int d_win = DoDiff_Find_Win_2_Diff(m); // Diff win number
+  if( 0 <= d_win )
   {
-    View* pv0 = GetView_Win( m, 0 );
-    View* pv1 = GetView_Win( m, 1 );
+    View* pv0 = GetView_Win( m, m.win );
+    View* pv1 = GetView_Win( m, d_win );
     FileBuf* pfb0 = pv0->GetFB();
     FileBuf* pfb1 = pv1->GetFB();
 
@@ -2360,8 +2430,11 @@ void Diff_Files_Displayed( Vis::Data& m )
     }
     if( ok ) {
       bool ok = m.diff.Run( pv0, pv1 );
-
-      if( ok ) m.diff_mode = true;
+      if( ok ) {
+        m.diff_mode = true;
+        m.diff.GetViewShort()->SetInDiff( true );
+        m.diff.GetViewLong()->SetInDiff( true );
+      }
     }
   }
 }
@@ -2485,7 +2558,7 @@ void VSplitWindow( Vis::Data& m )
       nv->SetTilePos( TP_RITE_THIRD );
     }
   }
-  m.vis.UpdateAll();
+  m.vis.UpdateAll( false );
 }
 
 void HSplitWindow( Vis::Data& m )
@@ -2559,7 +2632,7 @@ void HSplitWindow( Vis::Data& m )
       nv->SetTilePos( TP_BOT__RITE_CTR_8TH );
     }
   }
-  m.vis.UpdateAll();
+  m.vis.UpdateAll( false );
 }
 
 void _3SplitWindow( Vis::Data& m )
@@ -2597,17 +2670,19 @@ void _3SplitWindow( Vis::Data& m )
     nv1->SetTilePos( TP_CTR__THIRD );
     nv2->SetTilePos( TP_RITE_THIRD );
   }
-  m.vis.UpdateAll();
+  m.vis.UpdateAll( false );
 }
 
 void ReHighlight_CV( Vis::Data& m )
 {
-  FileBuf* pfb = CV(m)->GetFB();
+  View* cv = CV(m);
+
+  FileBuf* pfb = cv->GetFB();
 
   pfb->ClearStyles();
 
-  if( m.diff_mode ) m.diff.Update();
-  else                pfb->Update();
+  if( cv->GetInDiff() ) m.diff.Update();
+  else                    pfb->Update();
 }
 
 void RunCommand( Vis::Data& m )
@@ -2707,8 +2782,8 @@ void HandleColon_w( Vis::Data& m )
       // would put the cursor in the wrong position:
       if( CV(m) == pV )
       {
-        if( m.diff_mode ) m.diff.PrintCursor( pV );
-        else              pV->PrintCursor();
+        if( pV->GetInDiff() ) m.diff.PrintCursor( pV );
+        else                     pV->PrintCursor();
       }
     }
     if( 'q'== m.cbuf[1] ) Quit(m);
@@ -2754,6 +2829,17 @@ void HandleColon_b( Vis::Data& m )
   }
 }
 
+void MoveToLine( Vis::Data& m )
+{
+  // Move cursor to line:
+  const unsigned line_num = atol( m.cbuf );
+
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.GoToLine( line_num );
+  else                     cv->GoToLine( line_num );
+}
+
 void Handle_Colon_Cmd( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -2794,13 +2880,7 @@ void Handle_Colon_Cmd( Vis::Data& m )
   else if( 'e' == m.cbuf[0] )             HandleColon_e(m);
   else if( 'w' == m.cbuf[0] )             HandleColon_w(m);
   else if( 'b' == m.cbuf[0] )             HandleColon_b(m);
-  else if( '0' <= m.cbuf[0] && m.cbuf[0] <= '9' )
-  {
-    // Move cursor to line:
-    const unsigned line_num = atol( m.cbuf );
-    if( m.diff_mode ) m.diff.GoToLine( line_num );
-    else              CV(m)->GoToLine( line_num );
-  }
+  else if( '0' <= m.cbuf[0] && m.cbuf[0] <= '9' ) MoveToLine(m);
   else { // Put cursor back to line and column in edit window:
     if( m.diff_mode ) m.diff.PrintCursor( CV(m) );
     else              CV(m)->PrintCursor();
@@ -2818,8 +2898,10 @@ void Handle_i( Vis::Data& m )
     m.key.save_2_dot_buf_n = true;
   }
 
-  if( m.diff_mode ) m.diff.Do_i();
-  else              CV(m)->Do_i();
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.Do_i();
+  else                     cv->Do_i();
 
   if( !m.key.get_from_dot_buf_n )
   {
@@ -2877,9 +2959,11 @@ void Handle_v( Vis::Data& m )
     m.key.vis_buf.push('v');
     m.key.save_2_vis_buf = true;
   }
-  const bool copy_vis_buf_2_dot_buf_n = m.diff_mode
+  View* cv = CV(m);
+
+  const bool copy_vis_buf_2_dot_buf_n = cv->GetInDiff()
                                       ? m.diff.Do_v()
-                                      : CV(m)->Do_v();
+                                      :    cv->Do_v();
   if( !m.key.get_from_dot_buf_n )
   {
     m.key.save_2_vis_buf = false;
@@ -2927,9 +3011,11 @@ void Handle_V( Vis::Data& m )
     m.key.vis_buf.push('V');
     m.key.save_2_vis_buf = true;
   }
-  const bool copy_vis_buf_2_dot_buf_n = m.diff_mode
+  View* cv = CV(m);
+
+  const bool copy_vis_buf_2_dot_buf_n = cv->GetInDiff()
                                       ? m.diff.Do_V()
-                                      : CV(m)->Do_V();
+                                      :    cv->Do_V();
   if( !m.key.get_from_dot_buf_n )
   {
     m.key.save_2_vis_buf = false;
@@ -2952,8 +3038,10 @@ void Handle_a( Vis::Data& m )
     m.key.save_2_dot_buf_n = true;
   }
 
-  if( m.diff_mode ) m.diff.Do_a();
-  else              CV(m)->Do_a();
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.Do_a();
+  else                     cv->Do_a();
 
   if( !m.key.get_from_dot_buf_n )
   {
@@ -3011,9 +3099,10 @@ void Handle_A( Vis::Data& m )
     m.key.dot_buf_n.push('A');
     m.key.save_2_dot_buf_n = true;
   }
+  View* cv = CV(m);
 
-  if( m.diff_mode ) m.diff.Do_A();
-  else              CV(m)->Do_A();
+  if( cv->GetInDiff() ) m.diff.Do_A();
+  else                     cv->Do_A();
 
   if( !m.key.get_from_dot_buf_n )
   {
@@ -3062,8 +3151,10 @@ void Handle_o( Vis::Data& m )
     m.key.save_2_dot_buf_n = true;
   }
 
-  if( m.diff_mode ) m.diff.Do_o();
-  else              CV(m)->Do_o();
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.Do_o();
+  else                     cv->Do_o();
 
   if( !m.key.get_from_dot_buf_n )
   {
@@ -3112,8 +3203,10 @@ void Handle_O( Vis::Data& m )
     m.key.save_2_dot_buf_n = true;
   }
 
-  if( m.diff_mode ) m.diff.Do_O();
-  else              CV(m)->Do_O();
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.Do_O();
+  else                     cv->Do_O();
 
   if( !m.key.get_from_dot_buf_n )
   {
@@ -3130,8 +3223,10 @@ void Handle_x( Vis::Data& m )
     m.key.dot_buf_n.clear();
     m.key.dot_buf_n.push('x');
   }
-  if( m.diff_mode ) m.diff.Do_x();
-  else              CV(m)->Do_x();
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.Do_x();
+  else                     cv->Do_x();
 }
 
 void L_Handle_x( Vis::Data& m )
@@ -3157,9 +3252,10 @@ void Handle_s( Vis::Data& m )
     m.key.dot_buf_n.push('s');
     m.key.save_2_dot_buf_n = true;
   }
+  View* cv = CV(m);
 
-  if( m.diff_mode ) m.diff.Do_s();
-  else              CV(m)->Do_s();
+  if( cv->GetInDiff() ) m.diff.Do_s();
+  else                     cv->Do_s();
 
   if( !m.key.get_from_dot_buf_n )
   {
@@ -3202,8 +3298,10 @@ void Handle_c( Vis::Data& m )
       m.key.dot_buf_n.push('w');
       m.key.save_2_dot_buf_n = true;
     }
-    if( m.diff_mode ) m.diff.Do_cw();
-    else              CV(m)->Do_cw();
+    View* cv = CV(m);
+
+    if( cv->GetInDiff() ) m.diff.Do_cw();
+    else                     cv->Do_cw();
 
     if( !m.key.get_from_dot_buf_n )
     {
@@ -3219,8 +3317,10 @@ void Handle_c( Vis::Data& m )
       m.key.dot_buf_n.push('$');
       m.key.save_2_dot_buf_n = true;
     }
-    if( m.diff_mode ) { m.diff.Do_D(); m.diff.Do_a(); }
-    else              { CV(m)->Do_D(); CV(m)->Do_a(); }
+    View* cv = CV(m);
+
+    if( cv->GetInDiff() ) { m.diff.Do_D(); m.diff.Do_a(); }
+    else                  {    cv->Do_D();    cv->Do_a(); }
 
     if( !m.key.get_from_dot_buf_n )
     {
@@ -3292,12 +3392,14 @@ void Handle_Dot( Vis::Data& m )
       Vis::Data::CmdFunc cf = m.ViewFuncs[ CC ];
       if( cf ) (*cf)(m);
     }
-    if( m.diff_mode ) {
+    View* cv = CV(m);
+
+    if( cv->GetInDiff() ) {
       // Diff does its own update every time a command is run
     }
     else {
       // Dont update until after all the commands have been executed:
-      CV(m)->GetFB()->Update();
+      cv->GetFB()->Update();
     }
   }
 }
@@ -3317,7 +3419,7 @@ void L_Handle_Dot( Vis::Data& m )
       Vis::Data::CmdFunc cf = m.LineFuncs[ CC ];
       if( cf ) (*cf)(m);
     }
-    if( m.diff_mode ) {
+    if( CV(m)->GetInDiff() ) {
       // Diff does its own update every time a command is run
     }
     else {
@@ -3332,8 +3434,10 @@ void Handle_j( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( m.diff_mode ) m.diff.GoDown( m.repeat );
-  else              CV(m)->GoDown( m.repeat );
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.GoDown( m.repeat );
+  else                     cv->GoDown( m.repeat );
 }
 
 void L_Handle_j( Vis::Data& m )
@@ -3348,8 +3452,10 @@ void Handle_k( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( m.diff_mode ) m.diff.GoUp( m.repeat );
-  else              CV(m)->GoUp( m.repeat );
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.GoUp( m.repeat );
+  else                     cv->GoUp( m.repeat );
 }
 
 void L_Handle_k( Vis::Data& m )
@@ -3364,8 +3470,10 @@ void Handle_h( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( m.diff_mode ) m.diff.GoLeft( m.repeat );
-  else              CV(m)->GoLeft( m.repeat );
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.GoLeft( m.repeat );
+  else                     cv->GoLeft( m.repeat );
 }
 
 void L_Handle_h( Vis::Data& m )
@@ -3380,8 +3488,10 @@ void Handle_l( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( m.diff_mode ) m.diff.GoRight( m.repeat );
-  else              CV(m)->GoRight( m.repeat );
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.GoRight( m.repeat );
+  else                     cv->GoRight( m.repeat );
 }
 
 void L_Handle_l( Vis::Data& m )
@@ -3396,32 +3506,40 @@ void Handle_H( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( m.diff_mode ) m.diff.GoToTopLineInView();
-  else              CV(m)->GoToTopLineInView();
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.GoToTopLineInView();
+  else                     cv->GoToTopLineInView();
 }
 
 void Handle_L( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( m.diff_mode ) m.diff.GoToBotLineInView();
-  else              CV(m)->GoToBotLineInView();
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.GoToBotLineInView();
+  else                     cv->GoToBotLineInView();
 }
 
 void Handle_M( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( m.diff_mode ) m.diff.GoToMidLineInView();
-  else              CV(m)->GoToMidLineInView();
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.GoToMidLineInView();
+  else                     cv->GoToMidLineInView();
 }
 
 void Handle_0( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( m.diff_mode ) m.diff.GoToBegOfLine();
-  else              CV(m)->GoToBegOfLine();
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.GoToBegOfLine();
+  else                     cv->GoToBegOfLine();
 }
 
 void L_Handle_0( Vis::Data& m )
@@ -3445,8 +3563,10 @@ void Handle_Dollar( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( m.diff_mode ) m.diff.GoToEndOfLine();
-  else              CV(m)->GoToEndOfLine();
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.GoToEndOfLine();
+  else                     cv->GoToEndOfLine();
 }
 
 void L_Handle_Dollar( Vis::Data& m )
@@ -3461,16 +3581,20 @@ void Handle_Return( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( m.diff_mode ) m.diff.GoToBegOfNextLine();
-  else              CV(m)->GoToBegOfNextLine();
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.GoToBegOfNextLine();
+  else                     cv->GoToBegOfNextLine();
 }
 
 void Handle_G( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( m.diff_mode ) m.diff.GoToEndOfFile();
-  else              CV(m)->GoToEndOfFile();
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.GoToEndOfFile();
+  else                     cv->GoToEndOfFile();
 }
 
 void L_Handle_G( Vis::Data& m )
@@ -3485,8 +3609,10 @@ void Handle_b( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( m.diff_mode ) m.diff.GoToPrevWord();
-  else              CV(m)->GoToPrevWord();
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.GoToPrevWord();
+  else                     cv->GoToPrevWord();
 }
 
 void L_Handle_b( Vis::Data& m )
@@ -3501,8 +3627,10 @@ void Handle_w( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( m.diff_mode ) m.diff.GoToNextWord();
-  else              CV(m)->GoToNextWord();
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.GoToNextWord();
+  else                     cv->GoToNextWord();
 }
 
 void L_Handle_w( Vis::Data& m )
@@ -3517,8 +3645,10 @@ void Handle_e( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( m.diff_mode ) m.diff.GoToEndOfWord();
-  else              CV(m)->GoToEndOfWord();
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.GoToEndOfWord();
+  else                     cv->GoToEndOfWord();
 }
 
 void L_Handle_e( Vis::Data& m )
@@ -3535,8 +3665,10 @@ void Handle_f( Vis::Data& m )
 
   m.fast_char = m.key.In();
 
-  if( m.diff_mode ) m.diff.Do_f( m.fast_char );
-  else              CV(m)->Do_f( m.fast_char );
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.Do_f( m.fast_char );
+  else                     cv->Do_f( m.fast_char );
 }
 
 void L_Handle_f( Vis::Data& m )
@@ -3551,15 +3683,21 @@ void L_Handle_f( Vis::Data& m )
 
 void Handle_SemiColon( Vis::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   if( 0 <= m.fast_char )
   {
-    if( m.diff_mode ) m.diff.Do_f( m.fast_char );
-    else              CV(m)->Do_f( m.fast_char );
+    View* cv = CV(m);
+
+    if( cv->GetInDiff() ) m.diff.Do_f( m.fast_char );
+    else                     cv->Do_f( m.fast_char );
   }
 }
 
 void L_Handle_SemiColon( Vis::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   if( 0 <= m.fast_char )
   {
     if     ( m.colon_mode ) m.colon_view->Do_f( m.fast_char );
@@ -3571,33 +3709,40 @@ void Handle_z( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
+  View* cv = CV(m);
   const char CC2 = m.key.In();
 
   if( CC2 == 't' || IsEndOfLineDelim( CC2 ) )
   {
-    if( m.diff_mode ) m.diff.MoveCurrLineToTop();
-    else              CV(m)->MoveCurrLineToTop();
+    if( cv->GetInDiff() ) m.diff.MoveCurrLineToTop();
+    else                     cv->MoveCurrLineToTop();
   }
   else if( CC2 == 'z' )
   {
-    if( m.diff_mode ) m.diff.MoveCurrLineCenter();
-    else              CV(m)->MoveCurrLineCenter();
+    if( cv->GetInDiff() ) m.diff.MoveCurrLineCenter();
+    else                     cv->MoveCurrLineCenter();
   }
   else if( CC2 == 'b' )
   {
-    if( m.diff_mode ) m.diff.MoveCurrLineToBottom();
-    else              CV(m)->MoveCurrLineToBottom();
+    if( cv->GetInDiff() ) m.diff.MoveCurrLineToBottom();
+    else                     cv->MoveCurrLineToBottom();
   }
 }
 
 void Handle_Percent( Vis::Data& m )
 {
-  if( m.diff_mode ) m.diff.GoToOppositeBracket();
-  else              CV(m)->GoToOppositeBracket();
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.GoToOppositeBracket();
+  else                     cv->GoToOppositeBracket();
 }
 
 void L_Handle_Percent( Vis::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   if     ( m.colon_mode ) m.colon_view->GoToOppositeBracket();
   else if( m.slash_mode ) m.slash_view->GoToOppositeBracket();
 }
@@ -3605,27 +3750,43 @@ void L_Handle_Percent( Vis::Data& m )
 // Left squiggly bracket
 void Handle_LeftSquigglyBracket( Vis::Data& m )
 {
-  if( m.diff_mode ) m.diff.GoToLeftSquigglyBracket();
-  else              CV(m)->GoToLeftSquigglyBracket();
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.GoToLeftSquigglyBracket();
+  else                     cv->GoToLeftSquigglyBracket();
 }
 
 // Right squiggly bracket
 void Handle_RightSquigglyBracket( Vis::Data& m )
 {
-  if( m.diff_mode ) m.diff.GoToRightSquigglyBracket();
-  else              CV(m)->GoToRightSquigglyBracket();
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.GoToRightSquigglyBracket();
+  else                     cv->GoToRightSquigglyBracket();
 }
 
 void Handle_F( Vis::Data& m )
 {
-  if( m.diff_mode )  m.diff.PageDown();
-  else               CV(m)->PageDown();
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.PageDown();
+  else                     cv->PageDown();
 }
 
 void Handle_B( Vis::Data& m )
 {
-  if( m.diff_mode )  m.diff.PageUp();
-  else               CV(m)->PageUp();
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.PageUp();
+  else                     cv->PageUp();
 }
 
 void Handle_m( Vis::Data& m )
@@ -3660,27 +3821,28 @@ void Handle_g( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
+  View* cv = CV(m);
   const char CC2 = m.key.In();
 
   if( CC2 == 'g' )
   {
-    if( m.diff_mode ) m.diff.GoToTopOfFile();
-    else              CV(m)->GoToTopOfFile();
+    if( cv->GetInDiff() ) m.diff.GoToTopOfFile();
+    else                     cv->GoToTopOfFile();
   }
   else if( CC2 == '0' )
   {
-    if( m.diff_mode ) m.diff.GoToStartOfRow();
-    else              CV(m)->GoToStartOfRow();
+    if( cv->GetInDiff() ) m.diff.GoToStartOfRow();
+    else                     cv->GoToStartOfRow();
   }
   else if( CC2 == '$' )
   {
-    if( m.diff_mode ) m.diff.GoToEndOfRow();
-    else              CV(m)->GoToEndOfRow();
+    if( cv->GetInDiff() ) m.diff.GoToEndOfRow();
+    else                     cv->GoToEndOfRow();
   }
   else if( CC2 == 'f' )
   {
-    if( m.diff_mode ) m.diff.GoToFile();
-    else              CV(m)->GoToFile();
+    if( cv->GetInDiff() ) m.diff.GoToFile();
+    else                     cv->GoToFile();
   }
 }
 
@@ -3734,8 +3896,10 @@ void Handle_d( Vis::Data& m )
       m.key.dot_buf_n.push('d');
       m.key.dot_buf_n.push('d');
     }
-    if( m.diff_mode ) m.diff.Do_dd();
-    else              CV(m)->Do_dd();
+    View* cv = CV(m);
+
+    if( cv->GetInDiff() ) m.diff.Do_dd();
+    else                     cv->Do_dd();
   }
   else if( C == 'w' )
   {
@@ -3745,8 +3909,10 @@ void Handle_d( Vis::Data& m )
       m.key.dot_buf_n.push('d');
       m.key.dot_buf_n.push('w');
     }
-    if( m.diff_mode ) m.diff.Do_dw();
-    else              CV(m)->Do_dw();
+    View* cv = CV(m);
+
+    if( cv->GetInDiff() ) m.diff.Do_dw();
+    else                     cv->Do_dw();
   }
 }
 
@@ -3782,17 +3948,18 @@ void Handle_y( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
+  View* cv = CV(m);
   const char C = m.key.In();
 
   if( C == 'y' )
   {
-    if( m.diff_mode ) m.diff.Do_yy();
-    else              CV(m)->Do_yy();
+    if( cv->GetInDiff() ) m.diff.Do_yy();
+    else                     cv->Do_yy();
   }
   else if( C == 'w' )
   {
-    if( m.diff_mode ) m.diff.Do_yw();
-    else              CV(m)->Do_yw();
+    if( cv->GetInDiff() ) m.diff.Do_yw();
+    else                     cv->Do_yw();
   }
 }
 
@@ -3850,8 +4017,10 @@ void L_Handle_Colon( Vis::Data& m )
 
   m.colon_mode = false;
 
-  if( m.diff_mode ) m.diff.PrintCursor( CV(m) );
-  else              CV(m)->PrintCursor();
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.PrintCursor( cv );
+  else                     cv->PrintCursor();
 }
 
 void L_Handle_Return( Vis::Data& m )
@@ -3914,8 +4083,10 @@ void L_Handle_Slash( Vis::Data& m )
 
   m.slash_mode = false;
 
-  if( m.diff_mode ) m.diff.PrintCursor( CV(m) );
-  else              CV(m)->PrintCursor();
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.PrintCursor( cv );
+  else                     cv->PrintCursor();
 }
 
 void L_Handle_Escape( Vis::Data& m )
@@ -3936,8 +4107,10 @@ void Handle_n( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( m.diff_mode ) m.diff.Do_n();
-  else              CV(m)->Do_n();
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.Do_n();
+  else                     cv->Do_n();
 }
 
 void L_Handle_n( Vis::Data& m )
@@ -3952,8 +4125,10 @@ void Handle_N( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( m.diff_mode ) m.diff.Do_N();
-  else              CV(m)->Do_N();
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.Do_N();
+  else                     cv->Do_N();
 }
 
 void L_Handle_N( Vis::Data& m )
@@ -3968,8 +4143,10 @@ void Handle_u( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( m.diff_mode ) m.diff.Do_u();
-  else              CV(m)->Do_u();
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.Do_u();
+  else                     cv->Do_u();
 }
 
 //void L_Handle_u( Vis::Data& m )
@@ -3984,8 +4161,10 @@ void Handle_U( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( m.diff_mode ) m.diff.Do_U();
-  else              CV(m)->Do_U();
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.Do_U();
+  else                     cv->Do_U();
 }
 
 //void L_Handle_U( Vis::Data& m )
@@ -4068,8 +4247,10 @@ void Handle_Star( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  String pattern = m.diff_mode ?  m.diff.Do_Star_GetNewPattern()
-                               :  CV(m)->Do_Star_GetNewPattern();
+  View* cv = CV(m);
+
+  String pattern = cv->GetInDiff() ?  m.diff.Do_Star_GetNewPattern()
+                                   :     cv->Do_Star_GetNewPattern();
   if( pattern != m.regex )
   {
     m.regex = pattern;
@@ -4078,19 +4259,8 @@ void Handle_Star( Vis::Data& m )
     {
       Do_Star_Update_Search_Editor(m);
     }
-    if( m.diff_mode ) m.diff.Update();
-    else {
-      // Show new star patterns for all windows currently displayed,
-      // but update current window last, so that the cursor ends up
-      // in the current window.
-      for( unsigned w=0; w<m.num_wins; w++ )
-      {
-        View* const pV = GetView_Win( m, w );
-
-        if( pV != m.vis.CV() ) pV->Update();
-      }
-      m.vis.CV()->Update();
-    }
+    // Show new star pattern for all windows currently displayed:
+    m.vis.UpdateAll( true );
   }
 }
 
@@ -4103,8 +4273,10 @@ void Handle_D( Vis::Data& m )
     m.key.dot_buf_n.clear();
     m.key.dot_buf_n.push('D');
   }
-  if( m.diff_mode ) m.diff.Do_D();
-  else              CV(m)->Do_D();
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.Do_D();
+  else                     cv->Do_D();
 }
 
 void L_Handle_D( Vis::Data& m )
@@ -4128,8 +4300,10 @@ void Handle_p( Vis::Data& m )
     m.key.dot_buf_n.clear();
     m.key.dot_buf_n.push('p');
   }
-  if( m.diff_mode ) m.diff.Do_p();
-  else              CV(m)->Do_p();
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.Do_p();
+  else                     cv->Do_p();
 }
 
 void L_Handle_p( Vis::Data& m )
@@ -4153,8 +4327,10 @@ void Handle_P( Vis::Data& m )
     m.key.dot_buf_n.clear();
     m.key.dot_buf_n.push('P');
   }
-  if( m.diff_mode ) m.diff.Do_P();
-  else              CV(m)->Do_P();
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.Do_P();
+  else                     cv->Do_P();
 }
 
 void L_Handle_P( Vis::Data& m )
@@ -4179,8 +4355,10 @@ void Handle_R( Vis::Data& m )
     m.key.dot_buf_n.push('R');
     m.key.save_2_dot_buf_n = true;
   }
-  if( m.diff_mode ) m.diff.Do_R();
-  else              CV(m)->Do_R();
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.Do_R();
+  else                     cv->Do_R();
 
   if( !m.key.get_from_dot_buf_n )
   {
@@ -4237,8 +4415,10 @@ void Handle_J( Vis::Data& m )
     m.key.dot_buf_n.clear();
     m.key.dot_buf_n.push('J');
   }
-  if( m.diff_mode ) m.diff.Do_J();
-  else              CV(m)->Do_J();
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.Do_J();
+  else                     cv->Do_J();
 }
 
 void L_Handle_J( Vis::Data& m )
@@ -4262,8 +4442,10 @@ void Handle_Tilda( Vis::Data& m )
     m.key.dot_buf_n.clear();
     m.key.dot_buf_n.push('~');
   }
-  if( m.diff_mode ) m.diff.Do_Tilda();
-  else              CV(m)->Do_Tilda();
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.Do_Tilda();
+  else                     cv->Do_Tilda();
 }
 
 void L_Handle_Tilda( Vis::Data& m )
@@ -4496,7 +4678,9 @@ void CmdLineMessage( Vis::Data& m, const char* const msg )
     }
   }
   Console::Update();
-  pV->PrintCursor();
+
+  if( pV->GetInDiff() ) m.diff.PrintCursor( pV );
+  else                     pV->PrintCursor();
 }
 
 void Window_Message( Vis::Data& m, const char* const msg )
@@ -4561,11 +4745,10 @@ void Vis::Init( const int ARGC, const char* const ARGV[] )
 
   if( ! run_diff )
   {
-    UpdateAll();
+    UpdateAll( false );
   }
   else {
     // User supplied: "-d file1 file2", so run diff:
-    m.diff_mode = true;
     m.num_wins = 2;
     m.file_hist[ 0 ][0] = USER_FILE;
     m.file_hist[ 1 ][0] = USER_FILE+1;
@@ -4661,7 +4844,7 @@ void Vis::NoDiff()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( true == m.diff_mode )
+  if( CV()->GetInDiff() )
   {
     m.diff_mode = false;
 
@@ -4671,6 +4854,7 @@ void Vis::NoDiff()
     // Set the view contexts to similar values as the diff contexts:
     if( 0 != pvS )
     {
+      pvS->SetInDiff( false );
       pvS->SetTopLine ( m.diff.GetTopLine ( pvS ) );
       pvS->SetLeftChar( m.diff.GetLeftChar() );
       pvS->SetCrsRow  ( m.diff.GetCrsRow  () );
@@ -4678,12 +4862,13 @@ void Vis::NoDiff()
     }
     if( 0 != pvL )
     {
+      pvL->SetInDiff( false );
       pvL->SetTopLine ( m.diff.GetTopLine ( pvL ) );
       pvL->SetLeftChar( m.diff.GetLeftChar() );
       pvL->SetCrsRow  ( m.diff.GetCrsRow  () );
       pvL->SetCrsCol  ( m.diff.GetCrsCol  () );
     }
-    UpdateAll();
+    UpdateAll( false );
   }
 }
 
@@ -4757,7 +4942,7 @@ void Vis::CheckWindowSize()
     {
       AdjustViews(m);
       Console::Invalidate();
-      UpdateAll();
+      UpdateAll( false );
     }
   }
 }
@@ -4853,21 +5038,53 @@ void Vis::Window_Message( const char* const msg_fmt, ... )
   ::Window_Message( m, msg_buf );
 }
 
-void Vis::UpdateAll()
+//void Vis::UpdateAll()
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//
+//  if( m.diff_mode )
+//  {
+//    m.diff.Update();
+//  }
+//  else {
+//    for( unsigned k=0; k<m.num_wins; k++ )
+//    {
+//      GetView_Win( m, k )->Update( false );
+//    }
+//    PrintCursor();
+//  }
+//}
+
+void Vis::UpdateAll( const bool show_search )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
+  for( unsigned w=0; w<m.num_wins; w++ )
+  {
+    View* pv = GetView_Win( m, w );
+
+    if( ! pv->GetInDiff() )
+    {
+      if( show_search )
+      {
+        String msg("/");
+        pv->Set_Cmd_Line_Msg( msg += m.regex );
+      }
+      pv->Update( false ); //< Do not print cursor
+    }
+  }
   if( m.diff_mode )
   {
+    if( show_search )
+    {
+      String msg("/");
+      m.diff.Set_Cmd_Line_Msg( msg += m.regex );
+    }
     m.diff.Update();
   }
-  else {
-    for( unsigned k=0; k<m.num_wins; k++ )
-    {
-      GetView_Win( m, k )->Update( false );
-    }
-    PrintCursor();
-  }
+  View* cv = CV();
+
+  if( !cv->GetInDiff() ) cv->PrintCursor();
 }
 
 bool Vis::Update_Status_Lines()
@@ -4938,8 +5155,10 @@ void Vis::PrintCursor()
     m.slash_view->PrintCursor();
   }
   else {
-    if( m.diff_mode ) m.diff.PrintCursor( CV() );
-    else               CV()->PrintCursor();
+    View* cv = CV();
+
+    if( cv->GetInDiff() ) m.diff.PrintCursor( cv );
+    else                     cv->PrintCursor();
   }
 }
 
@@ -5064,24 +5283,15 @@ void Vis::Handle_Slash_GotPattern( const String& pattern
   {
     Do_Star_Update_Search_Editor(m);
   }
+  View* cv = CV();
+
   if( MOVE_TO_FIRST_PATTERN && 0<pattern.len() )
   {
-    if( m.diff_mode ) m.diff.Do_n();
-    else               CV()->Do_n();
+    if( cv->GetInDiff() ) m.diff.Do_n();
+    else                     cv->Do_n();
   }
-  if( m.diff_mode ) m.diff.Update();
-  else {
-    // Show new slash patterns for all windows currently displayed,
-    // but update current window last, so that the cursor ends up
-    // in the current window.
-    for( unsigned w=0; w<m.num_wins; w++ )
-    {
-      View* const pV = GetView_Win( m, w );
-
-      if( pV != CV() ) pV->Update();
-    }
-    CV()->Update();
-  }
+  // Show new slash pattern for all windows currently displayed:
+  m.vis.UpdateAll( true );
 }
 
 // Given view of currently displayed on this side and other side,
@@ -5126,8 +5336,12 @@ bool Vis::Diff_By_File_Indexes( View* const cV, unsigned const c_file_idx
     nv_o->SetTilePos( oV->GetTilePos() );
 
     ok = m.diff.Run( nv_c, nv_o );
-
-    if( ok ) m.diff_mode = true;
+    if( ok ) {
+      m.diff_mode = true;
+      m.diff.GetViewShort()->SetInDiff( true );
+      m.diff.GetViewLong() ->SetInDiff( true );
+      m.diff.Update();
+    }
   }
   return ok;
 }

@@ -76,6 +76,8 @@ public:
   void SetInsertMode( const bool val );
   bool GetReplaceMode() const;
   void SetReplaceMode( const bool val );
+  bool GetInDiff() const;
+  void SetInDiff( const bool val );
 
   void GoUp( const int num=1 );
   void GoDown( const unsigned num=1 );
@@ -182,6 +184,8 @@ public:
                   , const unsigned crsCol );
   void Clear_Context();
   void Check_Context();
+
+  void Set_Cmd_Line_Msg( const String& msg );
 
   const char* GetPathName();
 

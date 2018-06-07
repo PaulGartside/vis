@@ -120,6 +120,8 @@ public:
   bool Update_Status_Lines();
   bool ReDiff();
 
+  void Set_Cmd_Line_Msg( const String& msg );
+
   struct Data;
 
 private:

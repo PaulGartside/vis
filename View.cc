@@ -72,9 +72,11 @@ struct View::Data
   bool inReplaceMode;
   bool inVisualMode;
   bool inVisualBlock;
+  bool in_diff;
 
   bool sts_line_needs_update;
   bool us_change_sts; // un-saved change status, true if '+", false if ' '
+  String cmd_line_msg;
 
   Data( View& view
       , Vis& vis
@@ -113,6 +115,7 @@ View::Data::Data( View& view
   , inVisualBlock( false )
   , sts_line_needs_update( false )
   , us_change_sts( false )
+  , cmd_line_msg()
 {
 }
 
@@ -2471,6 +2474,8 @@ bool View::GetInsertMode() const { return m.inInsertMode; }
 void View::SetInsertMode( const bool val ) { m.inInsertMode = val; }
 bool View::GetReplaceMode() const { return m.inReplaceMode; }
 void View::SetReplaceMode( const bool val ) { m.inReplaceMode = val; }
+bool View::GetInDiff() const { return m.in_diff; }
+void View::SetInDiff( const bool val ) { m.in_diff = val; }
 
 //void View::GoUp()
 //{
@@ -3447,10 +3452,11 @@ void View::Do_n()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  const unsigned NUM_LINES = m.fb.NumLines();
-
-  if( 0 < NUM_LINES )
+  if( 0 < m.fb.NumLines() )
   {
+    String msg("/");
+    Set_Cmd_Line_Msg( msg += m.vis.GetRegex() );
+
     CrsPos ncp = { 0, 0 }; // Next cursor position
 
     if( Do_n_FindNextPattern( m, ncp ) )
@@ -3469,10 +3475,11 @@ void View::Do_N()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  const unsigned NUM_LINES = m.fb.NumLines();
-
-  if( 0 < NUM_LINES )
+  if( 0 < m.fb.NumLines() )
   {
+    String msg("/");
+    Set_Cmd_Line_Msg( msg += m.vis.GetRegex() );
+
     CrsPos ncp = { 0, 0 }; // Next cursor position
 
     if( Do_N_FindPrevPattern( m, ncp ) )
@@ -3923,7 +3930,7 @@ void View::PrintCmdLine()
 
   // Assumes you are already at the command line,
   // and just prints "--INSERT--" banner, and/or clears command line
-
+  const unsigned WC = WorkingCols();
   unsigned col=0;
   // Draw insert banner if needed
   if( m.inInsertMode )
@@ -3942,7 +3949,15 @@ void View::PrintCmdLine()
     col=11; // Strlen of "--RUNNING--"
     Console::SetS( Cmd__Line_Row(), Col_Win_2_GL( 0 ), "--RUNNING--", S_BANNER );
   }
-  const unsigned WC = WorkingCols();
+  else if( 0 < m.cmd_line_msg.len() )
+  {
+    col = m.cmd_line_msg.len();
+    for( unsigned k=0; k<col && k<WC; k++ )
+    {
+      const char C = m.cmd_line_msg.get(k);
+      Console::Set( Cmd__Line_Row(), Col_Win_2_GL( k ), C, S_NORMAL );
+    }
+  }
 
   for( ; col<WC; col++ )
   {
@@ -4176,6 +4191,11 @@ void View::Check_Context()
       GoToCrsPos_NoWrite( CL, CP );
     }
   }
+}
+
+void View::Set_Cmd_Line_Msg( const String& msg )
+{
+  m.cmd_line_msg = msg;
 }
 
 const char* View::GetPathName()

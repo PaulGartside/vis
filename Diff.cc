@@ -161,6 +161,8 @@ struct Diff::Data
   bool  inVisualBlock; // true if in visual block, else false
   bool undo_v;
 
+  String cmd_line_msg;
+
   Array_t<SameArea> sameList;
   Array_t<DiffArea> diffList;
 
@@ -200,6 +202,7 @@ Diff::Data::Data( Diff& diff, Vis& vis, Key& key, LinesList& reg )
   , inVisualMode ( false )
   , inVisualBlock( false )
   , undo_v( false )
+  , cmd_line_msg()
   , sameList()
   , diffList()
   , DI_List_S()
@@ -1055,6 +1058,19 @@ bool DiffSameAsPrev( Diff::Data& m, View* const pv0, View* const pv1 )
   }
   return FILES_SAME_AS_BEFORE
       && DATES_SAME_AS_BEFORE;
+}
+
+void Set_ShortLong_ViewfileMod_Vars( Diff::Data& m, View* const pv0, View* const pv1 )
+{
+  const unsigned nLines_0 = pv0->GetFB()->NumLines();
+  const unsigned nLines_1 = pv1->GetFB()->NumLines();
+
+  m.pvS = nLines_0 < nLines_1 ? pv0 : pv1; // Short view
+  m.pvL = nLines_0 < nLines_1 ? pv1 : pv0; // Long  view
+  m.pfS = m.pvS->GetFB();
+  m.pfL = m.pvL->GetFB();
+  m.mod_time_s = m.pfS->GetModTime();
+  m.mod_time_l = m.pfL->GetModTime();
 }
 
 unsigned WorkingRows( View* pV ) { return pV->WinRows() -5 ; }
@@ -2541,6 +2557,9 @@ void Do_n_Pattern( Diff::Data& m )
 
   if( 0 < NUM_LINES )
   {
+    String msg("/");
+    m.diff.Set_Cmd_Line_Msg( msg += m.vis.GetRegex() );
+
     CrsPos ncp = { 0, 0 }; // Next cursor position
 
     if( Do_n_FindNextPattern( m, ncp ) )
@@ -2650,6 +2669,8 @@ void Do_n_Diff( Diff::Data& m )
 
   if( 0 < NUM_LINES )
   {
+    m.diff.Set_Cmd_Line_Msg("Searching down for diff");
+
     unsigned dl = CrsLine(m); // Diff line, changed by search methods below
 
     View* pV = m.vis.CV();
@@ -2779,13 +2800,17 @@ void Do_N_Pattern( Diff::Data& m )
 
   const unsigned NUM_LINES = pV->GetFB()->NumLines();
 
-  if( NUM_LINES == 0 ) return;
-
-  CrsPos ncp = { 0, 0 }; // Next cursor position
-
-  if( Do_N_FindPrevPattern( m, ncp ) )
+  if( 0 < NUM_LINES )
   {
-    GoToCrsPos_Write( m, ncp.crsLine, ncp.crsChar );
+    String msg("/");
+    m.diff.Set_Cmd_Line_Msg( msg += m.vis.GetRegex() );
+
+    CrsPos ncp = { 0, 0 }; // Next cursor position
+
+    if( Do_N_FindPrevPattern( m, ncp ) )
+    {
+      GoToCrsPos_Write( m, ncp.crsLine, ncp.crsChar );
+    }
   }
 }
 
@@ -2889,6 +2914,8 @@ void Do_N_Diff( Diff::Data& m )
 
   if( 0 < NUM_LINES )
   {
+    m.diff.Set_Cmd_Line_Msg("Searching up for diff");
+
     int dl = CrsLine(m); // Diff line, changed by search methods below
 
     View* pV = m.vis.CV();
@@ -4914,44 +4941,28 @@ bool Diff::Run( View* const pv0, View* const pv1 )
     const Tile_Pos tp0 = pv0->GetTilePos();
     const Tile_Pos tp1 = pv1->GetTilePos();
 
-    // Buffers must be vertically split to do diff:
-    if( (TP_LEFT_HALF == tp0 && TP_RITE_HALF == tp1)
-     || (TP_LEFT_HALF == tp1 && TP_RITE_HALF == tp0) )
+    const bool same_as_prev = DiffSameAsPrev( m, pv0, pv1 );
+
+    Set_ShortLong_ViewfileMod_Vars( m, pv0, pv1 );
+
+    if( same_as_prev )
     {
-      if( DiffSameAsPrev( m, pv0, pv1 ) )
-      {
-        View* pV = m.vis.CV();
+      Set_DiffContext_2_ViewContext(m);
 
-        m.topLine  = m.diff.DiffLine( pV, pV->GetTopLine() );
-        m.leftChar =                  pV->GetLeftChar();
-        m.crsRow   =                  pV->GetCrsRow  ();
-        m.crsCol   =                  pV->GetCrsCol  ();
-
-        // Dont need to re-run the diff, just display the results:
-        Update();
-      }
-      else {
-        CleanDiff(m); //< Start over with clean slate
-
-        const unsigned nLines_0 = pv0->GetFB()->NumLines();
-        const unsigned nLines_1 = pv1->GetFB()->NumLines();
-
-        m.pvS = nLines_0 < nLines_1 ? pv0 : pv1; // Short view
-        m.pvL = nLines_0 < nLines_1 ? pv1 : pv0; // Long  view
-        m.pfS = m.pvS->GetFB();
-        m.pfL = m.pvL->GetFB();
-        m.mod_time_s = m.pfS->GetModTime();
-        m.mod_time_l = m.pfL->GetModTime();
-
-        // All lines in both files:
-        DiffArea CA( 0, m.pfS->NumLines(), 0, m.pfL->NumLines() );
-
-        RunDiff( m, CA );
-        Set_DiffContext_2_ViewContext(m);
-        m.diff.Update();
-      }
-      return true;
+      // Dont need to re-run the diff, just display the results:
+      Update();
     }
+    else {
+      CleanDiff(m); //< Start over with clean slate
+
+      // All lines in both files:
+      DiffArea CA( 0, m.pfS->NumLines(), 0, m.pfL->NumLines() );
+
+      RunDiff( m, CA );
+      Set_DiffContext_2_ViewContext(m);
+      m.diff.Update();
+    }
+    return true;
   }
   return false;
 }
@@ -6703,5 +6714,10 @@ bool Diff::ReDiff()
     Update();
   }
   return ok;
+}
+
+void Diff::Set_Cmd_Line_Msg( const String& msg )
+{
+  m.cmd_line_msg = msg;
 }
 

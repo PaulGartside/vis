@@ -54,61 +54,92 @@ void Highlight_Bash::Run_Range( const CrsPos st, const unsigned fn )
   Find_Styles_Keys_In_Range( st, fn );
 }
 
+static bool Quote_Start( const char qt
+                       , const char c2
+                       , const char c1
+                       , const char c0 )
+{
+  return (c1==0    && c0==qt ) //< Quote at beginning of line
+      || (c1!='\\' && c0==qt ) //< Non-escapted quote
+      || (c2=='\\' && c1=='\\' && c0==qt ); //< Escapted escape before quote
+}
+
+static bool TwoControl( const char c1, const char c0 )
+{
+  return (c1=='=' && c0=='=')
+      || (c1=='&' && c0=='&')
+      || (c1=='|' && c0=='|')
+      || (c1=='|' && c0=='=')
+      || (c1=='&' && c0=='=')
+      || (c1=='!' && c0=='=')
+      || (c1=='+' && c0=='=')
+      || (c1=='-' && c0=='=');
+}
+
+static bool OneVarType( const char c0 )
+{
+  return (c0=='&' || c0=='#')
+      || (c0=='.' || c0=='*')
+      || (c0=='[' || c0==']');
+}
+
+static bool OneControl( const char c0 )
+{
+  return (c0=='=' || c0=='@')
+      || (c0=='^' || c0=='~')
+      || (c0==':' || c0=='%')
+      || (c0=='+' || c0=='-')
+      || (c0=='<' || c0=='>')
+      || (c0=='!' || c0=='?')
+      || (c0=='(' || c0==')')
+      || (c0=='{' || c0=='}')
+      || (c0==',' || c0==';')
+      || (c0=='/' || c0=='|');
+}
+
 void Highlight_Bash::Hi_In_None( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   for( ; l<m_fb.NumLines(); l++ )
   {
     const unsigned LL = m_fb.LineLen( l );
-    const Line&    lr = m_fb.GetLine( l );
 
     for( ; p<LL; p++ )
     {
       m_fb.ClearSyntaxStyles( l, p );
 
-      const char* s = lr.c_str( p );
+      // c0 is ahead of c1 is ahead of c2: (c2,c1,c0)
+      const char c2 = 1<p ? m_fb.Get( l, p-2 ) : 0;
+      const char c1 = 0<p ? m_fb.Get( l, p-1 ) : 0;
+      const char c0 =       m_fb.Get( l, p   );
+      const bool comment = c0=='#' && (0==p || c1!='$');
 
-      const bool comment = lr.get(p)=='#' && (0==p || lr.get(p-1)!='$');
+      if     ( comment )                    { m_state = &ME::Hi_In_Comment; }
+      else if( Quote_Start('\'',c2,c1,c0) ) { m_state = &ME::Hi_SingleQuote; }
+      else if( Quote_Start('\"',c2,c1,c0) ) { m_state = &ME::Hi_DoubleQuote; }
+      else if( !IsIdent(c1) && isdigit(c0)) { m_state = &ME::Hi_NumberBeg; }
 
-      if     ( comment )                  { m_state = &ME::Hi_In_Comment; }
-      else if( 0==strncmp( s, "\'", 1 ) ) { m_state = &ME::Hi_SingleQuote; }
-      else if( 0==strncmp( s, "\"", 1 ) ) { m_state = &ME::Hi_DoubleQuote; }
-      else if( 0<p && !IsIdent((s-1)[0])
-                   &&  isdigit( s   [0]) ){ m_state = &ME::Hi_NumberBeg; }
-
-      else if( p<LL-1
-            && (0==strncmp( s, "::", 2 )
-             || 0==strncmp( s, "->", 2 )) ) { m_fb.SetSyntaxStyle( l, p++, HI_VARTYPE );
-                                              m_fb.SetSyntaxStyle( l, p  , HI_VARTYPE ); }
-      else if( p<LL-1
-            &&( 0==strncmp( s, "==", 2 )
-             || 0==strncmp( s, "&&", 2 )
-             || 0==strncmp( s, "||", 2 )
-             || 0==strncmp( s, "|=", 2 )
-             || 0==strncmp( s, "&=", 2 )
-             || 0==strncmp( s, "!=", 2 )
-             || 0==strncmp( s, "+=", 2 )
-             || 0==strncmp( s, "-=", 2 )) ) { m_fb.SetSyntaxStyle( l, p++, HI_CONTROL );
-                                              m_fb.SetSyntaxStyle( l, p  , HI_CONTROL ); }
-
-      else if( s[0]=='$' ) { m_fb.SetSyntaxStyle( l, p, HI_DEFINE ); }
-      else if( s[0]=='&' || s[0]=='#'
-            || s[0]=='.' || s[0]=='*'
-            || s[0]=='[' || s[0]==']' ) { m_fb.SetSyntaxStyle( l, p, HI_VARTYPE ); }
-
-      else if( s[0]=='~'
-            || s[0]=='=' || s[0]=='^'
-            || s[0]==':' || s[0]=='%'
-            || s[0]=='+' || s[0]=='-'
-            || s[0]=='<' || s[0]=='>'
-            || s[0]=='!' || s[0]=='?'
-            || s[0]=='(' || s[0]==')'
-            || s[0]=='{' || s[0]=='}'
-            || s[0]==',' || s[0]==';'
-            || s[0]=='/' || s[0]=='|' ) { m_fb.SetSyntaxStyle( l, p, HI_CONTROL ); }
-
-      else if( s[0] < 32 || 126 < s[0] ) { m_fb.SetSyntaxStyle( l, p, HI_NONASCII ); }
-
+      else if( TwoControl( c1, c0 ) )
+      {
+        m_fb.SetSyntaxStyle( l, p-1, HI_CONTROL );
+        m_fb.SetSyntaxStyle( l, p  , HI_CONTROL );
+      }
+      else if( c0=='$' )
+      {
+        m_fb.SetSyntaxStyle( l, p, HI_DEFINE );
+      }
+      else if( OneVarType( c0 ) )
+      {
+        m_fb.SetSyntaxStyle( l, p, HI_VARTYPE );
+      }
+      else if( OneControl( c0 ) )
+      {
+        m_fb.SetSyntaxStyle( l, p, HI_CONTROL );
+      }
+      else if( c0 < 32 || 126 < c0 )
+      {
+        m_fb.SetSyntaxStyle( l, p, HI_NONASCII );
+      }
       if( &ME::Hi_In_None != m_state ) return;
     }
     p = 0;
