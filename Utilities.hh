@@ -28,6 +28,7 @@
 #include <signal.h>
 #include "Types.hh"
 
+class FileBuf;
 class String;
 
 // The built in cast functions are too long, so create shorter versions:
@@ -103,6 +104,7 @@ bool line_end_or_non_ident( const Line& line
                           , const unsigned p );
 
 bool Files_Are_Same( const char* fname_s, const char* fname_l );
+bool Files_Are_Same( const FileBuf& fb_s, const FileBuf& fb_l );
 bool Line_Has_Regex( const Line& line, const String& regex );
 
 class Trace

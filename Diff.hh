@@ -121,6 +121,7 @@ public:
   bool ReDiff();
 
   void Set_Cmd_Line_Msg( const String& msg );
+  void DisplayMapping();
 
   struct Data;
 

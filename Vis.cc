@@ -109,10 +109,12 @@ struct Vis::Data
   bool       diff_mode; // true if displaying diff
   bool       colon_mode;// true if cursor is on vis colon line
   bool       slash_mode;// true if cursor is on vis slash line
+  bool       sort_by_time;
   String     regex;     // current regular expression pattern to highlight
   int        fast_char; // Char on line to goto when ';' is entered
   unsigned   repeat;
   String     repeat_buf;
+  View*      cv_old;
 
   typedef void (*CmdFunc) ( Data& m );
   CmdFunc ViewFuncs[128];
@@ -140,10 +142,12 @@ Vis::Data::Data( Vis& vis )
   , diff_mode( false )
   , colon_mode( false )
   , slash_mode( false )
+  , sort_by_time( false )
   , regex()
   , fast_char( -1 )
   , repeat( 1 )
   , repeat_buf()
+  , cv_old( nullptr )
 {
 }
 
@@ -248,7 +252,7 @@ void Ch_Dir( Vis::Data& m )
   }
   else // :cd - chdir to location of current file
   {
-    const char* fname = CV(m)->GetFB()->GetFileName();
+    const char* fname = CV(m)->GetFB()->GetPathName();
     const char* last_slash = strrchr( fname, DIR_DELIM );
     if( 0==last_slash )
     {
@@ -596,7 +600,7 @@ bool FName_2_FNum( Vis::Data& m, const String& full_fname, unsigned& file_num )
 
   for( unsigned k=0; !found && k<m.files.len(); k++ )
   {
-    if( full_fname == m.files[ k ]->GetFileName() )
+    if( full_fname == m.files[ k ]->GetPathName() )
     {
       found = true;
       file_num = k;
@@ -632,8 +636,8 @@ bool WentBackToPrevDirDiff( Vis::Data& m )
         unsigned c_file_idx = 0;
         unsigned o_file_idx = 0;
 
-        if( FName_2_FNum( m, cV_prev->GetFB()->GetFileName(), c_file_idx )
-         && FName_2_FNum( m, oV_prev->GetFB()->GetFileName(), o_file_idx ) )
+        if( FName_2_FNum( m, cV_prev->GetFB()->GetPathName(), c_file_idx )
+         && FName_2_FNum( m, oV_prev->GetFB()->GetPathName(), o_file_idx ) )
         {
           // Move view indexes at front to back of m.file_hist
           unsigned c_view_index_old = m.file_hist[ c_win ].remove( 0 );
@@ -647,7 +651,6 @@ bool WentBackToPrevDirDiff( Vis::Data& m )
             m.diff_mode = true;
             m.diff.GetViewShort()->SetInDiff( true );
             m.diff.GetViewLong() ->SetInDiff( true );
-            m.diff.Update();
           }
         }
       }
@@ -2154,7 +2157,10 @@ void MapStart( Vis::Data& m )
   m.key.map_buf.clear();
   m.key.save_2_map_buf = true;
 
-  CV(m)->DisplayMapping();
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.DisplayMapping();
+  else                     cv->DisplayMapping();
 }
 
 void MapEnd( Vis::Data& m )
@@ -2302,16 +2308,16 @@ View* Diff_FindRegFileView( Vis::Data& m
                           , const unsigned win_idx
                           ,       View*    pv )
 {
-  String possible_fname = pfb_dir->GetFileName();
+  String possible_fname = pfb_dir->GetPathName();
   String fname_extension;
 
   gArray_t<String*> path_parts;
-  Create_Path_Parts_List( pfb_reg->GetFileName(), path_parts );
+  Create_Path_Parts_List( pfb_reg->GetPathName(), path_parts );
 
   for( int k=path_parts.len()-1; 0<=k; k-- )
   {
     // Revert back to pfb_dir.m_fname:
-    possible_fname = pfb_dir->GetFileName();
+    possible_fname = pfb_dir->GetPathName();
 
     if( 0<fname_extension.len()
      && fname_extension.get_end(0)!=DIR_DELIM )
@@ -2415,17 +2421,17 @@ void Diff_Files_Displayed( Vis::Data& m )
       pv0 = Diff_FindRegFileView( m, pfb1, pfb0, 0, pv0 );
     }
     else {
-      if( ( strcmp( SHELL_BUF_NAME, pfb0->GetHeadName() )
-         && !FileExists( pfb0->GetFileName() ) ) )
+      if( ( strcmp( SHELL_BUF_NAME, pfb0->GetFileName() )
+         && !FileExists( pfb0->GetPathName() ) ) )
       {
         ok = false;
-        m.vis.Window_Message("\n%s does not exist\n\n", pfb0->GetHeadName());
+        m.vis.Window_Message("\n%s does not exist\n\n", pfb0->GetFileName());
       }
-      if( ( strcmp( SHELL_BUF_NAME, pfb1->GetHeadName() )
-         && !FileExists( pfb1->GetFileName() ) ) )
+      if( ( strcmp( SHELL_BUF_NAME, pfb1->GetFileName() )
+         && !FileExists( pfb1->GetPathName() ) ) )
       {
         ok = false;
-        m.vis.Window_Message("\n%s does not exist\n\n", pfb1->GetHeadName());
+        m.vis.Window_Message("\n%s does not exist\n\n", pfb1->GetFileName());
       }
     }
     if( ok ) {
@@ -2718,6 +2724,64 @@ void HandleColon_unix2dos( Vis::Data& m )
   CV(m)->GetFB()->unix2dos();
 }
 
+void HandleColon_sort( Vis::Data& m )
+{
+  m.sort_by_time = !m.sort_by_time;
+
+  FileBuf* pfb = m.views[0][ BE_FILE ]->GetFB();
+  pfb->Sort();
+  pfb->Update();
+
+  if( m.sort_by_time )
+  {
+    m.vis.CmdLineMessage("Sorting files by focus time");
+  }
+  else {
+    m.vis.CmdLineMessage("Sorting files by name");
+  }
+}
+
+//void HandleColon_e( Vis::Data& m )
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//
+//  View* pV = CV(m);
+//  if( 0 == m.cbuf[1] ) // :e
+//  {
+//    FileBuf* pfb = pV->GetFB();
+//    pfb->ReReadFile();
+//
+//    for( unsigned w=0; w<m.num_wins; w++ )
+//    {
+//      if( pfb == GetView_Win( m, w )->GetFB() )
+//      {
+//        // View is currently displayed, perform needed update:
+//        GetView_Win( m, w )->Update();
+//      }
+//    }
+//  }
+//  else // :e file_name
+//  {
+//    // Edit file of supplied file name:
+//    String fname( m.cbuf + 1 );
+//
+//    if( FindFullFileNameRel2( pV->GetDirName(), fname ) )
+//    {
+//      unsigned file_index = 0;
+//      if( m.vis.HaveFile( fname.c_str(), &file_index ) )
+//      {
+//        GoToBuffer( m, file_index );
+//      }
+//      else {
+//        FileBuf* p_fb = new(__FILE__,__LINE__)
+//                        FileBuf( m.vis, fname.c_str(), true, FT_UNKNOWN );
+//        p_fb->ReadFile();
+//        GoToBuffer( m, m.views[m.win].len()-1 );
+//      }
+//    }
+//  }
+//}
+
 void HandleColon_e( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -2742,18 +2806,15 @@ void HandleColon_e( Vis::Data& m )
     // Edit file of supplied file name:
     String fname( m.cbuf + 1 );
 
-    if( FindFullFileNameRel2( pV->GetPathName(), fname ) )
+    if( FindFullFileNameRel2( pV->GetDirName(), fname ) )
     {
+      m.vis.NotHaveFileAddFile( fname );
+
       unsigned file_index = 0;
+
       if( m.vis.HaveFile( fname.c_str(), &file_index ) )
       {
         GoToBuffer( m, file_index );
-      }
-      else {
-        FileBuf* p_fb = new(__FILE__,__LINE__)
-                        FileBuf( m.vis, fname.c_str(), true, FT_UNKNOWN );
-        p_fb->ReadFile();
-        GoToBuffer( m, m.views[m.win].len()-1 );
       }
     }
   }
@@ -2793,7 +2854,7 @@ void HandleColon_w( Vis::Data& m )
     // Write file of supplied file name:
     String fname( m.cbuf + 1 );
 
-    if( FindFullFileNameRel2( pV->GetPathName(), fname ) )
+    if( FindFullFileNameRel2( pV->GetDirName(), fname ) )
     {
       unsigned file_index = 0;
       if( m.vis.HaveFile( fname.c_str(), &file_index ) )
@@ -2877,6 +2938,7 @@ void Handle_Colon_Cmd( Vis::Data& m )
   else if( strncmp(m.cbuf,"detab=",6)==0) HandleColon_detab(m);
   else if( strcmp( m.cbuf,"dos2unix")==0) HandleColon_dos2unix(m);
   else if( strcmp( m.cbuf,"unix2dos")==0) HandleColon_unix2dos(m);
+  else if( strcmp( m.cbuf,"sort")==0)     HandleColon_sort(m);
   else if( 'e' == m.cbuf[0] )             HandleColon_e(m);
   else if( 'w' == m.cbuf[0] )             HandleColon_w(m);
   else if( 'b' == m.cbuf[0] )             HandleColon_b(m);
@@ -4578,7 +4640,7 @@ void AddToBufferEditor( Vis::Data& m, const char* fname )
 
   FileBuf* pfb = m.views[0][ BE_FILE ]->GetFB();
   pfb->PushLine( line );
-  pfb->BufferEditor_Sort();
+  pfb->BufferEditor_SortName();
   pfb->ClearChanged();
 
   // Since buffer editor file has been re-arranged, make sure none of its
@@ -4789,6 +4851,21 @@ void Vis::Run()
   while( m.running )
   {
     Handle_Cmd( m );
+
+    // Handle focus time and sorting buffer editor:
+    View* cv = CV();
+    if( cv != m.cv_old )
+    {
+      m.cv_old = cv;
+      cv->GetFB()->SetFocTime( GetTimeSeconds() );
+
+      // cv is of buffer editor:
+      if( m.sort_by_time && cv->GetFB() == m.views[0][ BE_FILE ]->GetFB() )
+      {
+        // Update the buffer editor if it changed in the sort:
+        if( cv->GetFB()->Sort() ) cv->Update();
+      }
+    }
   }
   Console::Flush();
 }
@@ -4840,6 +4917,24 @@ void Vis::SetPasteMode( Paste_Mode pm )
   m.paste_mode = pm;
 }
 
+void Clear_Diff( Vis::Data& m )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  m.diff_mode = false;
+
+  // Make sure diff is turned off for everything:
+  for( int w=0; w<MAX_WINS; w++ )
+  {
+    ViewList& vl = m.views[w];
+
+    for( int f=0; f<vl.len(); f++ )
+    {
+      vl[ f ]->SetInDiff( false );
+    }
+  }
+}
+
 void Vis::NoDiff()
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -4868,8 +4963,10 @@ void Vis::NoDiff()
       pvL->SetCrsRow  ( m.diff.GetCrsRow  () );
       pvL->SetCrsCol  ( m.diff.GetCrsCol  () );
     }
-    UpdateAll( false );
   }
+  Clear_Diff(m);
+
+  UpdateAll( false );
 }
 
 bool Vis::InDiffMode() const
@@ -4880,6 +4977,11 @@ bool Vis::InDiffMode() const
 bool Vis::Shell_Running() const
 {
   return m.shell.Running();
+}
+
+bool Vis::GetSortByTime() const
+{
+  return m.sort_by_time;
 }
 
 void Vis::Update_Shell()
@@ -4904,7 +5006,7 @@ FileBuf* Vis::GetFileBuf( const String& fname ) const
   {
     FileBuf* pfb_k = m.files[ k ];
 
-    if( fname == pfb_k->GetFileName() )
+    if( fname == pfb_k->GetPathName() )
     {
       return pfb_k;
     }
@@ -4955,7 +5057,7 @@ void Vis::CheckFileModTime()
   if( USER_FILE <= m.file_hist[m.win][0] )
   {
     FileBuf* pfb = CV()->GetFB();
-    const char* fname = pfb->GetFileName();
+    const char* fname = pfb->GetPathName();
 
     const double curr_mod_time = ModificationTime( fname );
 
@@ -5162,7 +5264,7 @@ void Vis::PrintCursor()
   }
 }
 
-bool Vis::HaveFile( const char* file_name, unsigned* file_index )
+bool Vis::HaveFile( const char* path_name, unsigned* file_index )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -5172,7 +5274,7 @@ bool Vis::HaveFile( const char* file_name, unsigned* file_index )
 
   for( unsigned k=0; !already_have_file && k<NUM_FILES; k++ )
   {
-    if( 0==strcmp( m.files[k]->GetFileName(), file_name ) )
+    if( 0==strcmp( m.files[k]->GetPathName(), path_name ) )
     {
       already_have_file = true;
 
@@ -5180,6 +5282,23 @@ bool Vis::HaveFile( const char* file_name, unsigned* file_index )
     }
   }
   return already_have_file;
+}
+
+bool Vis::NotHaveFileAddFile( const String& pname )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  bool added_file = false;
+
+  if( !HaveFile( pname.c_str() ) )
+  {
+    FileBuf* p_fb = new(__FILE__,__LINE__)
+                    FileBuf( m.vis, pname.c_str(), true, FT_UNKNOWN );
+    p_fb->ReadFile();
+
+    added_file = true;
+  }
+  return added_file;
 }
 
 bool Vis::File_Is_Displayed( const String& full_fname )
@@ -5223,7 +5342,7 @@ bool Vis::GoToBuffer_Fname( String& fname )
   {
     ; // fname is already a full file name
   }
-  else if( !FindFullFileNameRel2( CV()->GetPathName(), fname ) )
+  else if( !FindFullFileNameRel2( CV()->GetDirName(), fname ) )
   {
     m.vis.CmdLineMessage( "Could not find file: %s", fname.c_str() );
     return false;
@@ -5340,7 +5459,6 @@ bool Vis::Diff_By_File_Indexes( View* const cV, unsigned const c_file_idx
       m.diff_mode = true;
       m.diff.GetViewShort()->SetInDiff( true );
       m.diff.GetViewLong() ->SetInDiff( true );
-      m.diff.Update();
     }
   }
   return ok;

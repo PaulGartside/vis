@@ -119,31 +119,31 @@ bool String::operator!=( const String& a ) const
   return m.s != a.m.s;
 }
 
-char String::get( const unsigned i ) const
+char String::get( const unsigned p ) const
 {
-  if( i<m.s.length() ) return m.s[i];
+  if( p<m.s.length() ) return m.s[p];
 
   return 0;
 }
 
-bool String::set( unsigned i, char C )
+bool String::set( unsigned p, char C )
 {
-  if( i<m.s.length() )
+  if( p<m.s.length() )
   {
-    m.s[i] = C;
+    m.s[p] = C;
 
     return true;
   }
-  else if( i==m.s.length() )
+  else if( p==m.s.length() )
   {
     return push( C );
   }
   return false;
 }
 
-char String::get_end( unsigned i ) const
+char String::get_end( unsigned p ) const
 {
-  const int index = m.s.length()-1-i;
+  const int index = m.s.length()-1-p;
 
   if( 0 <= index && index < m.s.length() ) return m.s[index];
 
@@ -364,6 +364,35 @@ unsigned String::trim_beg( const char* trim_chars )
     else done = true;
   }
   return num_trims;
+}
+
+// Return -1 if this is less    than a,
+// Return  1 if this is greater than a,
+// Return  0 if this is equal   to   a
+int  String::compareTo( const String& a ) const
+{
+  if     ( m.s < a.m.s ) return -1;
+  else if( a.m.s < m.s ) return  1;
+
+  return 0;
+}
+
+// Returns true if this is greater than a
+bool String::gt( const String& a ) const
+{
+  return a.m.s < m.s;
+}
+
+// Returns true if this is less than a
+bool String::lt( const String& a ) const
+{
+  return m.s < a.m.s;
+}
+
+// Return true if this is equal to a
+bool String::eq( const String& a ) const
+{
+  return m.s == a.m.s;
 }
 
 // Splits chars off from beginning of string up to delim into part.

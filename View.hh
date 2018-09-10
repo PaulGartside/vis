@@ -187,7 +187,7 @@ public:
 
   void Set_Cmd_Line_Msg( const String& msg );
 
-  const char* GetPathName();
+  const char* GetDirName();
 
   struct Data;
 

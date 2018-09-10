@@ -153,8 +153,6 @@ public:
                            , const unsigned i
                            , const unsigned byte
                            , const Style    s );
-  void DisplayMapping();
-
   bool HandleReturn();
 
   void Cover();

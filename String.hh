@@ -53,9 +53,9 @@ public:
   bool  operator==( const String& a ) const;
   bool  operator!=( const String& a ) const;
 
-  char  get( const unsigned i ) const;
-  bool  set( const unsigned i, char C );
-  char  get_end( const unsigned i=0 ) const;
+  char  get( const unsigned p ) const;
+  bool  set( const unsigned p, char C );
+  char  get_end( const unsigned p=0 ) const;
 
   bool    append( const char* cp );
   bool    append( const String& a );
@@ -82,6 +82,11 @@ public:
   unsigned trim    ( const char* trim_chars=" \t\r\n" );
   unsigned trim_end( const char* trim_chars=" \t\r\n" );
   unsigned trim_beg( const char* trim_chars=" \t\r\n" );
+
+  int  compareTo( const String& a ) const;
+  bool gt( const String& a ) const;
+  bool lt( const String& a ) const;
+  bool eq( const String& a ) const;
 
   struct Data;
 

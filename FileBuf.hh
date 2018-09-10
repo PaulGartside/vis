@@ -45,11 +45,13 @@ public:
   ~FileBuf();
 
   bool IsDir() const;
+  bool IsRegular() const;
   double GetModTime() const;
   void SetModTime( const double mt );
-  const char* GetFileName() const;
+  void SetFocTime( const double ft );
   const char* GetPathName() const;
-  const char* GetHeadName() const;
+  const char* GetDirName() const;
+  const char* GetFileName() const;
 
   unsigned NumLines() const;
   unsigned LineLen( const unsigned line_num ) const;
@@ -96,7 +98,9 @@ public:
   void ReadFile();
   void ReReadFile();
   void Write();
-  void BufferEditor_Sort();
+  bool Sort();
+  bool BufferEditor_SortName();
+  bool BufferEditor_SortTime();
 
   // File bytes container methods
   uint8_t  Get( const unsigned l_num, const unsigned c_num ) const;

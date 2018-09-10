@@ -51,6 +51,7 @@ public:
   bool        InDiffMode() const;
   bool        RunningDot() const;
   bool        Shell_Running() const;
+  bool        GetSortByTime() const;
   void        Update_Shell();
   FileBuf*    GetFileBuf( const unsigned index ) const;
   FileBuf*    GetFileBuf( const String& fname ) const;
@@ -67,7 +68,8 @@ public:
   bool Update_Status_Lines();
   bool Update_Change_Statuses();
   void PrintCursor();
-  bool HaveFile( const char* file_name, unsigned* file_index=0 );
+  bool HaveFile( const char* path_name, unsigned* file_index=0 );
+  bool NotHaveFileAddFile( const String& pname );
   bool File_Is_Displayed( const String& full_fname );
   void ReleaseFileName( const String& full_fname );
   bool GoToBuffer_Fname( String& fname );

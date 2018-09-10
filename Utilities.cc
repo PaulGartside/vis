@@ -37,6 +37,7 @@
 #include "Types.hh"
 #include "MemLog.hh"
 #include "Console.hh"
+#include "FileBuf.hh"
 #include "String.hh"
 #include "Utilities.hh"
 
@@ -777,6 +778,40 @@ bool Files_Are_Same( const char* fname_s, const char* fname_l )
       }
       fclose( fp_s );
       fclose( fp_l );
+    }
+  }
+  return files_are_same;
+}
+
+bool Files_Are_Same( const FileBuf& fb_s, const FileBuf& fb_l )
+{
+  bool files_are_same = false;
+
+  if( fb_s.IsRegular() && fb_l.IsRegular() )
+  {
+    const size_t len_s = FileSize( fb_s.GetPathName() );
+    const size_t len_l = FileSize( fb_l.GetPathName() );
+
+    if( len_s == len_l )
+    {
+      const unsigned lines_s = fb_s.NumLines();
+      const unsigned lines_l = fb_l.NumLines();
+
+      if( lines_s == lines_l )
+      {
+        files_are_same = true;
+
+        for( unsigned k=0; files_are_same && k<lines_s; k++ )
+        {
+          const Line& l_s = fb_s.GetLine( k );
+          const Line& l_l = fb_l.GetLine( k );
+
+          if( !l_s.eq( l_l ) )
+          {
+            files_are_same = false;
+          }
+        }
+      }
     }
   }
   return files_are_same;

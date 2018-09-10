@@ -28,6 +28,8 @@
 
 typedef unsigned char  uint8_t;
 
+class String;
+
 class Line
 {
 public:
@@ -50,22 +52,28 @@ public:
 
   bool operator==( const Line& a ) const;
 
-  uint8_t get( const unsigned i ) const;
-  void    set( const unsigned i, const uint8_t C );
+  uint8_t get( const unsigned p ) const;
+  void    set( const unsigned p, const uint8_t C );
 
-  const char* c_str( unsigned i ) const;
+  const char* c_str( unsigned p ) const;
+  const String& toString() const;
 
-  bool insert( const unsigned i, const uint8_t t );
+  bool insert( const unsigned p, const uint8_t C );
 
-  bool push( uint8_t t );
+  bool push( uint8_t C );
 
-  bool remove( const unsigned i );
-  bool remove( const unsigned i, uint8_t& t );
+  bool remove( const unsigned p );
+  bool remove( const unsigned p, uint8_t& C );
 
-  bool pop( uint8_t& t );
+  bool pop( uint8_t& C );
   bool pop();
 
   bool append( const Line& a );
+
+  int  compareTo( const Line& a ) const;
+  bool gt( const Line& a ) const;
+  bool lt( const Line& a ) const;
+  bool eq( const Line& a ) const;
 
   bool ends_with( const uint8_t C );
 

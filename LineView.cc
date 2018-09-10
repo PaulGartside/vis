@@ -289,7 +289,7 @@ bool FindFileBuf( LineView::Data& m )
   String f_full_path = f_name_tail;
   if( 0==f_full_path.len() ) f_full_path.push('.');
 
-  if( FindFullFileNameRel2( m.vis.CV()->GetPathName(), f_full_path ) )
+  if( FindFullFileNameRel2( m.vis.CV()->GetDirName(), f_full_path ) )
   {
     m.partial_path = f_name_tail;
     m.search__head = f_name_head;

@@ -91,11 +91,13 @@ struct FileBuf::Data
   Vis&            vis;
   Highlight_Base* pHi;
   ChangeHist      history;
-  String          file_name; // Full path and filename head = path_name + head_name
-  String          path_name; // Full path     = file_name - head_name, (for directories this is the same a file_name)
-  String          head_name; // Filename head = file_name - path_name, (for directories this is empty)
-  bool            is_dir;
+  String          path_name; // Full path and filename = dir_name + file_name
+  String          dir_name;  // Directory = path_name - file_name, (for directories this is the same a path_name)
+  String          file_name; // Filename = path_name - dir_name, (for directories this is empty)
+  const bool      is_dir;
+  const bool      is_regular;
   double          mod_time;
+  double          foc_time;
   ViewList        views;     // List of views that display this file
   LineView*       line_view;
 #ifdef USE_REGEX
@@ -124,11 +126,13 @@ FileBuf::Data::Data( FileBuf& parent
   , vis( vis )
   , pHi( 0 )
   , history( vis, parent )
-  , file_name( FILE_NAME )
-  , path_name( "" )
-  , head_name( "" )
-  , is_dir( ::IsDir( file_name.c_str() ) )
+  , path_name( FILE_NAME )
+  , dir_name( "" )
+  , file_name( "" )
+  , is_dir( ::IsDir( path_name.c_str() ) )
+  , is_regular( ::IsReg( path_name.c_str() ) )
   , mod_time( 0 )
+  , foc_time( 0 )
   , views()
   , line_view( 0 )
 #ifdef USE_REGEX
@@ -147,12 +151,12 @@ FileBuf::Data::Data( FileBuf& parent
 {
   if( is_dir )
   {
-    path_name = file_name;
-    if( DIR_DELIM != file_name.get_end() ) file_name.push( DIR_DELIM );
+    dir_name = path_name;
+    if( DIR_DELIM != path_name.get_end() ) path_name.push( DIR_DELIM );
   }
   else {
-    path_name = GetFnameTail( file_name.c_str() );
-    head_name = GetFnameHead( file_name.c_str() );
+    dir_name = GetFnameTail( path_name.c_str() );
+    file_name = GetFnameHead( path_name.c_str() );
   }
 }
 
@@ -162,11 +166,13 @@ FileBuf::Data::Data( FileBuf& parent
                    , const FileBuf& rfb )
   : self( parent )
   , vis( vis )
-  , file_name( FILE_NAME )
-  , path_name( "" )
-  , head_name( "" )
+  , path_name( FILE_NAME )
+  , dir_name( "" )
+  , file_name( "" )
   , is_dir( rfb.m.is_dir )
+  , is_regular( rfb.m.is_regular )
   , mod_time( rfb.m.mod_time )
+  , foc_time( rfb.m.foc_time )
   , views()
   , line_view( 0 )
 #ifdef USE_REGEX
@@ -187,12 +193,12 @@ FileBuf::Data::Data( FileBuf& parent
 {
   if( is_dir )
   {
-    path_name = file_name;
-    if( DIR_DELIM != file_name.get_end() ) file_name.push( DIR_DELIM );
+    dir_name = path_name;
+    if( DIR_DELIM != path_name.get_end() ) path_name.push( DIR_DELIM );
   }
   else {
-    path_name = GetFnameTail( file_name.c_str() );
-    head_name = GetFnameHead( file_name.c_str() );
+    dir_name = GetFnameTail( path_name.c_str() );
+    file_name = GetFnameHead( path_name.c_str() );
   }
 }
 
@@ -202,17 +208,17 @@ FileBuf::Data::~Data()
 
 bool Find_File_Type_Bash( FileBuf::Data& m )
 {
-  if( m.file_name.ends_with(".sh"      )
-   || m.file_name.ends_with(".sh.new"  )
-   || m.file_name.ends_with(".sh.old"  )
-   || m.file_name.ends_with(".bash"    )
-   || m.file_name.ends_with(".bash.new")
-   || m.file_name.ends_with(".bash.old")
-   || m.file_name.ends_with(".alias"   )
-   || m.file_name.ends_with(".bashrc"  )
-   || m.file_name.ends_with(".profile" )
-   || m.file_name.ends_with(".bash_profile")
-   || m.file_name.ends_with(".bash_logout" ) )
+  if( m.path_name.ends_with(".sh"      )
+   || m.path_name.ends_with(".sh.new"  )
+   || m.path_name.ends_with(".sh.old"  )
+   || m.path_name.ends_with(".bash"    )
+   || m.path_name.ends_with(".bash.new")
+   || m.path_name.ends_with(".bash.old")
+   || m.path_name.ends_with(".alias"   )
+   || m.path_name.ends_with(".bashrc"  )
+   || m.path_name.ends_with(".profile" )
+   || m.path_name.ends_with(".bash_profile")
+   || m.path_name.ends_with(".bash_logout" ) )
   {
     m.file_type = FT_BASH;
     m.pHi = new(__FILE__,__LINE__) Highlight_Bash( m.self );
@@ -223,27 +229,27 @@ bool Find_File_Type_Bash( FileBuf::Data& m )
 
 bool Find_File_Type_CPP( FileBuf::Data& m )
 {
-  if( m.file_name.ends_with(".h"      )
-   || m.file_name.ends_with(".h.new"  )
-   || m.file_name.ends_with(".h.old"  )
-   || m.file_name.ends_with(".c"      )
-   || m.file_name.ends_with(".c.new"  )
-   || m.file_name.ends_with(".c.old"  )
-   || m.file_name.ends_with(".hh"     )
-   || m.file_name.ends_with(".hh.new" )
-   || m.file_name.ends_with(".hh.old" )
-   || m.file_name.ends_with(".cc"     )
-   || m.file_name.ends_with(".cc.new" )
-   || m.file_name.ends_with(".cc.old" )
-   || m.file_name.ends_with(".hpp"    )
-   || m.file_name.ends_with(".hpp.new")
-   || m.file_name.ends_with(".hpp.old")
-   || m.file_name.ends_with(".cpp"    )
-   || m.file_name.ends_with(".cpp.new")
-   || m.file_name.ends_with(".cpp.old")
-   || m.file_name.ends_with(".cxx"    )
-   || m.file_name.ends_with(".cxx.new")
-   || m.file_name.ends_with(".cxx.old") )
+  if( m.path_name.ends_with(".h"      )
+   || m.path_name.ends_with(".h.new"  )
+   || m.path_name.ends_with(".h.old"  )
+   || m.path_name.ends_with(".c"      )
+   || m.path_name.ends_with(".c.new"  )
+   || m.path_name.ends_with(".c.old"  )
+   || m.path_name.ends_with(".hh"     )
+   || m.path_name.ends_with(".hh.new" )
+   || m.path_name.ends_with(".hh.old" )
+   || m.path_name.ends_with(".cc"     )
+   || m.path_name.ends_with(".cc.new" )
+   || m.path_name.ends_with(".cc.old" )
+   || m.path_name.ends_with(".hpp"    )
+   || m.path_name.ends_with(".hpp.new")
+   || m.path_name.ends_with(".hpp.old")
+   || m.path_name.ends_with(".cpp"    )
+   || m.path_name.ends_with(".cpp.new")
+   || m.path_name.ends_with(".cpp.old")
+   || m.path_name.ends_with(".cxx"    )
+   || m.path_name.ends_with(".cxx.new")
+   || m.path_name.ends_with(".cxx.old") )
   {
     m.file_type = FT_CPP;
     m.pHi = new(__FILE__,__LINE__) Highlight_CPP( m.self );
@@ -254,9 +260,9 @@ bool Find_File_Type_CPP( FileBuf::Data& m )
 
 bool Find_File_Type_IDL( FileBuf::Data& m )
 {
-  if( m.file_name.ends_with(".idl"    )
-   || m.file_name.ends_with(".idl.new")
-   || m.file_name.ends_with(".idl.old") )
+  if( m.path_name.ends_with(".idl"    )
+   || m.path_name.ends_with(".idl.new")
+   || m.path_name.ends_with(".idl.old") )
   {
     m.file_type = FT_IDL;
     m.pHi = new(__FILE__,__LINE__) Highlight_IDL( m.self );
@@ -267,9 +273,9 @@ bool Find_File_Type_IDL( FileBuf::Data& m )
 
 bool Find_File_Type_Java( FileBuf::Data& m )
 {
-  if( m.file_name.ends_with(".java"    )
-   || m.file_name.ends_with(".java.new")
-   || m.file_name.ends_with(".java.old") )
+  if( m.path_name.ends_with(".java"    )
+   || m.path_name.ends_with(".java.new")
+   || m.path_name.ends_with(".java.old") )
   {
     m.file_type = FT_JAVA;
     m.pHi = new(__FILE__,__LINE__) Highlight_Java( m.self );
@@ -280,12 +286,12 @@ bool Find_File_Type_Java( FileBuf::Data& m )
 
 bool Find_File_Type_HTML( FileBuf::Data& m )
 {
-  if( m.file_name.ends_with(".htm"     )
-   || m.file_name.ends_with(".htm.new" )
-   || m.file_name.ends_with(".htm.old" )
-   || m.file_name.ends_with(".html"    )
-   || m.file_name.ends_with(".html.new")
-   || m.file_name.ends_with(".html.old") )
+  if( m.path_name.ends_with(".htm"     )
+   || m.path_name.ends_with(".htm.new" )
+   || m.path_name.ends_with(".htm.old" )
+   || m.path_name.ends_with(".html"    )
+   || m.path_name.ends_with(".html.new")
+   || m.path_name.ends_with(".html.old") )
   {
     m.file_type = FT_HTML;
     m.pHi = new(__FILE__,__LINE__) Highlight_HTML( m.self );
@@ -296,12 +302,12 @@ bool Find_File_Type_HTML( FileBuf::Data& m )
 
 bool Find_File_Type_XML( FileBuf::Data& m )
 {
-  if( m.file_name.ends_with(".xml"       )
-   || m.file_name.ends_with(".xml.new"   )
-   || m.file_name.ends_with(".xml.old"   )
-   || m.file_name.ends_with(".xml.in"    )
-   || m.file_name.ends_with(".xml.in.new")
-   || m.file_name.ends_with(".xml.in.old") )
+  if( m.path_name.ends_with(".xml"       )
+   || m.path_name.ends_with(".xml.new"   )
+   || m.path_name.ends_with(".xml.old"   )
+   || m.path_name.ends_with(".xml.in"    )
+   || m.path_name.ends_with(".xml.in.new")
+   || m.path_name.ends_with(".xml.in.old") )
   {
     m.file_type = FT_XML;
     m.pHi = new(__FILE__,__LINE__) Highlight_XML( m.self );
@@ -312,9 +318,9 @@ bool Find_File_Type_XML( FileBuf::Data& m )
 
 bool Find_File_Type_JS( FileBuf::Data& m )
 {
-  if( m.file_name.ends_with(".js"    )
-   || m.file_name.ends_with(".js.new")
-   || m.file_name.ends_with(".js.old") )
+  if( m.path_name.ends_with(".js"    )
+   || m.path_name.ends_with(".js.new")
+   || m.path_name.ends_with(".js.old") )
   {
     m.file_type = FT_JS;
     m.pHi = new(__FILE__,__LINE__) Highlight_JS( m.self );
@@ -325,18 +331,18 @@ bool Find_File_Type_JS( FileBuf::Data& m )
 
 bool Find_File_Type_Make( FileBuf::Data& m )
 {
-  if( m.file_name.ends_with(".Make"       )
-   || m.file_name.ends_with(".make"       )
-   || m.file_name.ends_with(".Make.new"   )
-   || m.file_name.ends_with(".make.new"   )
-   || m.file_name.ends_with(".Make.old"   )
-   || m.file_name.ends_with(".make.old"   )
-   || m.file_name.ends_with("Makefile"    )
-   || m.file_name.ends_with("makefile"    )
-   || m.file_name.ends_with("Makefile.new")
-   || m.file_name.ends_with("makefile.new")
-   || m.file_name.ends_with("Makefile.old")
-   || m.file_name.ends_with("makefile.old") )
+  if( m.path_name.ends_with(".Make"       )
+   || m.path_name.ends_with(".make"       )
+   || m.path_name.ends_with(".Make.new"   )
+   || m.path_name.ends_with(".make.new"   )
+   || m.path_name.ends_with(".Make.old"   )
+   || m.path_name.ends_with(".make.old"   )
+   || m.path_name.ends_with("Makefile"    )
+   || m.path_name.ends_with("makefile"    )
+   || m.path_name.ends_with("Makefile.new")
+   || m.path_name.ends_with("makefile.new")
+   || m.path_name.ends_with("Makefile.old")
+   || m.path_name.ends_with("makefile.old") )
   {
     m.file_type = FT_MAKE;
     m.pHi = new(__FILE__,__LINE__) Highlight_Make( m.self );
@@ -347,12 +353,12 @@ bool Find_File_Type_Make( FileBuf::Data& m )
 
 bool Find_File_Type_CMake( FileBuf::Data& m )
 {
-  if( m.file_name.ends_with(".cmake"    )
-   || m.file_name.ends_with(".cmake.new")
-   || m.file_name.ends_with(".cmake.old")
-   || m.file_name.ends_with("CMakeLists.txt"    )
-   || m.file_name.ends_with("CMakeLists.new.txt")
-   || m.file_name.ends_with("CMakeLists.old.txt") )
+  if( m.path_name.ends_with(".cmake"    )
+   || m.path_name.ends_with(".cmake.new")
+   || m.path_name.ends_with(".cmake.old")
+   || m.path_name.ends_with("CMakeLists.txt"    )
+   || m.path_name.ends_with("CMakeLists.new.txt")
+   || m.path_name.ends_with("CMakeLists.old.txt") )
   {
     m.file_type = FT_CMAKE;
     m.pHi = new(__FILE__,__LINE__) Highlight_CMake( m.self );
@@ -363,9 +369,9 @@ bool Find_File_Type_CMake( FileBuf::Data& m )
 
 bool Find_File_Type_Python( FileBuf::Data& m )
 {
-  if( m.file_name.ends_with(".py"    )
-   || m.file_name.ends_with(".py.new")
-   || m.file_name.ends_with(".py.old") )
+  if( m.path_name.ends_with(".py"    )
+   || m.path_name.ends_with(".py.new")
+   || m.path_name.ends_with(".py.old") )
   {
     m.file_type = FT_PY;
     m.pHi = new(__FILE__,__LINE__) Highlight_Python( m.self );
@@ -376,9 +382,9 @@ bool Find_File_Type_Python( FileBuf::Data& m )
 
 bool Find_File_Type_SQL( FileBuf::Data& m )
 {
-  if( m.file_name.ends_with(".sql"    )
-   || m.file_name.ends_with(".sql.new")
-   || m.file_name.ends_with(".sql.old") )
+  if( m.path_name.ends_with(".sql"    )
+   || m.path_name.ends_with(".sql.new")
+   || m.path_name.ends_with(".sql.old") )
   {
     m.file_type = FT_SQL;
     m.pHi = new(__FILE__,__LINE__) Highlight_SQL( m.self );
@@ -389,12 +395,12 @@ bool Find_File_Type_SQL( FileBuf::Data& m )
 
 bool Find_File_Type_STL( FileBuf::Data& m )
 {
-  if( m.file_name.ends_with(".stl"    )
-   || m.file_name.ends_with(".stl.new")
-   || m.file_name.ends_with(".stl.old")
-   || m.file_name.ends_with(".ste"    )
-   || m.file_name.ends_with(".ste.new")
-   || m.file_name.ends_with(".ste.old") )
+  if( m.path_name.ends_with(".stl"    )
+   || m.path_name.ends_with(".stl.new")
+   || m.path_name.ends_with(".stl.old")
+   || m.path_name.ends_with(".ste"    )
+   || m.path_name.ends_with(".ste.new")
+   || m.path_name.ends_with(".ste.old") )
   {
     m.file_type = FT_STL;
     m.pHi = new(__FILE__,__LINE__) Highlight_STL( m.self );
@@ -405,9 +411,9 @@ bool Find_File_Type_STL( FileBuf::Data& m )
 
 bool Find_File_Type_ODB( FileBuf::Data& m )
 {
-  if( m.file_name.ends_with(".odb"    )
-   || m.file_name.ends_with(".odb.new")
-   || m.file_name.ends_with(".odb.old") )
+  if( m.path_name.ends_with(".odb"    )
+   || m.path_name.ends_with(".odb.new")
+   || m.path_name.ends_with(".odb.old") )
   {
     m.file_type = FT_ODB;
     m.pHi = new(__FILE__,__LINE__) Highlight_ODB( m.self );
@@ -418,9 +424,9 @@ bool Find_File_Type_ODB( FileBuf::Data& m )
 
 bool Find_File_Type_Swift( FileBuf::Data& m )
 {
-  if( m.file_name.ends_with(".swift"    )
-   || m.file_name.ends_with(".swift.new")
-   || m.file_name.ends_with(".swift.old") )
+  if( m.path_name.ends_with(".swift"    )
+   || m.path_name.ends_with(".swift.new")
+   || m.path_name.ends_with(".swift.old") )
   {
     m.file_type = FT_SWIFT;
     m.pHi = new(__FILE__,__LINE__) Highlight_Swift( m.self );
@@ -431,9 +437,9 @@ bool Find_File_Type_Swift( FileBuf::Data& m )
 
 bool Find_File_Type_TCL( FileBuf::Data& m )
 {
-  if( m.file_name.ends_with(".tcl"    )
-   || m.file_name.ends_with(".tcl.new")
-   || m.file_name.ends_with(".tcl.old") )
+  if( m.path_name.ends_with(".tcl"    )
+   || m.path_name.ends_with(".tcl.new")
+   || m.path_name.ends_with(".tcl.old") )
   {
     m.file_type = FT_TCL;
     m.pHi = new(__FILE__,__LINE__) Highlight_TCL( m.self );
@@ -646,10 +652,10 @@ void ReadExistingDir_Sort( FileBuf::Data& m )
   {
     for( unsigned k=0; k<i; k++ )
     {
-      const char* cp1 = m.lines[k  ]->c_str( 0 );
-      const char* cp2 = m.lines[k+1]->c_str( 0 );
+      const Line& l_0 = *m.lines[k  ];
+      const Line& l_1 = *m.lines[k+1];
 
-      if( 0<strcmp( cp1, cp2 ) ) SwapLines( m, k, k+1 );
+      if( l_0.gt( l_1 ) ) SwapLines( m, k, k+1 );
     }
   }
 
@@ -658,9 +664,9 @@ void ReadExistingDir_Sort( FileBuf::Data& m )
   {
     for( unsigned k=0; k<i; k++ )
     {
-      const char* cp = m.lines[k]->c_str( 0 );
+      const String& sl = m.lines[k]->toString();
 
-      if( 0!=strcmp( cp, ".." ) && 0!=strcmp( cp, "." ) )
+      if( (sl != "..") && (sl != ".") )
       {
         Line* lp1 = m.lines[k  ];
         Line* lp2 = m.lines[k+1];
@@ -874,7 +880,7 @@ FileBuf::FileBuf( Vis& vis
   }
   else if( FT_UNKNOWN == m.file_type ) Find_File_Type_Suffix( m );
 
-  m.vis.Add_FileBuf_2_Lists_Create_Views( this, m.file_name.c_str() );
+  m.vis.Add_FileBuf_2_Lists_Create_Views( this, m.path_name.c_str() );
 }
 
 FileBuf::FileBuf( Vis& vis
@@ -906,9 +912,9 @@ FileBuf::FileBuf( Vis& vis
   {
     m.lineRegexsValid.push( false );
   }
-  m.mod_time = ModificationTime( m.file_name.c_str() );
+  m.mod_time = ModificationTime( m.path_name.c_str() );
 
-  m.vis.Add_FileBuf_2_Lists_Create_Views( this, m.file_name.c_str() );
+  m.vis.Add_FileBuf_2_Lists_Create_Views( this, m.path_name.c_str() );
 }
 
 FileBuf::~FileBuf()
@@ -929,11 +935,13 @@ FileBuf::~FileBuf()
 }
 
 bool FileBuf::IsDir() const { return m.is_dir; }
+bool FileBuf::IsRegular() const { return m.is_regular; }
 double FileBuf::GetModTime() const { return m.mod_time; }
 void FileBuf::SetModTime( const double mt ) { m.mod_time = mt; }
-const char* FileBuf::GetFileName() const { return m.file_name.c_str(); }
+void FileBuf::SetFocTime( const double ft ) { m.foc_time = ft; }
 const char* FileBuf::GetPathName() const { return m.path_name.c_str(); }
-const char* FileBuf::GetHeadName() const { return m.head_name.c_str(); }
+const char* FileBuf::GetDirName() const { return m.dir_name.c_str(); }
+const char* FileBuf::GetFileName() const { return m.file_name.c_str(); }
 
 void FileBuf::Set_File_Type( const char* syn )
 {
@@ -1060,15 +1068,15 @@ void FileBuf::ReadFile()
   if( m.is_dir )
   {
     // Directory
-    DIR* dp = opendir( m.file_name.c_str() );
+    DIR* dp = opendir( m.path_name.c_str() );
     if( dp ) {
-      ReadExistingDir( m, dp, m.file_name.c_str() );
+      ReadExistingDir( m, dp, m.path_name.c_str() );
       closedir( dp );
     }
   }
   else {
     // Regular file
-    FILE* fp = fopen( m.file_name.c_str(), "rb" );
+    FILE* fp = fopen( m.path_name.c_str(), "rb" );
     if( fp )
     {
       ReadExistingFile( m, fp );
@@ -1080,7 +1088,7 @@ void FileBuf::ReadFile()
     }
     m.save_history = true;
   }
-  m.mod_time = ModificationTime( m.file_name.c_str() );
+  m.mod_time = ModificationTime( m.path_name.c_str() );
 }
 
 void FileBuf::ReReadFile()
@@ -1102,15 +1110,20 @@ void FileBuf::ReReadFile()
   m.save_history      = true;
   m.hi_touched_line   = 0;
 
-  m.mod_time = ModificationTime( m.file_name.c_str() );
+  m.mod_time = ModificationTime( m.path_name.c_str() );
 }
 
-void FileBuf::BufferEditor_Sort()
+bool FileBuf::Sort()
 {
-  const unsigned NUM_LINES = NumLines();
+  return m.vis.GetSortByTime()
+       ? BufferEditor_SortTime()
+       : BufferEditor_SortName();
+}
 
-  // Add terminating NULL to all lines (file names):
-  for( unsigned k=0; k<NUM_LINES; k++ ) PushChar( k, 0 );
+bool FileBuf::BufferEditor_SortName()
+{
+  bool changed = false;
+  const unsigned NUM_LINES = NumLines();
 
   const unsigned NUM_BUILT_IN_FILES = USER_FILE;
   const unsigned FNAME_START_CHAR   = 0;
@@ -1120,14 +1133,45 @@ void FileBuf::BufferEditor_Sort()
   {
     for( unsigned k=NUM_BUILT_IN_FILES; k<i; k++ )
     {
-      const char* cp1 = m.lines[k  ]->c_str( FNAME_START_CHAR );
-      const char* cp2 = m.lines[k+1]->c_str( FNAME_START_CHAR );
+      const Line& l_0 = *m.lines[ k   ];
+      const Line& l_1 = *m.lines[ k+1 ];
 
-      if( 0<strcmp( cp1, cp2 ) ) SwapLines( m, k, k+1 );
+      if( l_0.gt( l_1 ) )
+      {
+        SwapLines( m, k, k+1 );
+        changed = true;
+      }
     }
   }
-  // Remove terminating NULLs just added from all lines (file names):
-  for( unsigned k=0; k<NUM_LINES; k++ ) PopChar( k );
+  return changed;
+}
+
+bool FileBuf::BufferEditor_SortTime()
+{
+  bool changed = false;
+  const unsigned NUM_BUILT_IN_FILES = USER_FILE;
+
+  // Sort lines (file names), least to greatest:
+  for( unsigned i=NumLines()-1; NUM_BUILT_IN_FILES<i; i-- )
+  {
+    for( unsigned k=NUM_BUILT_IN_FILES; k<i; k++ )
+    {
+      const Line& l_0 = *m.lines[ k   ];
+      const Line& l_1 = *m.lines[ k+1 ];
+
+      FileBuf* f_0 = m.vis.GetFileBuf( l_0.toString() );
+      FileBuf* f_1 = m.vis.GetFileBuf( l_1.toString() );
+
+      // Move oldest files to the bottom.
+      // f_0 has older time than f_1, so move it down:
+      if( f_0 && f_1 && f_0->m.foc_time < f_1->m.foc_time )
+      {
+        SwapLines( m, k, k+1 );
+        changed = true;
+      }
+    }
+  }
+  return changed;
 }
 
 void FileBuf::ReadString( const char* const STR )
@@ -1188,18 +1232,18 @@ void FileBuf::ReadArray( const Line& line )
 void FileBuf::Write()
 {
   Trace trace( __PRETTY_FUNCTION__ );
-  if( 0==m.file_name.len() )
+  if( 0==m.path_name.len() )
   {
     // No file name message:
     m.vis.CmdLineMessage("No file name to write to");
   }
   else {
-    FILE* fp = fopen( m.file_name.c_str(), "wb" );
+    FILE* fp = fopen( m.path_name.c_str(), "wb" );
 
     if( !fp ) {
       // Could not open file for writing message:
       m.vis.Window_Message("\nCould not open:\n\n%s\n\nfor writing\n\n"
-                           , m.file_name.c_str() );
+                           , m.path_name.c_str() );
     }
     else {
       const unsigned NUM_LINES = m.lines.len();
@@ -1219,11 +1263,11 @@ void FileBuf::Write()
       }
       fclose( fp );
 
-      m.mod_time = ModificationTime( m.file_name.c_str() );
+      m.mod_time = ModificationTime( m.path_name.c_str() );
 
       m.history.Clear();
       // Wrote to file message:
-      m.vis.CmdLineMessage("\"%s\" written", m.file_name.c_str() );
+      m.vis.CmdLineMessage("\"%s\" written", m.path_name.c_str() );
     }
   }
 }
@@ -2356,7 +2400,7 @@ bool File_Has_Regex( FileBuf::Data& m, Line* lp )
   if( m.file_type == FT_DIR )
   {
     String hname = lp->c_str(0);
-    String fname = m.path_name; fname.append( hname );
+    String fname = m.dir_name; fname.append( hname );
 
     if( Filename_Is_Relevant( hname ) )
     {
@@ -2553,7 +2597,7 @@ void FileBuf::RemoveTabs_SpacesAtEOLs( const unsigned tab_sz )
     Update();
     m.vis.CmdLineMessage("Removed %u tabs", num_tabs_removed );
   }
-  else if( 0 < num_spcs_removed ) 
+  else if( 0 < num_spcs_removed )
   {
     Update();
     m.vis.CmdLineMessage("Removed %u spaces", num_spcs_removed );

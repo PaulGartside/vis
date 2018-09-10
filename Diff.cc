@@ -818,6 +818,45 @@ void Popu_DI_List_NoSameArea( Diff::Data& m )
 //  DI_List.remove_n( first_to_remove, num___to_remove );
 //}
 
+//// Returns true if the two lines, line_s and line_l, in the two files
+//// being compared, are the names of files that differ
+//bool Popu_DI_List_Have_Diff_Files( Diff::Data& m
+//                                 , const unsigned line_s
+//                                 , const unsigned line_l )
+//{
+//  bool files_differ = false;
+//
+//  if( m.pfS->IsDir() && m.pfL->IsDir() )
+//  {
+//    // fname_s and fname_l are head names
+//    String fname_s = m.pfS->GetLine( line_s ).toString();
+//    String fname_l = m.pfL->GetLine( line_l ).toString();
+//
+//    if( (fname_s != "..") && !fname_s.ends_with( DirDelimStr() )
+//     && (fname_l != "..") && !fname_l.ends_with( DirDelimStr() ) )
+//    {
+//      // fname_s and fname_l should now be full path names,
+//      // tail and head, of regular files
+//      fname_s.insert( 0, m.pfS->GetDirName() );
+//      fname_l.insert( 0, m.pfL->GetDirName() );
+//
+//      FileBuf* pfb_s = m.vis.GetFileBuf( fname_s );
+//      FileBuf* pfb_l = m.vis.GetFileBuf( fname_l );
+//
+//      if( (0 != pfb_s) && (0 != pfb_l) )
+//      {
+//        // Fast: Compare files already cached in memory:
+//        files_differ = !Files_Are_Same( *pfb_s, *pfb_l );
+//      }
+//      else {
+//        // Compare the files:
+//        files_differ = !Files_Are_Same( fname_s.c_str(), fname_l.c_str() );
+//      }
+//    }
+//  }
+//  return files_differ;
+//}
+
 // Returns true if the two lines, line_s and line_l, in the two files
 // being compared, are the names of files that differ
 bool Popu_DI_List_Have_Diff_Files( Diff::Data& m
@@ -829,21 +868,32 @@ bool Popu_DI_List_Have_Diff_Files( Diff::Data& m
   if( m.pfS->IsDir() && m.pfL->IsDir() )
   {
     // fname_s and fname_l are head names
-    String fname_s = m.pfS->GetLine( line_s ).c_str(0);
-    String fname_l = m.pfL->GetLine( line_l ).c_str(0);
+    String fname_s = m.pfS->GetLine( line_s ).toString();
+    String fname_l = m.pfL->GetLine( line_l ).toString();
 
-    if( !(fname_s == "..") && !fname_s.ends_with( DirDelimStr() )
-     && !(fname_l == "..") && !fname_l.ends_with( DirDelimStr() ) )
+    if( (fname_s != "..") && !fname_s.ends_with( DirDelimStr() )
+     && (fname_l != "..") && !fname_l.ends_with( DirDelimStr() ) )
     {
       // fname_s and fname_l should now be full path names,
       // tail and head, of regular files
-      fname_s.insert( 0, m.pfS->GetPathName() );
-      fname_l.insert( 0, m.pfL->GetPathName() );
+      fname_s.insert( 0, m.pfS->GetDirName() );
+      fname_l.insert( 0, m.pfL->GetDirName() );
 
-      // Compare the files:
-      if( !Files_Are_Same( fname_s.c_str(), fname_l.c_str() ) )
+      // Add files if they have not been added:
+      m.vis.NotHaveFileAddFile( fname_s );
+      m.vis.NotHaveFileAddFile( fname_l );
+
+      FileBuf* pfb_s = m.vis.GetFileBuf( fname_s );
+      FileBuf* pfb_l = m.vis.GetFileBuf( fname_l );
+
+      if( (0 != pfb_s) && (0 != pfb_l) )
       {
-        files_differ = true;
+        // Fast: Compare files already cached in memory:
+        files_differ = !Files_Are_Same( *pfb_s, *pfb_l );
+      }
+      else {
+        // Slow: Compare the files in NVM:
+        files_differ = !Files_Are_Same( fname_s.c_str(), fname_l.c_str() );
       }
     }
   }
@@ -1827,8 +1877,8 @@ void PrintSameList( Diff::Data& m )
   {
     SameArea same = m.sameList[k];
     Log.Log( "Same: (%s):(%u-%u), (%s):(%u-%u), nlines=%u, nbytes=%u\n"
-           , m.pfS->GetFileName(), same.ln_s+1, same.ln_s+same.nlines
-           , m.pfL->GetFileName(), same.ln_l+1, same.ln_l+same.nlines
+           , m.pfS->GetPathName(), same.ln_s+1, same.ln_s+same.nlines
+           , m.pfL->GetPathName(), same.ln_l+1, same.ln_l+same.nlines
            , same.nlines
            , same.nbytes );
   }
@@ -1842,8 +1892,8 @@ void PrintDiffList( Diff::Data& m )
   {
     DiffArea da = m.diffList[k];
     Log.Log( "Diff: (%s):(%u-%u), (%s):(%u-%u)\n"
-           , m.pfS->GetFileName(), da.ln_s+1, da.ln_s+da.nlines_s
-           , m.pfL->GetFileName(), da.ln_l+1, da.ln_l+da.nlines_l );
+           , m.pfS->GetPathName(), da.ln_s+1, da.ln_s+da.nlines_s
+           , m.pfL->GetPathName(), da.ln_l+1, da.ln_l+da.nlines_l );
   }
 }
 
@@ -2661,13 +2711,41 @@ bool Do_n_Search_for_Diff( Diff::Data& m
   return found;
 }
 
+unsigned Do_n_Find_Crs_Pos( Diff::Data& m
+                          , const unsigned NCL
+                          , const Array_t<Diff_Info>& DI_List )
+{
+  unsigned NCP = 0;
+
+  const Diff_Type DT_new = DI_List[ NCL ].diff_type;
+
+  if( DT_new == DT_CHANGED )
+  {
+    LineInfo* pLI_s = m.DI_List_S[ NCL ].pLineInfo;
+    LineInfo* pLI_l = m.DI_List_L[ NCL ].pLineInfo;
+
+    for( unsigned k=0; 0 != pLI_s && k<pLI_s->len()
+                    && 0 != pLI_l && k<pLI_l->len(); k++ )
+    {
+      Diff_Type dt_s = (*pLI_s)[ k ];
+      Diff_Type dt_l = (*pLI_l)[ k ];
+
+      if( dt_s != DT_SAME
+       || dt_l != DT_SAME )
+      {
+        NCP = k;
+        break;
+      }
+    }
+  }
+  return NCP;
+}
+
 void Do_n_Diff( Diff::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  const unsigned NUM_LINES = NumLines(m);
-
-  if( 0 < NUM_LINES )
+  if( 0 < NumLines(m) )
   {
     m.diff.Set_Cmd_Line_Msg("Searching down for diff");
 
@@ -2695,7 +2773,10 @@ void Do_n_Diff( Diff::Data& m )
 
       if( found )
       {
-        GoToCrsPos_Write( m, dl, CrsChar(m) );
+        const unsigned NCL = dl;
+        const unsigned NCP = Do_n_Find_Crs_Pos( m, NCL, DI_List );
+
+        GoToCrsPos_Write( m, NCL, NCP );
       }
     }
   }
@@ -2910,9 +2991,7 @@ void Do_N_Diff( Diff::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  const unsigned NUM_LINES = NumLines(m);
-
-  if( 0 < NUM_LINES )
+  if( 0 < NumLines(m) )
   {
     m.diff.Set_Cmd_Line_Msg("Searching up for diff");
 
@@ -2940,7 +3019,10 @@ void Do_N_Diff( Diff::Data& m )
 
       if( found )
       {
-        GoToCrsPos_Write( m, dl, CrsChar(m) );
+        const unsigned NCL = dl;
+        const unsigned NCP = Do_n_Find_Crs_Pos( m, NCL, DI_List );
+
+        GoToCrsPos_Write( m, NCL, NCP );
       }
     }
   }
@@ -4794,7 +4876,7 @@ void Print_L( Diff::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   char fname_L[512];
-  sprintf( fname_L, "%s.diff", m.pfL->GetFileName() );
+  sprintf( fname_L, "%s.diff", m.pfL->GetPathName() );
   FILE* fpL = fopen( fname_L, "wb" );
 
   for( unsigned k=0; fpL && k<m.DI_List_L.len(); k++ )
@@ -4836,7 +4918,7 @@ void Print_S( Diff::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   char fname_S[512];
-  sprintf( fname_S, "%s.diff", m.pfS->GetFileName() );
+  sprintf( fname_S, "%s.diff", m.pfS->GetPathName() );
   FILE* fpS = fopen( fname_S, "wb" );
 
   for( unsigned k=0; fpS && k<m.DI_List_L.len(); k++ )
@@ -6306,8 +6388,8 @@ void Diff::GoToFile()
 
     String cPath = fname; // Current side file to diff full fname
     String oPath = fname; // Other   side file to diff full fname
-    if( FindFullFileNameRel2( cV->GetFB()->GetPathName(), cPath )
-     && FindFullFileNameRel2( oV->GetFB()->GetPathName(), oPath ) )
+    if( FindFullFileNameRel2( cV->GetFB()->GetDirName(), cPath )
+     && FindFullFileNameRel2( oV->GetFB()->GetDirName(), oPath ) )
     {
       unsigned c_file_idx = 0; // Current side index of file to diff
       unsigned o_file_idx = 0; // Other   side index of file to diff
@@ -6320,8 +6402,8 @@ void Diff::GoToFile()
         // or directories with same name but different paths
         if( (cDT == DT_DIFF_FILES && oDT == DT_DIFF_FILES)
          || (cV->GetFB()->IsDir() && oV->GetFB()->IsDir()
-          && 0==strcmp(c_file_buf->GetHeadName(),o_file_buf->GetHeadName())
-          && 0!=strcmp(c_file_buf->GetPathName(),o_file_buf->GetPathName()) ) )
+          && 0==strcmp(c_file_buf->GetFileName(),o_file_buf->GetFileName())
+          && 0!=strcmp(c_file_buf->GetDirName(),o_file_buf->GetDirName()) ) )
         {
           // Save current view context for when we come back
           const unsigned cV_vl_cl = ViewLine( m, cV, CrsLine(m) );
@@ -6330,7 +6412,7 @@ void Diff::GoToFile()
           cV->SetCrsRow( cV_vl_cl - cV_vl_tl );
           cV->SetLeftChar( m.leftChar );
           cV->SetCrsCol  ( m.crsCol );
-        
+
           // Save other view context for when we come back
           const unsigned oV_vl_cl = ViewLine( m, oV, CrsLine(m) );
           const unsigned oV_vl_tl = ViewLine( m, oV, m.topLine );
@@ -6338,7 +6420,7 @@ void Diff::GoToFile()
           oV->SetCrsRow( oV_vl_cl - oV_vl_tl );
           oV->SetLeftChar( m.leftChar );
           oV->SetCrsCol  ( m.crsCol );
-        
+
           did_diff = m.vis.Diff_By_File_Indexes( cV, c_file_idx, oV, o_file_idx );
         }
       }
@@ -6720,4 +6802,27 @@ void Diff::Set_Cmd_Line_Msg( const String& msg )
 {
   m.cmd_line_msg = msg;
 }
+
+void Diff::DisplayMapping()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  View* pV = m.vis.CV();
+
+  const char* mapping = "--MAPPING--";
+  const int   mapping_len = strlen( mapping );
+
+  // Command line row in window:
+  const unsigned WIN_ROW = WorkingRows( pV ) + 2;
+  const unsigned WIN_COL = WorkingCols( pV ) - mapping_len;
+
+  const unsigned G_ROW = Row_Win_2_GL( m, pV, WIN_ROW );
+  const unsigned G_COL = Col_Win_2_GL( m, pV, WIN_COL );
+
+  Console::SetS( G_ROW, G_COL, mapping, S_BANNER );
+
+  Console::Update();
+  PrintCursor( pV ); // Put cursor back in position.
+}
+
 
