@@ -222,6 +222,11 @@ int GetWinNum_Of_View( Vis::Data& m, const View* rV )
   return -1;
 }
 
+unsigned Curr_FileNum( Vis::Data& m )
+{
+  return m.file_hist[ m.win ][ 0 ];
+}
+
 void GetCWD( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -3639,6 +3644,16 @@ void L_Handle_Dollar( Vis::Data& m )
   else if( m.slash_mode ) m.slash_view->GoToEndOfLine();
 }
 
+//void Handle_Return( Vis::Data& m )
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//
+//  View* cv = CV(m);
+//
+//  if( cv->GetInDiff() ) m.diff.GoToBegOfNextLine();
+//  else                     cv->GoToBegOfNextLine();
+//}
+
 void Handle_Return( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -3646,7 +3661,19 @@ void Handle_Return( Vis::Data& m )
   View* cv = CV(m);
 
   if( cv->GetInDiff() ) m.diff.GoToBegOfNextLine();
-  else                     cv->GoToBegOfNextLine();
+  else {
+    if( SLASH_FILE != Curr_FileNum(m) )
+    {
+      // Normal case:
+      cv->GoToBegOfNextLine();
+    }
+    else {
+      // In search buffer, search for pattern on current line:
+      const Line* lp = cv->GetFB()->GetLineP( cv->CrsLine() );
+
+      m.vis.Handle_Slash_GotPattern( lp->toString() );
+    }
+  }
 }
 
 void Handle_G( Vis::Data& m )
@@ -5063,7 +5090,15 @@ void Vis::CheckFileModTime()
 
     if( pfb->GetModTime() < curr_mod_time )
     {
-      if( pfb->IsDir() )
+      if( pfb->IsRegular() )
+      {
+        // Update file modification time so that the message window
+        // will not keep popping up:
+      //pfb->SetModTime( curr_mod_time );
+        pfb->SetChangedExternally();
+      //m.vis.Window_Message("\n%s\n\nhas changed since it was read in\n\n", fname );
+      }
+      else if( pfb->IsDir() )
       {
         // Dont ask the user, just read in the directory.
         // pfb->GetModTime() will get updated in pfb->ReReadFile()
@@ -5077,13 +5112,6 @@ void Vis::CheckFileModTime()
             GetView_Win( m, w )->Update();
           }
         }
-      }
-      else { // Regular file
-        // Update file modification time so that the message window
-        // will not keep popping up:
-        pfb->SetModTime( curr_mod_time );
-
-        m.vis.Window_Message("\n%s\n\nhas changed since it was read in\n\n", fname );
       }
     }
   }
@@ -5220,8 +5248,10 @@ bool Vis::Update_Status_Lines()
 }
 
 // This ensures that proper change status is displayed around each window:
-// '+++' for unsaved changes, and
-// '   ' for no unsaved changes
+// '    ' for file in vis same as file on file system,
+// '++++' for changes in vis not written to file system,
+// '////' for file on file system changed externally to vis,
+// '+/+/' for changes in vis and on file system
 bool Vis::Update_Change_Statuses()
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -5234,10 +5264,12 @@ bool Vis::Update_Change_Statuses()
     // pV points to currently displayed view in window w:
     View* const pV = GetView_Win( m, w );
 
-    if( pV->GetUnSavedChangeSts() != pV->GetFB()->Changed() )
+    if( (pV->GetUnSaved_ChangeSts() != pV->GetFB()->Changed())
+     || (pV->GetExternalChangeSts() != pV->GetFB()->GetChangedExternally()) )
     {
       pV->Print_Borders();
-      pV->SetUnSavedChangeSts( pV->GetFB()->Changed() );
+      pV->SetUnSaved_ChangeSts( pV->GetFB()->Changed() );
+      pV->SetExternalChangeSts( pV->GetFB()->GetChangedExternally() );
       updated_change_sts = true;
     }
   }

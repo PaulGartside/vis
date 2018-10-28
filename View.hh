@@ -172,9 +172,11 @@ public:
   void DisplayMapping();
 
   bool GetStsLineNeedsUpdate() const;
-  bool GetUnSavedChangeSts() const;
+  bool GetUnSaved_ChangeSts() const;
+  bool GetExternalChangeSts() const;
   void SetStsLineNeedsUpdate( const bool val );
-  void SetUnSavedChangeSts( const bool val );
+  void SetUnSaved_ChangeSts( const bool val );
+  void SetExternalChangeSts( const bool val );
 
   bool Has_Context();
   void Set_Context( View& vr );

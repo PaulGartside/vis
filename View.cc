@@ -76,6 +76,7 @@ struct View::Data
 
   bool sts_line_needs_update;
   bool us_change_sts; // un-saved change status, true if '+", false if ' '
+  bool ex_change_sts; // external change status
   String cmd_line_msg;
 
   Data( View& view
@@ -115,6 +116,7 @@ View::Data::Data( View& view
   , inVisualBlock( false )
   , sts_line_needs_update( false )
   , us_change_sts( false )
+  , ex_change_sts( false )
   , cmd_line_msg()
 {
 }
@@ -1384,20 +1386,53 @@ void ReplaceAddChars( View::Data& m, const char C )
   m.fb.Update();
 }
 
+uint8_t Border_Char_1( View::Data& m, const uint8_t C_ex )
+{
+  uint8_t border_char = ' ';
+
+  if( m.fb.Changed() )
+  {
+    border_char = '+';
+  }
+  else if( m.fb.GetChangedExternally() )
+  {
+    border_char = C_ex;
+  }
+  return border_char;
+}
+
+uint8_t Border_Char_2( View::Data& m, const uint8_t C_ex )
+{
+  uint8_t border_char = ' ';
+
+  if( m.fb.GetChangedExternally() )
+  {
+    border_char = C_ex;
+  }
+  else if( m.fb.Changed() )
+  {
+    border_char = '+';
+  }
+  return border_char;
+}
+
 void Print_Borders_Top( View::Data& m, const Style S )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
   if( top___border )
   {
-    const uint8_t BORDER_CHAR = m.fb.Changed() ? '+' : ' ';
+    const uint8_t BORDER_CHAR_1 = Border_Char_1( m, DIR_DELIM );
+    const uint8_t BORDER_CHAR_2 = Border_Char_2( m, DIR_DELIM );
+
     const unsigned ROW_G = m.y;
 
     for( unsigned k=0; k<m.nCols; k++ )
     {
       const unsigned COL_G = m.x + k;
 
-      Console::Set( ROW_G, COL_G, BORDER_CHAR, S );
+      if( k%2 ) Console::Set( ROW_G, COL_G, BORDER_CHAR_2, S );
+      else      Console::Set( ROW_G, COL_G, BORDER_CHAR_1, S );
     }
   }
 }
@@ -1408,7 +1443,9 @@ void Print_Borders_Bottom( View::Data& m, const Style S )
 
   if( bottomborder )
   {
-    const uint8_t BORDER_CHAR = m.fb.Changed() ? '+' : ' ';
+    const uint8_t BORDER_CHAR_1 = Border_Char_1( m, DIR_DELIM );
+    const uint8_t BORDER_CHAR_2 = Border_Char_2( m, DIR_DELIM );
+
     const unsigned ROW_G = m.y + m.nRows - 1;
 
     for( unsigned k=0; k<m.nCols; k++ )
@@ -1420,7 +1457,8 @@ void Print_Borders_Bottom( View::Data& m, const Style S )
       {
         // Do not print bottom right hand corner of console, because
         // on some terminals it scrolls the whole console screen up one line:
-        Console::Set( ROW_G, COL_G, BORDER_CHAR, S );
+        if( k%2 ) Console::Set( ROW_G, COL_G, BORDER_CHAR_2, S );
+        else      Console::Set( ROW_G, COL_G, BORDER_CHAR_1, S );
       }
     }
   }
@@ -1432,7 +1470,9 @@ void Print_Borders_Right( View::Data& m, const Style S )
 
   if( right_border )
   {
-    const uint8_t BORDER_CHAR = m.fb.Changed() ? '+' : ' ';
+    const uint8_t BORDER_CHAR_1 = Border_Char_1( m, DIR_DELIM );
+    const uint8_t BORDER_CHAR_2 = Border_Char_2( m, DIR_DELIM );
+
     const unsigned COL_G = m.x + m.nCols - 1;
 
     for( unsigned k=0; k<m.nRows-1; k++ )
@@ -1444,7 +1484,8 @@ void Print_Borders_Right( View::Data& m, const Style S )
       {
         // Do not print bottom right hand corner of console, because
         // on some terminals it scrolls the whole console screen up one line:
-        Console::Set( ROW_G, COL_G, BORDER_CHAR, S );
+        if( k%2 ) Console::Set( ROW_G, COL_G, BORDER_CHAR_2, S );
+        else      Console::Set( ROW_G, COL_G, BORDER_CHAR_1, S );
       }
     }
   }
@@ -1456,14 +1497,17 @@ void Print_Borders_Left( View::Data& m, const Style S )
 
   if( left__border )
   {
-    const uint8_t BORDER_CHAR = m.fb.Changed() ? '+' : ' ';
+    const uint8_t BORDER_CHAR_1 = Border_Char_1( m, DIR_DELIM );
+    const uint8_t BORDER_CHAR_2 = Border_Char_2( m, DIR_DELIM );
+
     const unsigned COL_G = m.x;
 
     for( unsigned k=0; k<m.nRows; k++ )
     {
       const unsigned ROW_G = m.y + k;
 
-      Console::Set( ROW_G, COL_G, BORDER_CHAR, S );
+      if( k%2 ) Console::Set( ROW_G, COL_G, BORDER_CHAR_2, S );
+      else      Console::Set( ROW_G, COL_G, BORDER_CHAR_1, S );
     }
   }
 }
@@ -3844,9 +3888,9 @@ void View::Print_Borders()
 
   const Style S = HIGHLIGHT ? S_BORDER_HI : S_BORDER;
 
-  Print_Borders_Top   ( m, S );
   Print_Borders_Right ( m, S );
   Print_Borders_Left  ( m, S );
+  Print_Borders_Top   ( m, S );
   Print_Borders_Bottom( m, S );
 }
 
@@ -4060,9 +4104,14 @@ bool View::GetStsLineNeedsUpdate() const
   return m.sts_line_needs_update;
 }
 
-bool View::GetUnSavedChangeSts() const
+bool View::GetUnSaved_ChangeSts() const
 {
   return m.us_change_sts;
+}
+
+bool View::GetExternalChangeSts() const
+{
+  return m.ex_change_sts;
 }
 
 void View::SetStsLineNeedsUpdate( const bool val )
@@ -4070,9 +4119,14 @@ void View::SetStsLineNeedsUpdate( const bool val )
   m.sts_line_needs_update = val;
 }
 
-void View::SetUnSavedChangeSts( const bool val )
+void View::SetUnSaved_ChangeSts( const bool val )
 {
   m.us_change_sts = val;
+}
+
+void View::SetExternalChangeSts( const bool val )
+{
+  m.ex_change_sts = val;
 }
 
 String View::Do_Star_GetNewPattern()

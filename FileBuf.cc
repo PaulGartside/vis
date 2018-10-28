@@ -98,6 +98,7 @@ struct FileBuf::Data
   const bool      is_regular;
   double          mod_time;
   double          foc_time;
+  bool            changed_externally;
   ViewList        views;     // List of views that display this file
   LineView*       line_view;
 #ifdef USE_REGEX
@@ -133,6 +134,7 @@ FileBuf::Data::Data( FileBuf& parent
   , is_regular( ::IsReg( path_name.c_str() ) )
   , mod_time( 0 )
   , foc_time( 0 )
+  , changed_externally( false )
   , views()
   , line_view( 0 )
 #ifdef USE_REGEX
@@ -173,6 +175,7 @@ FileBuf::Data::Data( FileBuf& parent
   , is_regular( rfb.m.is_regular )
   , mod_time( rfb.m.mod_time )
   , foc_time( rfb.m.foc_time )
+  , changed_externally( rfb.m.changed_externally )
   , views()
   , line_view( 0 )
 #ifdef USE_REGEX
@@ -939,6 +942,8 @@ bool FileBuf::IsRegular() const { return m.is_regular; }
 double FileBuf::GetModTime() const { return m.mod_time; }
 void FileBuf::SetModTime( const double mt ) { m.mod_time = mt; }
 void FileBuf::SetFocTime( const double ft ) { m.foc_time = ft; }
+bool FileBuf::GetChangedExternally() const { return m.changed_externally; }
+void FileBuf::SetChangedExternally() { m.changed_externally = true; }
 const char* FileBuf::GetPathName() const { return m.path_name.c_str(); }
 const char* FileBuf::GetDirName() const { return m.dir_name.c_str(); }
 const char* FileBuf::GetFileName() const { return m.file_name.c_str(); }
@@ -1089,6 +1094,7 @@ void FileBuf::ReadFile()
     m.save_history = true;
   }
   m.mod_time = ModificationTime( m.path_name.c_str() );
+  m.changed_externally = false;
 }
 
 void FileBuf::ReReadFile()
@@ -1109,8 +1115,6 @@ void FileBuf::ReReadFile()
   }
   m.save_history      = true;
   m.hi_touched_line   = 0;
-
-  m.mod_time = ModificationTime( m.path_name.c_str() );
 }
 
 bool FileBuf::Sort()
@@ -1264,6 +1268,7 @@ void FileBuf::Write()
       fclose( fp );
 
       m.mod_time = ModificationTime( m.path_name.c_str() );
+      m.changed_externally = false;
 
       m.history.Clear();
       // Wrote to file message:

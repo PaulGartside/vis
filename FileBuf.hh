@@ -49,6 +49,8 @@ public:
   double GetModTime() const;
   void SetModTime( const double mt );
   void SetFocTime( const double ft );
+  bool GetChangedExternally() const;
+  void SetChangedExternally();
   const char* GetPathName() const;
   const char* GetDirName() const;
   const char* GetFileName() const;
