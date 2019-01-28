@@ -83,7 +83,7 @@ public:
   void GoToLeftSquigglyBracket();
   void GoToRightSquigglyBracket();
   void MoveCurrLineToTop();
-  void MoveCurrLineCenter();
+  void MoveCurrLineCenter( const bool write );
   void MoveCurrLineToBottom();
 
   void Do_a();

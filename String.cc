@@ -369,10 +369,26 @@ unsigned String::trim_beg( const char* trim_chars )
 // Return -1 if this is less    than a,
 // Return  1 if this is greater than a,
 // Return  0 if this is equal   to   a
-int  String::compareTo( const String& a ) const
+int String::compareTo( const String& a ) const
 {
   if     ( m.s < a.m.s ) return -1;
   else if( a.m.s < m.s ) return  1;
+
+  return 0;
+}
+
+int String::compareToIgnoreCase( const String& a ) const
+{
+  string b = a.m.s;
+  string n = m.s;
+
+  for( unsigned k=0; k<b.length(); k++ ) b[k] = toupper( b[k] );
+  for( unsigned k=0; k<n.length(); k++ ) n[k] = toupper( n[k] );
+
+//return n.compare( b );
+
+  if     ( n < b ) return -1;
+  else if( b < n ) return  1;
 
   return 0;
 }

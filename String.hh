@@ -84,6 +84,7 @@ public:
   unsigned trim_beg( const char* trim_chars=" \t\r\n" );
 
   int  compareTo( const String& a ) const;
+  int  compareToIgnoreCase( const String& a ) const;
   bool gt( const String& a ) const;
   bool lt( const String& a ) const;
   bool eq( const String& a ) const;

@@ -702,6 +702,111 @@ bool IsEndOfLineDelim( const int C )
   return false;
 }
 
+char MS_Hex_Digit( const char Ci )
+{
+  const uint8_t I = (Ci >> 4) & 0xF;
+
+  char Co = '*';
+
+  switch( I )
+  {
+  case  0: Co = '0'; break;
+  case  1: Co = '1'; break;
+  case  2: Co = '2'; break;
+  case  3: Co = '3'; break;
+  case  4: Co = '4'; break;
+  case  5: Co = '5'; break;
+  case  6: Co = '6'; break;
+  case  7: Co = '7'; break;
+  case  8: Co = '8'; break;
+  case  9: Co = '9'; break;
+  case 10: Co = 'A'; break;
+  case 11: Co = 'B'; break;
+  case 12: Co = 'C'; break;
+  case 13: Co = 'D'; break;
+  case 14: Co = 'E'; break;
+  case 15: Co = 'F'; break;
+  }
+  return Co;
+}
+
+char LS_Hex_Digit( const char Ci )
+{
+  const uint8_t I = Ci & 0xF;
+
+  char Co = '*';
+
+  switch( I )
+  {
+  case  0: Co = '0'; break;
+  case  1: Co = '1'; break;
+  case  2: Co = '2'; break;
+  case  3: Co = '3'; break;
+  case  4: Co = '4'; break;
+  case  5: Co = '5'; break;
+  case  6: Co = '6'; break;
+  case  7: Co = '7'; break;
+  case  8: Co = '8'; break;
+  case  9: Co = '9'; break;
+  case 10: Co = 'A'; break;
+  case 11: Co = 'B'; break;
+  case 12: Co = 'C'; break;
+  case 13: Co = 'D'; break;
+  case 14: Co = 'E'; break;
+  case 15: Co = 'F'; break;
+  }
+  return Co;
+}
+
+bool IsHexDigit( const char C )
+{
+  return isdigit( C )
+      || C == 'A' || C == 'a'
+      || C == 'B' || C == 'b'
+      || C == 'C' || C == 'C'
+      || C == 'D' || C == 'd'
+      || C == 'E' || C == 'e'
+      || C == 'F' || C == 'f';
+}
+
+int Hex_Char_2_Int_Val( const char C )
+{
+  int I = 0;
+
+  switch( C )
+  {
+  case '0': I = 0; break;
+  case '1': I = 1; break;
+  case '2': I = 2; break;
+  case '3': I = 3; break;
+  case '4': I = 4; break;
+  case '5': I = 5; break;
+  case '6': I = 6; break;
+  case '7': I = 7; break;
+  case '8': I = 8; break;
+  case '9': I = 9; break;
+  case 'A':
+  case 'a': I = 10; break;
+  case 'B':
+  case 'b': I = 11; break;
+  case 'C':
+  case 'c': I = 12; break;
+  case 'D':
+  case 'd': I = 13; break;
+  case 'E':
+  case 'e': I = 14; break;
+  case 'F':
+  case 'f': I = 15; break;
+  }
+  return I;
+}
+
+char Hex_Chars_2_Byte( const char C1, const char C2 )
+{
+  return (char)( Hex_Char_2_Int_Val( C1 )*16
+               + Hex_Char_2_Int_Val( C2 ) );
+}
+
 bool line_start_or_prev_C_non_ident( const Line& line
                                    , const unsigned p )
 {

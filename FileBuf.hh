@@ -54,6 +54,10 @@ public:
   const char* GetPathName() const;
   const char* GetDirName() const;
   const char* GetFileName() const;
+  Encoding GetDecoding() const;
+  bool     SetDecoding( const Encoding dec );
+  Encoding GetEncoding() const;
+  void     SetEncoding( const Encoding enc );
 
   unsigned NumLines() const;
   unsigned LineLen( const unsigned line_num ) const;

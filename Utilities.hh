@@ -97,6 +97,12 @@ bool IsXML_Ident( const char C );
 bool IsFileNameChar( const int C );
 bool IsEndOfLineDelim( const int C );
 
+char MS_Hex_Digit( const char Ci );
+char LS_Hex_Digit( const char Ci );
+bool IsHexDigit( const char C );
+int  Hex_Char_2_Int_Val( const char C );
+char Hex_Chars_2_Byte( const char C1, const char C2 );
+
 bool line_start_or_prev_C_non_ident( const Line& line
                                    , const unsigned p );
 bool line_end_or_non_ident( const Line& line

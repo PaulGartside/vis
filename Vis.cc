@@ -651,11 +651,11 @@ bool WentBackToPrevDirDiff( Vis::Data& m )
           m.file_hist[ o_win ].push( o_view_index_old );
 
           went_back = m.diff.Run( cV_prev, oV_prev );
-
           if( went_back ) {
             m.diff_mode = true;
             m.diff.GetViewShort()->SetInDiff( true );
             m.diff.GetViewLong() ->SetInDiff( true );
+            m.diff.Update();
           }
         }
       }
@@ -2445,6 +2445,7 @@ void Diff_Files_Displayed( Vis::Data& m )
         m.diff_mode = true;
         m.diff.GetViewShort()->SetInDiff( true );
         m.diff.GetViewLong()->SetInDiff( true );
+        m.diff.Update();
       }
     }
   }
@@ -2712,6 +2713,7 @@ void HandleColon_detab( Vis::Data& m )
   if( 6 < strlen( m.cbuf ) )
   {
     const unsigned tab_sz = atol( m.cbuf + 6 );
+
     if( 0 < tab_sz && tab_sz <= 32 )
     {
       CV(m)->GetFB()->RemoveTabs_SpacesAtEOLs( tab_sz );
@@ -2743,6 +2745,85 @@ void HandleColon_sort( Vis::Data& m )
   }
   else {
     m.vis.CmdLineMessage("Sorting files by name");
+  }
+}
+
+bool Matches_BYTE( String S )
+{
+  return 0==S.compareToIgnoreCase("byte")
+      || 0==S.compareToIgnoreCase("none" );
+}
+
+bool Matches_HEX( String S )
+{
+  return 0==S.compareToIgnoreCase("hex");
+}
+
+void HandleColon_decoding( Vis::Data& m )
+{
+  if( strlen( m.cbuf ) <= 4 )
+  {
+    Encoding dec = CV(m)->GetFB()->GetDecoding();
+    m.vis.CmdLineMessage("Decoding is: %s", Encoding_Str( dec ) );
+  }
+  else { // 4 < strlen( m.cbuf )
+    Encoding dec = ENC_BYTE;
+    String dec_str = &m.cbuf[4];
+    bool ok = true;
+
+    if     ( Matches_BYTE( dec_str ) ) dec = ENC_BYTE;
+    else if( Matches_HEX ( dec_str ) ) dec = ENC_HEX;
+    else {
+      ok = false;
+      m.vis.CmdLineMessage("Unknown Decoding: %s, Decodings are: %s, %s"
+                          , dec_str.c_str()
+                          , Encoding_Str( ENC_BYTE )
+                          , Encoding_Str( ENC_HEX ) );
+    }
+    if( ok )
+    {
+      ok = CV(m)->GetFB()->SetDecoding( dec );
+      if( ok )
+      {
+        // Different decodings have different numbers of characters
+        // and lines representing a file, so make sure the new decoding
+        // does not leave the cursor out of bounds
+        CV(m)->MoveInBounds_File();
+        CV(m)->GetFB()->Update();
+      }
+      if( ok ) m.vis.CmdLineMessage("Decoding is: %s", Encoding_Str( dec ) );
+      else     m.vis.CmdLineMessage("Failed to set Decoding to: %s", dec_str.c_str() );
+    }
+  }
+}
+
+void HandleColon_encoding( Vis::Data& m )
+{
+  if( strlen( m.cbuf ) <= 4 )
+  {
+    Encoding enc = CV(m)->GetFB()->GetEncoding();
+    m.vis.CmdLineMessage("Encoding is: %s", Encoding_Str( enc ) );
+  }
+  else { // 4 < strlen( m.cbuf )
+    Encoding enc = ENC_BYTE;
+    String enc_str = &m.cbuf[4];
+    bool ok = true;
+
+    if     ( Matches_BYTE( enc_str ) ) enc = ENC_BYTE;
+    else if( Matches_HEX ( enc_str ) ) enc = ENC_HEX;
+    else {
+      ok = false;
+      m.vis.CmdLineMessage("Unknown Encoding: %s, Decodings are: %s, %s"
+                          , enc_str.c_str()
+                          , Encoding_Str( ENC_BYTE )
+                          , Encoding_Str( ENC_HEX ) );
+    }
+    if( ok )
+    {
+      CV(m)->GetFB()->SetEncoding( enc );
+
+      m.vis.CmdLineMessage("Encoding is: %s", Encoding_Str( enc ) );
+    }
   }
 }
 
@@ -2944,6 +3025,8 @@ void Handle_Colon_Cmd( Vis::Data& m )
   else if( strcmp( m.cbuf,"dos2unix")==0) HandleColon_dos2unix(m);
   else if( strcmp( m.cbuf,"unix2dos")==0) HandleColon_unix2dos(m);
   else if( strcmp( m.cbuf,"sort")==0)     HandleColon_sort(m);
+  else if( strncmp(m.cbuf,"dec=",4)==0 )  HandleColon_decoding(m);
+  else if( strncmp(m.cbuf,"enc=",4)==0 )  HandleColon_encoding(m);
   else if( 'e' == m.cbuf[0] )             HandleColon_e(m);
   else if( 'w' == m.cbuf[0] )             HandleColon_w(m);
   else if( 'b' == m.cbuf[0] )             HandleColon_b(m);
@@ -3808,7 +3891,7 @@ void Handle_z( Vis::Data& m )
   }
   else if( CC2 == 'z' )
   {
-    if( cv->GetInDiff() ) m.diff.MoveCurrLineCenter();
+    if( cv->GetInDiff() ) m.diff.MoveCurrLineCenter(true);
     else                     cv->MoveCurrLineCenter();
   }
   else if( CC2 == 'b' )
@@ -5491,6 +5574,7 @@ bool Vis::Diff_By_File_Indexes( View* const cV, unsigned const c_file_idx
       m.diff_mode = true;
       m.diff.GetViewShort()->SetInDiff( true );
       m.diff.GetViewLong() ->SetInDiff( true );
+      m.diff.Update();
     }
   }
   return ok;

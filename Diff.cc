@@ -1006,20 +1006,641 @@ void RunDiff( Diff::Data& m, const DiffArea CA )
   m.printed_diff_ms = false;
 }
 
-//void Set_DiffContext_2_ViewContext( Diff::Data& m )
-//{
-//  View* pV = m.vis.CV();
-//
-//  m.topLine  = m.diff.DiffLine( pV, pV->GetTopLine() );
-//  m.leftChar =                  pV->GetLeftChar();
-//  m.crsRow   =                  pV->GetCrsRow  ();
-//  m.crsCol   =                  pV->GetCrsCol  ();
-//}
+unsigned NumLines( Diff::Data& m )
+{
+  // DI_List_L and DI_List_S should be the same length
+  return m.DI_List_L.len();
+}
 
-void Set_DiffContext_2_ViewContext( Diff::Data& m )
+unsigned CrsLine( Diff::Data& m )
+{
+  return m.topLine  + m.crsRow;
+}
+unsigned CrsChar( Diff::Data& m )
+{
+  return m.leftChar + m.crsCol;
+}
+
+bool Do_n_Search_for_Same( Diff::Data& m
+                         , unsigned& dl
+                         , const Array_t<Diff_Info>& DI_List )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  const unsigned NUM_LINES = NumLines(m);
+  const unsigned dl_st = dl;
+
+  // Search forward for DT_SAME
+  bool found = false;
+
+  if( 1 < NUM_LINES )
+  {
+    while( !found && dl<NUM_LINES )
+    {
+      const Diff_Type DT = DI_List[dl].diff_type;
+
+      if( DT == DT_SAME )
+      {
+        found = true;
+      }
+      else dl++;
+    }
+    if( !found )
+    {
+      // Wrap around back to top and search again:
+      dl = 0;
+      while( !found && dl<dl_st )
+      {
+        const Diff_Type DT = DI_List[dl].diff_type;
+
+        if( DT == DT_SAME )
+        {
+          found = true;
+        }
+        else dl++;
+      }
+    }
+  }
+  return found;
+}
+
+bool Do_n_Search_for_Diff( Diff::Data& m
+                         , unsigned& dl
+                         , const Array_t<Diff_Info>& DI_List )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  const unsigned NUM_LINES = NumLines(m);
+  const unsigned dl_st = dl;
+
+  // Search forward for non-DT_SAME
+  bool found = false;
+
+  if( 1 < NUM_LINES )
+  {
+    while( !found && dl<NUM_LINES )
+    {
+      const Diff_Type DT = DI_List[dl].diff_type;
+
+      if( DT == DT_CHANGED
+       || DT == DT_INSERTED
+       || DT == DT_DELETED
+       || DT == DT_DIFF_FILES )
+      {
+        found = true;
+      }
+      else dl++;
+    }
+    if( !found )
+    {
+      // Wrap around back to top and search again:
+      dl = 0;
+      while( !found && dl<dl_st )
+      {
+        const Diff_Type DT = DI_List[dl].diff_type;
+
+        if( DT == DT_CHANGED
+         || DT == DT_INSERTED
+         || DT == DT_DELETED
+         || DT == DT_DIFF_FILES )
+        {
+          found = true;
+        }
+        else dl++;
+      }
+    }
+  }
+  return found;
+}
+
+unsigned Do_n_Find_Crs_Pos( Diff::Data& m
+                          , const unsigned NCL
+                          , const Array_t<Diff_Info>& DI_List )
+{
+  unsigned NCP = 0;
+
+  const Diff_Type DT_new = DI_List[ NCL ].diff_type;
+
+  if( DT_new == DT_CHANGED )
+  {
+    LineInfo* pLI_s = m.DI_List_S[ NCL ].pLineInfo;
+    LineInfo* pLI_l = m.DI_List_L[ NCL ].pLineInfo;
+
+    for( unsigned k=0; 0 != pLI_s && k<pLI_s->len()
+                    && 0 != pLI_l && k<pLI_l->len(); k++ )
+    {
+      Diff_Type dt_s = (*pLI_s)[ k ];
+      Diff_Type dt_l = (*pLI_l)[ k ];
+
+      if( dt_s != DT_SAME
+       || dt_l != DT_SAME )
+      {
+        NCP = k;
+        break;
+      }
+    }
+  }
+  return NCP;
+}
+
+unsigned WorkingRows( View* pV )
+{
+  return pV->WinRows() -5 ;
+}
+
+unsigned WorkingCols( View* pV )
+{
+  return pV->WinCols() -2 ;
+}
+
+unsigned BotLine( Diff::Data& m, View* pV )
+{
+  return m.topLine + WorkingRows( pV )-1;
+}
+
+unsigned RightChar( Diff::Data& m, View* pV )
+{
+  return m.leftChar + WorkingCols( pV )-1;
+}
+
+unsigned ViewLine( Diff::Data& m, const View* pV, const unsigned diff_line )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  return ( pV == m.pvS ) ? m.DI_List_S[ diff_line ].line_num
+                         : m.DI_List_L[ diff_line ].line_num;
+}
+
+bool InVisualBlock( Diff::Data& m, const unsigned DL, const unsigned pos )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  return ( m.v_st_line <= DL  && DL  <= m.v_fn_line
+        && m.v_st_char <= pos && pos <= m.v_fn_char ) // bot rite
+      || ( m.v_st_line <= DL  && DL  <= m.v_fn_line
+        && m.v_fn_char <= pos && pos <= m.v_st_char ) // bot left
+      || ( m.v_fn_line <= DL  && DL  <= m.v_st_line
+        && m.v_st_char <= pos && pos <= m.v_fn_char ) // top rite
+      || ( m.v_fn_line <= DL  && DL  <= m.v_st_line
+        && m.v_fn_char <= pos && pos <= m.v_st_char );// top left
+}
+
+bool InVisualStFn( Diff::Data& m, const unsigned DL, const unsigned pos )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( !m.inVisualMode ) return false;
+
+  if( m.v_st_line == DL && DL == m.v_fn_line )
+  {
+    return (m.v_st_char <= pos && pos <= m.v_fn_char)
+        || (m.v_fn_char <= pos && pos <= m.v_st_char);
+  }
+  else if( (m.v_st_line < DL && DL < m.v_fn_line)
+        || (m.v_fn_line < DL && DL < m.v_st_line) )
+  {
+    return true;
+  }
+  else if( m.v_st_line == DL && DL < m.v_fn_line )
+  {
+    return m.v_st_char <= pos;
+  }
+  else if( m.v_fn_line == DL && DL < m.v_st_line )
+  {
+    return m.v_fn_char <= pos;
+  }
+  else if( m.v_st_line < DL && DL == m.v_fn_line )
+  {
+    return pos <= m.v_fn_char;
+  }
+  else if( m.v_fn_line < DL && DL == m.v_st_line )
+  {
+    return pos <= m.v_st_char;
+  }
+  return false;
+}
+
+bool InVisualArea( Diff::Data& m
+                 , View* pV
+                 , const unsigned DL
+                 , const unsigned pos )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  // Only one diff view, current view, can be in visual mode.
+  if( m.vis.CV() == pV && m.inVisualMode )
+  {
+    if( m.inVisualBlock ) return InVisualBlock( m, DL, pos );
+    else                  return InVisualStFn ( m, DL, pos );
+  }
+  return false;
+}
+
+Style Get_Style( Diff::Data& m
+               , View* pV
+               , const unsigned DL
+               , const unsigned VL
+               , const unsigned pos )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  Style S = S_EMPTY;
+
+  FileBuf* pfb = pV->GetFB();
+
+  if( VL < pfb->NumLines() && pos < pfb->LineLen( VL ) )
+  {
+    S = S_NORMAL;
+
+    if     (  InVisualArea( m, pV, DL, pos ) ) S = S_RV_VISUAL;
+    else if( pV->InStar       ( VL, pos ) ) S = S_STAR;
+    else if( pV->InDefine     ( VL, pos ) ) S = S_DEFINE;
+    else if( pV->InComment    ( VL, pos ) ) S = S_COMMENT;
+    else if( pV->InConst      ( VL, pos ) ) S = S_CONST;
+    else if( pV->InControl    ( VL, pos ) ) S = S_CONTROL;
+    else if( pV->InVarType    ( VL, pos ) ) S = S_VARTYPE;
+  }
+  return S;
+}
+
+// Translates zero based file line number to zero based global row
+unsigned Line_2_GL( Diff::Data& m, View* pV, const unsigned file_line )
+{
+  return pV->Y() + 1 + file_line - m.topLine;
+}
+
+// Translates zero based file line char position to zero based global column
+unsigned Char_2_GL( Diff::Data& m, View* pV, const unsigned line_char )
+{
+  return pV->X() + 1 + line_char - m.leftChar;
+}
+
+void GoToCrsPos_Write_VisualBlock( Diff::Data& m
+                                 , const int OCL
+                                 , const int OCP
+                                 , const int NCL
+                                 , const int NCP )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+  View*    pV  = m.vis.CV();
+  FileBuf* pfb = pV->GetFB();
+  // m.v_fn_line == NCL && m.v_fn_char == NCP, so dont need to include
+  // m.v_fn_line       and m.v_fn_char in Min and Max calls below:
+  const int vis_box_left = Min( m.v_st_char, Min( OCP, NCP ) );
+  const int vis_box_rite = Max( m.v_st_char, Max( OCP, NCP ) );
+  const int vis_box_top  = Min( m.v_st_line, Min( OCL, NCL ) );
+  const int vis_box_bot  = Max( m.v_st_line, Max( OCL, NCL ) );
+
+  const int draw_box_left = Max( m.leftChar     , vis_box_left );
+  const int draw_box_rite = Min( RightChar(m,pV), vis_box_rite );
+  const int draw_box_top  = Max( m.topLine      , vis_box_top  );
+  const int draw_box_bot  = Min( BotLine(m,pV)  , vis_box_bot  );
+
+  for( int DL=draw_box_top; DL<=draw_box_bot; DL++ )
+  {
+    const int VL = ViewLine( m, pV, DL ); // View line number
+
+    const int LL = pfb->LineLen( VL );
+
+    for( int k=draw_box_left; k<LL && k<=draw_box_rite; k++ )
+    {
+      const char  C = pfb->Get( VL, k );
+      const Style S = Get_Style( m, pV, DL, VL, k );
+
+      Console::Set( Line_2_GL( m, pV, DL ), Char_2_GL( m, pV, k ), C, S );
+    }
+  }
+  m.crsRow = NCL - m.topLine;
+  m.crsCol = NCP - m.leftChar;
+  Console::Update();
+  m.diff.PrintCursor( pV ); // Does Console::Update()
+  m.sts_line_needs_update = true;
+}
+
+Diff_Type DiffType( Diff::Data& m, const View* pV, const unsigned diff_line )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  return ( pV == m.pvS ) ? m.DI_List_S[ diff_line ].diff_type
+                         : m.DI_List_L[ diff_line ].diff_type;
+}
+
+// Cursor is moving forward
+// Write out from (OCL,OCP) up to but not including (NCL,NCP)
+void GoToCrsPos_WV_Forward( Diff::Data& m
+                          , const unsigned OCL, const unsigned OCP
+                          , const unsigned NCL, const unsigned NCP )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+  View*    pV  = m.vis.CV();
+  FileBuf* pfb = pV->GetFB();
+  // Convert OCL and NCL, which are diff lines, to view lines:
+  const unsigned OCLv = ViewLine( m, pV, OCL );
+  const unsigned NCLv = ViewLine( m, pV, NCL );
+
+  if( OCL == NCL ) // Only one line:
+  {
+    for( unsigned k=OCP; k<NCP; k++ )
+    {
+      const char  C = pfb->Get( OCLv, k );
+      const Style S = Get_Style(m,pV,OCL,OCLv,k);
+      Console::Set( Line_2_GL( m, pV, OCL ), Char_2_GL( m, pV, k ), C, S );
+    }
+  }
+  else { // Multiple lines
+    // Write out first line:
+    const unsigned FIRST_LINE_DIFF_TYPE = DiffType( m, pV, OCL );
+    if( FIRST_LINE_DIFF_TYPE != DT_DELETED )
+    {
+      const unsigned OCLL = pfb->LineLen( OCLv ); // Old cursor line length
+      const unsigned END_FIRST_LINE = Min( RightChar( m, pV )+1, OCLL );
+      for( unsigned k=OCP; k<END_FIRST_LINE; k++ )
+      {
+        const char  C = pfb->Get( OCLv, k );
+        const Style S = Get_Style(m,pV,OCL,OCLv,k);
+        Console::Set( Line_2_GL( m, pV, OCL ), Char_2_GL( m, pV, k ), C, S );
+      }
+    }
+    // Write out intermediate lines:
+    for( unsigned l=OCL+1; l<NCL; l++ )
+    {
+      const unsigned LINE_DIFF_TYPE = DiffType( m, pV, l );
+      if( LINE_DIFF_TYPE != DT_DELETED )
+      {
+        // Convert OCL, which is diff line, to view line
+        const unsigned Vl = ViewLine( m, pV, l );
+        const unsigned LL = pfb->LineLen( Vl ); // Line length
+        const unsigned END_OF_LINE = Min( RightChar( m, pV )+1, LL );
+        for( unsigned k=m.leftChar; k<END_OF_LINE; k++ )
+        {
+          const char  C = pfb->Get( Vl, k );
+          const Style S = Get_Style(m,pV,l,Vl,k);
+          Console::Set( Line_2_GL( m, pV, l ), Char_2_GL( m, pV, k ), C, S );
+        }
+      }
+    }
+    // Write out last line:
+    const unsigned LAST_LINE_DIFF_TYPE = DiffType( m, pV, NCL );
+    if( LAST_LINE_DIFF_TYPE != DT_DELETED )
+    {
+      // Print from beginning of next line to new cursor position:
+      const unsigned NCLL = pfb->LineLen( NCLv ); // Line length
+      const unsigned END_LAST_LINE = Min( NCLL, NCP );
+      for( unsigned k=m.leftChar; k<END_LAST_LINE; k++ )
+      {
+        const char  C = pfb->Get( NCLv, k );
+        const Style S = Get_Style(m,pV,NCL,NCLv,k);
+        Console::Set( Line_2_GL( m, pV, NCL ), Char_2_GL( m, pV, k ), C, S );
+      }
+    }
+  }
+}
+
+// Cursor is moving backwards
+// Write out from (OCL,OCP) back to but not including (NCL,NCP)
+void GoToCrsPos_WV_Backward( Diff::Data& m
+                           , const unsigned OCL, const unsigned OCP
+                           , const unsigned NCL, const unsigned NCP )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+  View*    pV  = m.vis.CV();
+  FileBuf* pfb = pV->GetFB();
+  // Convert OCL and NCL, which are diff lines, to view lines:
+  const unsigned OCLv = ViewLine( m, pV, OCL );
+  const unsigned NCLv = ViewLine( m, pV, NCL );
+
+  if( OCL == NCL ) // Only one line:
+  {
+    for( unsigned k=OCP; NCP<k; k-- )
+    {
+      const char  C = pfb->Get( OCLv, k );
+      const Style S = Get_Style(m,pV,OCL,OCLv,k);
+      Console::Set( Line_2_GL( m, pV, OCL ), Char_2_GL( m, pV, k ), C, S );
+    }
+  }
+  else { // Multiple lines
+    // Write out first line:
+    const int FIRST_LINE_DIFF_TYPE = DiffType( m, pV, OCL );
+    if( FIRST_LINE_DIFF_TYPE != DT_DELETED )
+    {
+      const unsigned OCLL = pfb->LineLen( OCLv ); // Old cursor line length
+      const unsigned RIGHT_MOST_POS = Min( OCP, 0<OCLL ? OCLL-1 : 0 );
+      for( unsigned k=RIGHT_MOST_POS; m.leftChar<k; k-- )
+      {
+        const char  C = pfb->Get( OCLv, k );
+        const Style S = Get_Style(m,pV,OCL,OCLv,k);
+        Console::Set( Line_2_GL( m, pV, OCL ), Char_2_GL( m, pV, k ), C, S );
+      }
+      if( m.leftChar < OCLL ) {
+        const char  C = pfb->Get( OCLv, m.leftChar );
+        const Style S = Get_Style(m,pV,OCL,OCLv,m.leftChar);
+        Console::Set( Line_2_GL( m, pV, OCL ), Char_2_GL( m, pV, m.leftChar ), C, S );
+      }
+    }
+    // Write out intermediate lines:
+    for( unsigned l=OCL-1; NCL<l; l-- )
+    {
+      const int LINE_DIFF_TYPE = DiffType( m, pV, l );
+      if( LINE_DIFF_TYPE != DT_DELETED )
+      {
+        // Convert l, which is diff line, to view line:
+        const unsigned Vl = ViewLine( m, pV, l );
+        const unsigned LL = pfb->LineLen( Vl ); // Line length
+        const unsigned END_OF_LINE = Min( RightChar( m, pV ), 0<LL ? LL-1 : 0 );
+        for( unsigned k=END_OF_LINE; m.leftChar<k; k-- )
+        {
+          const char  C = pfb->Get( Vl, k );
+          const Style S = Get_Style(m,pV,l,Vl,k);
+          Console::Set( Line_2_GL( m, pV, l ), Char_2_GL( m, pV, k ), C, S );
+        }
+      }
+    }
+    // Write out last line:
+    const int LAST_LINE_DIFF_TYPE = DiffType( m, pV, NCL );
+    if( LAST_LINE_DIFF_TYPE != DT_DELETED )
+    {
+      // Print from end of last line to new cursor position:
+      const unsigned NCLL = pfb->LineLen( NCLv ); // New cursor line length
+      const unsigned END_LAST_LINE = Min( RightChar( m, pV ), 0<NCLL ? NCLL-1 : 0 );
+      for( unsigned k=END_LAST_LINE; NCP<k; k-- )
+      {
+        const char  C = pfb->Get( NCLv, k );
+        const Style S = Get_Style(m,pV,NCL,NCLv,k);
+        Console::Set( Line_2_GL( m, pV, NCL ), Char_2_GL( m, pV, k ), C, S );
+      }
+      if( NCP < NCLL ) {
+        const char  C = pfb->Get( NCLv, NCP );
+        const Style S = Get_Style(m,pV,NCL,NCLv,NCP);
+        Console::Set( Line_2_GL( m, pV, NCL ), Char_2_GL( m, pV, NCP ), C, S );
+      }
+    }
+  }
+}
+
+void GoToCrsPos_Write_Visual( Diff::Data& m
+                            , const unsigned OCL, const unsigned OCP
+                            , const unsigned NCL, const unsigned NCP )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  // (old cursor pos) < (new cursor pos)
+  const bool OCP_LT_NCP = OCL < NCL || (OCL == NCL && OCP < NCP);
+
+  if( OCP_LT_NCP ) // Cursor moved forward
+  {
+    GoToCrsPos_WV_Forward( m, OCL, OCP, NCL, NCP );
+  }
+  else // NCP_LT_OCP // Cursor moved backward
+  {
+    GoToCrsPos_WV_Backward( m, OCL, OCP, NCL, NCP );
+  }
+  m.crsRow = NCL - m.topLine;
+  m.crsCol = NCP - m.leftChar;
+  Console::Update();
+  m.diff.PrintCursor( m.vis.CV() );
+  m.sts_line_needs_update = true;
+}
+
+void Diff::GoToCrsPos_NoWrite( const unsigned ncp_crsLine
+                             , const unsigned ncp_crsChar )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  View* pV = m.vis.CV();
+
+  // These moves refer to View of buffer:
+  const bool MOVE_DOWN  = BotLine( m, pV )   < ncp_crsLine;
+  const bool MOVE_RIGHT = RightChar( m, pV ) < ncp_crsChar;
+  const bool MOVE_UP    = ncp_crsLine     < m.topLine;
+  const bool MOVE_LEFT  = ncp_crsChar     < m.leftChar;
+
+  if     ( MOVE_DOWN ) m.topLine = ncp_crsLine - WorkingRows( pV ) + 1;
+  else if( MOVE_UP   ) m.topLine = ncp_crsLine;
+  m.crsRow  = ncp_crsLine - m.topLine;
+
+  if     ( MOVE_RIGHT ) m.leftChar = ncp_crsChar - WorkingCols( pV ) + 1;
+  else if( MOVE_LEFT  ) m.leftChar = ncp_crsChar;
+  m.crsCol   = ncp_crsChar - m.leftChar;
+}
+
+void GoToCrsPos_Write( Diff::Data& m
+                     , const unsigned ncp_crsLine
+                     , const unsigned ncp_crsChar )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  View* pV = m.vis.CV();
+
+  const unsigned OCL = CrsLine(m);
+  const unsigned OCP = CrsChar(m);
+  const unsigned NCL = ncp_crsLine;
+  const unsigned NCP = ncp_crsChar;
+
+  if( OCL == NCL && OCP == NCP )
+  {
+    // Not moving to new cursor line so just put cursor back where is was
+    m.diff.PrintCursor( pV );
+  }
+  else {
+    if( m.inVisualMode )
+    {
+      m.v_fn_line = NCL;
+      m.v_fn_char = NCP;
+    }
+    // These moves refer to View of buffer:
+    const bool MOVE_DOWN  = BotLine( m, pV )   < NCL;
+    const bool MOVE_RIGHT = RightChar( m, pV ) < NCP;
+    const bool MOVE_UP    = NCL < m.topLine;
+    const bool MOVE_LEFT  = NCP < m.leftChar;
+
+    bool redraw = MOVE_DOWN || MOVE_RIGHT || MOVE_UP || MOVE_LEFT;
+
+    if( redraw )
+    {
+      if     ( MOVE_DOWN ) m.topLine = NCL - WorkingRows( pV ) + 1;
+      else if( MOVE_UP   ) m.topLine = NCL;
+
+      if     ( MOVE_RIGHT ) m.leftChar = NCP - WorkingCols( pV ) + 1;
+      else if( MOVE_LEFT  ) m.leftChar = NCP;
+
+      // crsRow and crsCol must be set to new values before calling CalcNewCrsByte
+      m.crsRow = NCL - m.topLine;
+      m.crsCol = NCP - m.leftChar;
+
+      m.diff.Update();
+    }
+    else if( m.inVisualMode )
+    {
+      if( m.inVisualBlock ) GoToCrsPos_Write_VisualBlock( m, OCL, OCP, NCL, NCP );
+      else                  GoToCrsPos_Write_Visual     ( m, OCL, OCP, NCL, NCP );
+    }
+    else {
+      // crsRow and crsCol must be set to new values before calling CalcNewCrsByte and PrintCursor
+      m.crsRow = NCL - m.topLine;
+      m.crsCol = NCP - m.leftChar;
+
+      m.diff.PrintCursor( pV );  // Put cursor into position.
+
+      m.sts_line_needs_update = true;
+    }
+  }
+}
+
+void Do_n_Diff( Diff::Data& m, const bool write )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( 0 < NumLines(m) )
+  {
+    m.diff.Set_Cmd_Line_Msg("Searching down for diff");
+
+    unsigned dl = CrsLine(m); // Diff line, changed by search methods below
+
+    View* pV = m.vis.CV();
+
+    Array_t<Diff_Info>& DI_List = (pV == m.pvS) ? m.DI_List_S : m.DI_List_L;
+
+    const Diff_Type DT = DI_List[dl].diff_type; // Current diff type
+
+    bool found = true;
+
+    if( DT == DT_CHANGED
+     || DT == DT_INSERTED
+     || DT == DT_DELETED
+     || DT == DT_DIFF_FILES )
+    {
+      // If currently on a diff, search for same before searching for diff
+      found = Do_n_Search_for_Same( m, dl, DI_List );
+    }
+    if( found )
+    {
+      found = Do_n_Search_for_Diff( m, dl, DI_List );
+
+      if( found )
+      {
+        const unsigned NCL = dl;
+        const unsigned NCP = Do_n_Find_Crs_Pos( m, NCL, DI_List );
+
+        if( write ) GoToCrsPos_Write( m, NCL, NCP );
+        else        m.diff.GoToCrsPos_NoWrite( NCL, NCP );
+      }
+    }
+  }
+}
+
+bool Has_Context( Diff::Data& m )
+{
+  return 0 != m.topLine
+      || 0 != m.leftChar
+      || 0 != m.crsRow
+      || 0 != m.crsCol ;
+}
+
+void Copy_ViewContext_2_DiffContext( Diff::Data& m )
 {
   View* pV = m.vis.CV();
 
+  // View context -> diff context
   const unsigned diff_topLine = m.diff.DiffLine( pV, pV->GetTopLine() );
   const unsigned diff_crsLine = m.diff.DiffLine( pV, pV->CrsLine() );
   const unsigned diff_crsRow  = diff_crsLine - diff_topLine;
@@ -1028,6 +1649,23 @@ void Set_DiffContext_2_ViewContext( Diff::Data& m )
   m.leftChar = pV->GetLeftChar();
   m.crsRow   = diff_crsRow;
   m.crsCol   = pV->GetCrsCol();
+}
+
+void Find_Context( Diff::Data& m )
+{
+  if( !Has_Context( m ) )
+  {
+    View* pV = m.vis.CV();
+
+    if( pV->Has_Context() )
+    {
+      Copy_ViewContext_2_DiffContext(m);
+    }
+    else {
+      Do_n_Diff( m, false );
+      m.diff.MoveCurrLineCenter( false );
+    }
+  }
 }
 
 void Diff::Set_Remaining_ViewContext_2_DiffContext()
@@ -1123,21 +1761,6 @@ void Set_ShortLong_ViewfileMod_Vars( Diff::Data& m, View* const pv0, View* const
   m.mod_time_l = m.pfL->GetModTime();
 }
 
-unsigned WorkingRows( View* pV ) { return pV->WinRows() -5 ; }
-unsigned WorkingCols( View* pV ) { return pV->WinCols() -2 ; }
-unsigned CrsLine    ( Diff::Data& m) { return m.topLine  + m.crsRow; }
-unsigned CrsChar    ( Diff::Data& m) { return m.leftChar + m.crsCol; }
-
-unsigned BotLine( Diff::Data& m, View* pV )
-{
-  return m.topLine  + WorkingRows( pV )-1;
-}
-
-unsigned RightChar( Diff::Data& m, View* pV )
-{
-  return m.leftChar + WorkingCols( pV )-1;
-}
-
 unsigned Row_Win_2_GL( Diff::Data& m, View* pV, const unsigned win_row )
 {
   return pV->Y() + 1 + win_row;
@@ -1146,24 +1769,6 @@ unsigned Row_Win_2_GL( Diff::Data& m, View* pV, const unsigned win_row )
 unsigned Col_Win_2_GL( Diff::Data& m, View* pV, const unsigned win_col )
 {
   return pV->X() + 1 + win_col;
-}
-
-// Translates zero based file line number to zero based global row
-unsigned Line_2_GL( Diff::Data& m, View* pV, const unsigned file_line )
-{
-  return pV->Y() + 1 + file_line - m.topLine;
-}
-
-// Translates zero based file line char position to zero based global column
-unsigned Char_2_GL( Diff::Data& m, View* pV, const unsigned line_char )
-{
-  return pV->X() + 1 + line_char - m.leftChar;
-}
-
-unsigned NumLines( Diff::Data& m )
-{
-  // DI_List_L and DI_List_S should be the same length
-  return m.DI_List_L.len();
 }
 
 unsigned LineLen( Diff::Data& m )
@@ -1409,114 +2014,6 @@ unsigned DiffLine_L( Diff::Data& m, const unsigned view_line )
 //  return ( pV == m.pvS ) ? DiffLine_S( m, view_line )
 //                         : DiffLine_L( m, view_line );
 //}
-
-unsigned ViewLine( Diff::Data& m, const View* pV, const unsigned diff_line )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  return ( pV == m.pvS ) ? m.DI_List_S[ diff_line ].line_num
-                         : m.DI_List_L[ diff_line ].line_num;
-}
-
-Diff_Type DiffType( Diff::Data& m, const View* pV, const unsigned diff_line )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  return ( pV == m.pvS ) ? m.DI_List_S[ diff_line ].diff_type
-                         : m.DI_List_L[ diff_line ].diff_type;
-}
-
-bool InVisualBlock( Diff::Data& m, const unsigned DL, const unsigned pos )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  return ( m.v_st_line <= DL  && DL  <= m.v_fn_line
-        && m.v_st_char <= pos && pos <= m.v_fn_char ) // bot rite
-      || ( m.v_st_line <= DL  && DL  <= m.v_fn_line
-        && m.v_fn_char <= pos && pos <= m.v_st_char ) // bot left
-      || ( m.v_fn_line <= DL  && DL  <= m.v_st_line
-        && m.v_st_char <= pos && pos <= m.v_fn_char ) // top rite
-      || ( m.v_fn_line <= DL  && DL  <= m.v_st_line
-        && m.v_fn_char <= pos && pos <= m.v_st_char );// top left
-}
-
-bool InVisualStFn( Diff::Data& m, const unsigned DL, const unsigned pos )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  if( !m.inVisualMode ) return false;
-
-  if( m.v_st_line == DL && DL == m.v_fn_line )
-  {
-    return (m.v_st_char <= pos && pos <= m.v_fn_char)
-        || (m.v_fn_char <= pos && pos <= m.v_st_char);
-  }
-  else if( (m.v_st_line < DL && DL < m.v_fn_line)
-        || (m.v_fn_line < DL && DL < m.v_st_line) )
-  {
-    return true;
-  }
-  else if( m.v_st_line == DL && DL < m.v_fn_line )
-  {
-    return m.v_st_char <= pos;
-  }
-  else if( m.v_fn_line == DL && DL < m.v_st_line )
-  {
-    return m.v_fn_char <= pos;
-  }
-  else if( m.v_st_line < DL && DL == m.v_fn_line )
-  {
-    return pos <= m.v_fn_char;
-  }
-  else if( m.v_fn_line < DL && DL == m.v_st_line )
-  {
-    return pos <= m.v_st_char;
-  }
-  return false;
-}
-
-bool InVisualArea( Diff::Data& m
-                 , View* pV
-                 , const unsigned DL
-                 , const unsigned pos )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  // Only one diff view, current view, can be in visual mode.
-  if( m.vis.CV() == pV && m.inVisualMode )
-  {
-    if( m.inVisualBlock ) return InVisualBlock( m, DL, pos );
-    else                  return InVisualStFn ( m, DL, pos );
-  }
-  return false;
-}
-
-Style Get_Style( Diff::Data& m
-               , View* pV
-               , const unsigned DL
-               , const unsigned VL
-               , const unsigned pos )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  Style S = S_EMPTY;
-
-  FileBuf* pfb = pV->GetFB();
-
-  if( VL < pfb->NumLines() && pos < pfb->LineLen( VL ) )
-  {
-    S = S_NORMAL;
-
-    if     (  InVisualArea( m, pV, DL, pos ) ) S = S_RV_VISUAL;
-    else if( pV->InStar       ( VL, pos ) ) S = S_STAR;
-    else if( pV->InDefine     ( VL, pos ) ) S = S_DEFINE;
-    else if( pV->InComment    ( VL, pos ) ) S = S_COMMENT;
-    else if( pV->InConst      ( VL, pos ) ) S = S_CONST;
-    else if( pV->InControl    ( VL, pos ) ) S = S_CONTROL;
-    else if( pV->InVarType    ( VL, pos ) ) S = S_VARTYPE;
-  }
-  return S;
-}
 
 Style DiffStyle( const Style S )
 {
@@ -1931,309 +2428,6 @@ void PrintSimiList( Diff::Data& m )
   }
 }
 
-void GoToCrsPos_Write_VisualBlock( Diff::Data& m
-                                 , const int OCL
-                                 , const int OCP
-                                 , const int NCL
-                                 , const int NCP )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-  View*    pV  = m.vis.CV();
-  FileBuf* pfb = pV->GetFB();
-  // m.v_fn_line == NCL && m.v_fn_char == NCP, so dont need to include
-  // m.v_fn_line       and m.v_fn_char in Min and Max calls below:
-  const int vis_box_left = Min( m.v_st_char, Min( OCP, NCP ) );
-  const int vis_box_rite = Max( m.v_st_char, Max( OCP, NCP ) );
-  const int vis_box_top  = Min( m.v_st_line, Min( OCL, NCL ) );
-  const int vis_box_bot  = Max( m.v_st_line, Max( OCL, NCL ) );
-
-  const int draw_box_left = Max( m.leftChar     , vis_box_left );
-  const int draw_box_rite = Min( RightChar(m,pV), vis_box_rite );
-  const int draw_box_top  = Max( m.topLine      , vis_box_top  );
-  const int draw_box_bot  = Min( BotLine(m,pV)  , vis_box_bot  );
-
-  for( int DL=draw_box_top; DL<=draw_box_bot; DL++ )
-  {
-    const int VL = ViewLine( m, pV, DL ); // View line number
-
-    const int LL = pfb->LineLen( VL );
-
-    for( int k=draw_box_left; k<LL && k<=draw_box_rite; k++ )
-    {
-      const char  C = pfb->Get( VL, k );
-      const Style S = Get_Style( m, pV, DL, VL, k );
-
-      Console::Set( Line_2_GL( m, pV, DL ), Char_2_GL( m, pV, k ), C, S );
-    }
-  }
-  m.crsRow = NCL - m.topLine;
-  m.crsCol = NCP - m.leftChar;
-  Console::Update();
-  m.diff.PrintCursor( pV ); // Does Console::Update()
-  m.sts_line_needs_update = true;
-}
-
-// Cursor is moving forward
-// Write out from (OCL,OCP) up to but not including (NCL,NCP)
-void GoToCrsPos_WV_Forward( Diff::Data& m
-                          , const unsigned OCL, const unsigned OCP
-                          , const unsigned NCL, const unsigned NCP )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-  View*    pV  = m.vis.CV();
-  FileBuf* pfb = pV->GetFB();
-  // Convert OCL and NCL, which are diff lines, to view lines:
-  const unsigned OCLv = ViewLine( m, pV, OCL );
-  const unsigned NCLv = ViewLine( m, pV, NCL );
-
-  if( OCL == NCL ) // Only one line:
-  {
-    for( unsigned k=OCP; k<NCP; k++ )
-    {
-      const char  C = pfb->Get( OCLv, k );
-      const Style S = Get_Style(m,pV,OCL,OCLv,k);
-      Console::Set( Line_2_GL( m, pV, OCL ), Char_2_GL( m, pV, k ), C, S );
-    }
-  }
-  else { // Multiple lines
-    // Write out first line:
-    const unsigned FIRST_LINE_DIFF_TYPE = DiffType( m, pV, OCL );
-    if( FIRST_LINE_DIFF_TYPE != DT_DELETED )
-    {
-      const unsigned OCLL = pfb->LineLen( OCLv ); // Old cursor line length
-      const unsigned END_FIRST_LINE = Min( RightChar( m, pV )+1, OCLL );
-      for( unsigned k=OCP; k<END_FIRST_LINE; k++ )
-      {
-        const char  C = pfb->Get( OCLv, k );
-        const Style S = Get_Style(m,pV,OCL,OCLv,k);
-        Console::Set( Line_2_GL( m, pV, OCL ), Char_2_GL( m, pV, k ), C, S );
-      }
-    }
-    // Write out intermediate lines:
-    for( unsigned l=OCL+1; l<NCL; l++ )
-    {
-      const unsigned LINE_DIFF_TYPE = DiffType( m, pV, l );
-      if( LINE_DIFF_TYPE != DT_DELETED )
-      {
-        // Convert OCL, which is diff line, to view line
-        const unsigned Vl = ViewLine( m, pV, l );
-        const unsigned LL = pfb->LineLen( Vl ); // Line length
-        const unsigned END_OF_LINE = Min( RightChar( m, pV )+1, LL );
-        for( unsigned k=m.leftChar; k<END_OF_LINE; k++ )
-        {
-          const char  C = pfb->Get( Vl, k );
-          const Style S = Get_Style(m,pV,l,Vl,k);
-          Console::Set( Line_2_GL( m, pV, l ), Char_2_GL( m, pV, k ), C, S );
-        }
-      }
-    }
-    // Write out last line:
-    const unsigned LAST_LINE_DIFF_TYPE = DiffType( m, pV, NCL );
-    if( LAST_LINE_DIFF_TYPE != DT_DELETED )
-    {
-      // Print from beginning of next line to new cursor position:
-      const unsigned NCLL = pfb->LineLen( NCLv ); // Line length
-      const unsigned END_LAST_LINE = Min( NCLL, NCP );
-      for( unsigned k=m.leftChar; k<END_LAST_LINE; k++ )
-      {
-        const char  C = pfb->Get( NCLv, k );
-        const Style S = Get_Style(m,pV,NCL,NCLv,k);
-        Console::Set( Line_2_GL( m, pV, NCL ), Char_2_GL( m, pV, k ), C, S );
-      }
-    }
-  }
-}
-
-// Cursor is moving backwards
-// Write out from (OCL,OCP) back to but not including (NCL,NCP)
-void GoToCrsPos_WV_Backward( Diff::Data& m
-                           , const unsigned OCL, const unsigned OCP
-                           , const unsigned NCL, const unsigned NCP )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-  View*    pV  = m.vis.CV();
-  FileBuf* pfb = pV->GetFB();
-  // Convert OCL and NCL, which are diff lines, to view lines:
-  const unsigned OCLv = ViewLine( m, pV, OCL );
-  const unsigned NCLv = ViewLine( m, pV, NCL );
-
-  if( OCL == NCL ) // Only one line:
-  {
-    for( unsigned k=OCP; NCP<k; k-- )
-    {
-      const char  C = pfb->Get( OCLv, k );
-      const Style S = Get_Style(m,pV,OCL,OCLv,k);
-      Console::Set( Line_2_GL( m, pV, OCL ), Char_2_GL( m, pV, k ), C, S );
-    }
-  }
-  else { // Multiple lines
-    // Write out first line:
-    const int FIRST_LINE_DIFF_TYPE = DiffType( m, pV, OCL );
-    if( FIRST_LINE_DIFF_TYPE != DT_DELETED )
-    {
-      const unsigned OCLL = pfb->LineLen( OCLv ); // Old cursor line length
-      const unsigned RIGHT_MOST_POS = Min( OCP, 0<OCLL ? OCLL-1 : 0 );
-      for( unsigned k=RIGHT_MOST_POS; m.leftChar<k; k-- )
-      {
-        const char  C = pfb->Get( OCLv, k );
-        const Style S = Get_Style(m,pV,OCL,OCLv,k);
-        Console::Set( Line_2_GL( m, pV, OCL ), Char_2_GL( m, pV, k ), C, S );
-      }
-      if( m.leftChar < OCLL ) {
-        const char  C = pfb->Get( OCLv, m.leftChar );
-        const Style S = Get_Style(m,pV,OCL,OCLv,m.leftChar);
-        Console::Set( Line_2_GL( m, pV, OCL ), Char_2_GL( m, pV, m.leftChar ), C, S );
-      }
-    }
-    // Write out intermediate lines:
-    for( unsigned l=OCL-1; NCL<l; l-- )
-    {
-      const int LINE_DIFF_TYPE = DiffType( m, pV, l );
-      if( LINE_DIFF_TYPE != DT_DELETED )
-      {
-        // Convert l, which is diff line, to view line:
-        const unsigned Vl = ViewLine( m, pV, l );
-        const unsigned LL = pfb->LineLen( Vl ); // Line length
-        const unsigned END_OF_LINE = Min( RightChar( m, pV ), 0<LL ? LL-1 : 0 );
-        for( unsigned k=END_OF_LINE; m.leftChar<k; k-- )
-        {
-          const char  C = pfb->Get( Vl, k );
-          const Style S = Get_Style(m,pV,l,Vl,k);
-          Console::Set( Line_2_GL( m, pV, l ), Char_2_GL( m, pV, k ), C, S );
-        }
-      }
-    }
-    // Write out last line:
-    const int LAST_LINE_DIFF_TYPE = DiffType( m, pV, NCL );
-    if( LAST_LINE_DIFF_TYPE != DT_DELETED )
-    {
-      // Print from end of last line to new cursor position:
-      const unsigned NCLL = pfb->LineLen( NCLv ); // New cursor line length
-      const unsigned END_LAST_LINE = Min( RightChar( m, pV ), 0<NCLL ? NCLL-1 : 0 );
-      for( unsigned k=END_LAST_LINE; NCP<k; k-- )
-      {
-        const char  C = pfb->Get( NCLv, k );
-        const Style S = Get_Style(m,pV,NCL,NCLv,k);
-        Console::Set( Line_2_GL( m, pV, NCL ), Char_2_GL( m, pV, k ), C, S );
-      }
-      if( NCP < NCLL ) {
-        const char  C = pfb->Get( NCLv, NCP );
-        const Style S = Get_Style(m,pV,NCL,NCLv,NCP);
-        Console::Set( Line_2_GL( m, pV, NCL ), Char_2_GL( m, pV, NCP ), C, S );
-      }
-    }
-  }
-}
-
-void GoToCrsPos_Write_Visual( Diff::Data& m
-                            , const unsigned OCL, const unsigned OCP
-                            , const unsigned NCL, const unsigned NCP )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  // (old cursor pos) < (new cursor pos)
-  const bool OCP_LT_NCP = OCL < NCL || (OCL == NCL && OCP < NCP);
-
-  if( OCP_LT_NCP ) // Cursor moved forward
-  {
-    GoToCrsPos_WV_Forward( m, OCL, OCP, NCL, NCP );
-  }
-  else // NCP_LT_OCP // Cursor moved backward
-  {
-    GoToCrsPos_WV_Backward( m, OCL, OCP, NCL, NCP );
-  }
-  m.crsRow = NCL - m.topLine;
-  m.crsCol = NCP - m.leftChar;
-  Console::Update();
-  m.diff.PrintCursor( m.vis.CV() );
-  m.sts_line_needs_update = true;
-}
-
-void GoToCrsPos_Write( Diff::Data& m
-                     , const unsigned ncp_crsLine
-                     , const unsigned ncp_crsChar )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  View* pV = m.vis.CV();
-
-  const unsigned OCL = CrsLine(m);
-  const unsigned OCP = CrsChar(m);
-  const unsigned NCL = ncp_crsLine;
-  const unsigned NCP = ncp_crsChar;
-
-  if( OCL == NCL && OCP == NCP )
-  {
-    // Not moving to new cursor line so just put cursor back where is was
-    m.diff.PrintCursor( pV );
-  }
-  else {
-    if( m.inVisualMode )
-    {
-      m.v_fn_line = NCL;
-      m.v_fn_char = NCP;
-    }
-    // These moves refer to View of buffer:
-    const bool MOVE_DOWN  = BotLine( m, pV )   < NCL;
-    const bool MOVE_RIGHT = RightChar( m, pV ) < NCP;
-    const bool MOVE_UP    = NCL < m.topLine;
-    const bool MOVE_LEFT  = NCP < m.leftChar;
-
-    bool redraw = MOVE_DOWN || MOVE_RIGHT || MOVE_UP || MOVE_LEFT;
-
-    if( redraw )
-    {
-      if     ( MOVE_DOWN ) m.topLine = NCL - WorkingRows( pV ) + 1;
-      else if( MOVE_UP   ) m.topLine = NCL;
-
-      if     ( MOVE_RIGHT ) m.leftChar = NCP - WorkingCols( pV ) + 1;
-      else if( MOVE_LEFT  ) m.leftChar = NCP;
-
-      // crsRow and crsCol must be set to new values before calling CalcNewCrsByte
-      m.crsRow = NCL - m.topLine;
-      m.crsCol = NCP - m.leftChar;
-
-      m.diff.Update();
-    }
-    else if( m.inVisualMode )
-    {
-      if( m.inVisualBlock ) GoToCrsPos_Write_VisualBlock( m, OCL, OCP, NCL, NCP );
-      else                  GoToCrsPos_Write_Visual     ( m, OCL, OCP, NCL, NCP );
-    }
-    else {
-      // crsRow and crsCol must be set to new values before calling CalcNewCrsByte and PrintCursor
-      m.crsRow = NCL - m.topLine;
-      m.crsCol = NCP - m.leftChar;
-
-      m.diff.PrintCursor( pV );  // Put cursor into position.
-
-      m.sts_line_needs_update = true;
-    }
-  }
-}
-
-void Diff::GoToCrsPos_NoWrite( const unsigned ncp_crsLine
-                             , const unsigned ncp_crsChar )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  View* pV = m.vis.CV();
-
-  // These moves refer to View of buffer:
-  const bool MOVE_DOWN  = BotLine( m, pV )   < ncp_crsLine;
-  const bool MOVE_RIGHT = RightChar( m, pV ) < ncp_crsChar;
-  const bool MOVE_UP    = ncp_crsLine     < m.topLine;
-  const bool MOVE_LEFT  = ncp_crsChar     < m.leftChar;
-
-  if     ( MOVE_DOWN ) m.topLine = ncp_crsLine - WorkingRows( pV ) + 1;
-  else if( MOVE_UP   ) m.topLine = ncp_crsLine;
-  m.crsRow  = ncp_crsLine - m.topLine;
-
-  if     ( MOVE_RIGHT ) m.leftChar = ncp_crsChar - WorkingCols( pV ) + 1;
-  else if( MOVE_LEFT  ) m.leftChar = ncp_crsChar;
-  m.crsCol   = ncp_crsChar - m.leftChar;
-}
-
 void GoToOppositeBracket_Forward( Diff::Data& m
                                 , const char ST_C, const char FN_C )
 {
@@ -2619,173 +2813,10 @@ void Do_n_Pattern( Diff::Data& m )
   }
 }
 
-bool Do_n_Search_for_Same( Diff::Data& m
-                         , unsigned& dl
-                         , const Array_t<Diff_Info>& DI_List )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  const unsigned NUM_LINES = NumLines(m);
-  const unsigned dl_st = dl;
-
-  // Search forward for DT_SAME
-  bool found = false;
-
-  if( 1 < NUM_LINES )
-  {
-    while( !found && dl<NUM_LINES )
-    {
-      const Diff_Type DT = DI_List[dl].diff_type;
-
-      if( DT == DT_SAME )
-      {
-        found = true;
-      }
-      else dl++;
-    }
-    if( !found )
-    {
-      // Wrap around back to top and search again:
-      dl = 0;
-      while( !found && dl<dl_st )
-      {
-        const Diff_Type DT = DI_List[dl].diff_type;
-
-        if( DT == DT_SAME )
-        {
-          found = true;
-        }
-        else dl++;
-      }
-    }
-  }
-  return found;
-}
-
-bool Do_n_Search_for_Diff( Diff::Data& m
-                         , unsigned& dl
-                         , const Array_t<Diff_Info>& DI_List )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  const unsigned NUM_LINES = NumLines(m);
-  const unsigned dl_st = dl;
-
-  // Search forward for non-DT_SAME
-  bool found = false;
-
-  if( 1 < NUM_LINES )
-  {
-    while( !found && dl<NUM_LINES )
-    {
-      const Diff_Type DT = DI_List[dl].diff_type;
-
-      if( DT == DT_CHANGED
-       || DT == DT_INSERTED
-       || DT == DT_DELETED
-       || DT == DT_DIFF_FILES )
-      {
-        found = true;
-      }
-      else dl++;
-    }
-    if( !found )
-    {
-      // Wrap around back to top and search again:
-      dl = 0;
-      while( !found && dl<dl_st )
-      {
-        const Diff_Type DT = DI_List[dl].diff_type;
-
-        if( DT == DT_CHANGED
-         || DT == DT_INSERTED
-         || DT == DT_DELETED
-         || DT == DT_DIFF_FILES )
-        {
-          found = true;
-        }
-        else dl++;
-      }
-    }
-  }
-  return found;
-}
-
-unsigned Do_n_Find_Crs_Pos( Diff::Data& m
-                          , const unsigned NCL
-                          , const Array_t<Diff_Info>& DI_List )
-{
-  unsigned NCP = 0;
-
-  const Diff_Type DT_new = DI_List[ NCL ].diff_type;
-
-  if( DT_new == DT_CHANGED )
-  {
-    LineInfo* pLI_s = m.DI_List_S[ NCL ].pLineInfo;
-    LineInfo* pLI_l = m.DI_List_L[ NCL ].pLineInfo;
-
-    for( unsigned k=0; 0 != pLI_s && k<pLI_s->len()
-                    && 0 != pLI_l && k<pLI_l->len(); k++ )
-    {
-      Diff_Type dt_s = (*pLI_s)[ k ];
-      Diff_Type dt_l = (*pLI_l)[ k ];
-
-      if( dt_s != DT_SAME
-       || dt_l != DT_SAME )
-      {
-        NCP = k;
-        break;
-      }
-    }
-  }
-  return NCP;
-}
-
-void Do_n_Diff( Diff::Data& m )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  if( 0 < NumLines(m) )
-  {
-    m.diff.Set_Cmd_Line_Msg("Searching down for diff");
-
-    unsigned dl = CrsLine(m); // Diff line, changed by search methods below
-
-    View* pV = m.vis.CV();
-
-    Array_t<Diff_Info>& DI_List = (pV == m.pvS) ? m.DI_List_S : m.DI_List_L;
-
-    const Diff_Type DT = DI_List[dl].diff_type; // Current diff type
-
-    bool found = true;
-
-    if( DT == DT_CHANGED
-     || DT == DT_INSERTED
-     || DT == DT_DELETED
-     || DT == DT_DIFF_FILES )
-    {
-      // If currently on a diff, search for same before searching for diff
-      found = Do_n_Search_for_Same( m, dl, DI_List );
-    }
-    if( found )
-    {
-      found = Do_n_Search_for_Diff( m, dl, DI_List );
-
-      if( found )
-      {
-        const unsigned NCL = dl;
-        const unsigned NCP = Do_n_Find_Crs_Pos( m, NCL, DI_List );
-
-        GoToCrsPos_Write( m, NCL, NCP );
-      }
-    }
-  }
-}
-
 // If past end of line, move back to end of line.
 // Returns true if moved, false otherwise.
 //
-bool MoveInBounds( Diff::Data& m )
+void MoveInBounds_Line( Diff::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -2799,15 +2830,13 @@ bool MoveInBounds( Diff::Data& m )
   if( EOL < CrsChar(m) ) // Since cursor is now allowed past EOL,
   {                      // it may need to be moved back:
     m.diff.GoToCrsPos_NoWrite( DL, EOL );
-    return true;
   }
-  return false;
 }
 
 bool Do_N_FindPrevPattern( Diff::Data& m, CrsPos& ncp )
 {
   Trace trace( __PRETTY_FUNCTION__ );
-  MoveInBounds(m);
+  MoveInBounds_Line(m);
 
   View* pV = m.vis.CV();
   FileBuf* pfb = pV->GetFB();
@@ -4145,7 +4174,7 @@ void Do_p_or_P_st_fn_FirstLine( Diff::Data& m
     m.diff.Patch_Diff_Info_Inserted( pV, ODL+k, ODVL0 );
   }
   else {
-    MoveInBounds(m);
+    MoveInBounds_Line(m);
     const unsigned LL = pfb->LineLen( VL );
     const unsigned CP = CrsChar(m);         // Cursor position
 
@@ -4227,7 +4256,7 @@ void Do_p_or_P_st_fn_IntermediatLine( Diff::Data& m
     m.diff.Patch_Diff_Info_Inserted( pV, ODL+k, false );
   }
   else {
-    MoveInBounds(m);
+    MoveInBounds_Line(m);
     const unsigned LL = pfb->LineLen( VL );
 
     for( unsigned i=0; i<NLL; i++ )
@@ -4579,7 +4608,7 @@ bool Do_visualMode( Diff::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  MoveInBounds(m);
+  MoveInBounds_Line(m);
   m.inVisualMode = true;
   m.undo_v     = true;
   DisplayBanner(m);
@@ -4814,7 +4843,7 @@ bool GetFileName_UnderCursor( Diff::Data& m, String& fname )
 
   if( 0 < LL )
   {
-    MoveInBounds(m);
+    MoveInBounds_Line(m);
     const int CP = CrsChar(m);
     char C = pfb->Get( VL, CP );
 
@@ -5027,22 +5056,15 @@ bool Diff::Run( View* const pv0, View* const pv1 )
 
     Set_ShortLong_ViewfileMod_Vars( m, pv0, pv1 );
 
-    if( same_as_prev )
+    if( !same_as_prev )
     {
-      Set_DiffContext_2_ViewContext(m);
-
-      // Dont need to re-run the diff, just display the results:
-      Update();
-    }
-    else {
       CleanDiff(m); //< Start over with clean slate
 
       // All lines in both files:
       DiffArea CA( 0, m.pfS->NumLines(), 0, m.pfL->NumLines() );
 
       RunDiff( m, CA );
-      Set_DiffContext_2_ViewContext(m);
-      m.diff.Update();
+      Find_Context(m);
     }
     return true;
   }
@@ -5479,7 +5501,7 @@ void Diff::GoToOppositeBracket()
 
   View* pV = m.vis.CV();
 
-  MoveInBounds(m);
+  MoveInBounds_Line(m);
 
   const unsigned NUM_LINES = pV->GetFB()->NumLines();
   const unsigned CL        = ViewLine( m, pV, CrsLine(m) ); //< View line
@@ -5518,7 +5540,7 @@ void Diff::GoToLeftSquigglyBracket()
 
   View* pV = m.vis.CV();
 
-  MoveInBounds(m);
+  MoveInBounds_Line(m);
 
   const char  start_char = '}';
   const char finish_char = '{';
@@ -5531,7 +5553,7 @@ void Diff::GoToRightSquigglyBracket()
 
   View* pV = m.vis.CV();
 
-  MoveInBounds(m);
+  MoveInBounds_Line(m);
 
   const char  start_char = '{';
   const char finish_char = '}';
@@ -5576,7 +5598,7 @@ void Diff::Do_n()
   Trace trace( __PRETTY_FUNCTION__ );
 
   if( 0<m.vis.GetRegexLen() ) Do_n_Pattern(m);
-  else                        Do_n_Diff(m);
+  else                        Do_n_Diff(m,true);
 }
 
 void Diff::Do_N()
@@ -5637,7 +5659,7 @@ void Diff::MoveCurrLineToTop()
   }
 }
 
-void Diff::MoveCurrLineCenter()
+void Diff::MoveCurrLineCenter( const bool write )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -5653,14 +5675,16 @@ void Diff::MoveCurrLineCenter()
     // CrsLine(m) does not change:
     m.crsRow += m.topLine;
     m.topLine = 0;
-    Update();
+
+    if( write ) Update();
   }
   else if( center < OCL
         && center != m.crsRow )
   {
     m.topLine += m.crsRow - center;
     m.crsRow = center;
-    Update();
+
+    if( write ) Update();
   }
 }
 
@@ -6319,7 +6343,7 @@ String Diff::Do_Star_GetNewPattern()
 
   if( 0<LL )
   {
-    MoveInBounds(m);
+    MoveInBounds_Line(m);
     const unsigned CC = CrsChar(m);
 
     const int c = pfb->Get( CLv,  CC );

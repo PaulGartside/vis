@@ -549,13 +549,18 @@ void Sig_Handle_SIGCONT( int signo )
   mp_vis->UpdateAll( false );
 }
 
+// Received when ^C is entered:
+void Sig_Handle_SIGINT( int signo )
+{
+  mp_vis->CmdLineMessage("Ignoring SIGINT.  To exit type ':qa'");
+}
+
 void Sig_Handle_HW( int signo )
 {
   if     ( SIGBUS  == signo ) Log.Log("Received SIGBUS \n");
   else if( SIGIOT  == signo ) Log.Log("Received SIGIOT \n");
   else if( SIGTRAP == signo ) Log.Log("Received SIGTRAP\n");
   else if( SIGSEGV == signo ) Log.Log("Received SIGSEGV\n");
-  else if( SIGINT  == signo ) Log.Log("Received SIGINT \n");
   else if( SIGTERM == signo ) Log.Log("Received SIGTERM\n");
 
   mp_vis->Stop();
@@ -667,11 +672,11 @@ void Console::SetConsoleCursor()
 void Console::SetSignals()
 {
   signal( SIGCONT, Sig_Handle_SIGCONT );
+  signal( SIGINT , Sig_Handle_SIGINT ); // ^C
   signal( SIGBUS , Sig_Handle_HW );
   signal( SIGIOT , Sig_Handle_HW );
   signal( SIGTRAP, Sig_Handle_HW );
   signal( SIGSEGV, Sig_Handle_HW );
-  signal( SIGINT , Sig_Handle_HW );
   signal( SIGTERM, Sig_Handle_HW );
 }
 
@@ -835,7 +840,8 @@ char Console::KeyIn()
   // Ignore read errors, and escaped keys.
   // Return the first single char read.
   char str[16]; // Maximum F1-F12 and arrow key interpretation
-  while( read( FD_IO, str, 1 ) != 1 )
+  // Returns number of bytes read, 0 if EOF, -1 on error:
+  while( read( FD_IO, str, 16 ) != 1 )
   {
     // Try to use less CPU time while waiting:
     if( 0==count ) vis.CheckWindowSize(); // If window has resized, update window
@@ -853,6 +859,7 @@ char Console::KeyIn()
     count++;
     if( 8==count ) count=0;
   }
+//Log.Log("read(%c)\n", str[0]);
   return str[0];
 }
 

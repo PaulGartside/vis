@@ -142,7 +142,8 @@ public:
   bool GoToFile_GetFileName( String& fname );
   void GoToCmdLineClear( const char* S );
 
-  bool MoveInBounds();
+  void MoveInBounds_Line();
+  void MoveInBounds_File();
 
   bool InVisualArea ( const unsigned line, const unsigned pos );
   bool InVisualStFn ( const unsigned line, const unsigned pos );

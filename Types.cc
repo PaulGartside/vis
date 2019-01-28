@@ -42,3 +42,13 @@ const char* ChangeType_Str( const ChangeType ct )
   return str;
 }
 
+const char* Encoding_Str( const Encoding E )
+{
+  const char* str = "Unknown";
+
+  if     ( E == ENC_BYTE ) str = "Byte";
+  else if( E == ENC_HEX  ) str = "Hex";
+
+  return str;
+}
+

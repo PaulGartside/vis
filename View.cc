@@ -1271,7 +1271,7 @@ void Do_Tilda_v( View::Data& m )
 bool Do_visualMode( View::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
-  m.view.MoveInBounds();
+  m.view.MoveInBounds_Line();
   m.inVisualMode = true;
   DisplayBanner(m);
 
@@ -2049,7 +2049,7 @@ bool Do_n_FindNextPattern( View::Data& m, CrsPos& ncp )
 bool Do_N_FindPrevPattern( View::Data& m, CrsPos& ncp )
 {
   Trace trace( __PRETTY_FUNCTION__ );
-  m.view.MoveInBounds();
+  m.view.MoveInBounds_Line();
 
   const unsigned NUM_LINES = m.fb.NumLines();
 
@@ -2226,7 +2226,7 @@ void Do_p_or_P_st_fn( View::Data& m, Paste_Pos paste_pos )
 
     if( 0 == k ) // Add to current line
     {
-      m.view.MoveInBounds();
+      m.view.MoveInBounds_Line();
       const unsigned OLL = m.fb.LineLen( OCL );
       const unsigned OCP = m.view.CrsChar();               // Old cursor position
 
@@ -2901,7 +2901,7 @@ void View::GoToEndOfRow()
 void View::GoToOppositeBracket()
 {
   Trace trace( __PRETTY_FUNCTION__ );
-  MoveInBounds();
+  MoveInBounds_Line();
   const unsigned NUM_LINES = m.fb.NumLines();
   const unsigned CL = CrsLine();
   const unsigned CC = CrsChar();
@@ -2936,7 +2936,7 @@ void View::GoToOppositeBracket()
 void View::GoToLeftSquigglyBracket()
 {
   Trace trace( __PRETTY_FUNCTION__ );
-  MoveInBounds();
+  MoveInBounds_Line();
 
   const char  start_char = '}';
   const char finish_char = '{';
@@ -2946,7 +2946,7 @@ void View::GoToLeftSquigglyBracket()
 void View::GoToRightSquigglyBracket()
 {
   Trace trace( __PRETTY_FUNCTION__ );
-  MoveInBounds();
+  MoveInBounds_Line();
 
   const char  start_char = '{';
   const char finish_char = '}';
@@ -3053,7 +3053,7 @@ bool View::GoToFile_GetFileName( String& fname )
 
   if( 0 < LL )
   {
-    MoveInBounds();
+    MoveInBounds_Line();
     const int CP = CrsChar();
     char c = m.fb.Get( CL, CP );
 
@@ -3116,7 +3116,7 @@ void View::GoToCmdLineClear( const char* S )
 // If past end of line, move back to end of line.
 // Returns true if moved, false otherwise.
 //
-bool View::MoveInBounds()
+void View::MoveInBounds_Line()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -3127,9 +3127,36 @@ bool View::MoveInBounds()
   if( EOL < CrsChar() ) // Since cursor is now allowed past EOL,
   {                      // it may need to be moved back:
     GoToCrsPos_NoWrite( CL, EOL );
-    return true;
   }
-  return false;
+}
+
+// If past end of file, move back to last line.
+// If past end of line, move back to end of line.
+//
+void View::MoveInBounds_File()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  const unsigned NUM_LINES = m.fb.NumLines();
+
+  if( 0 < NUM_LINES )
+  {
+    if( NUM_LINES <= CrsLine() )
+    {
+      const unsigned NCL = NUM_LINES-1;
+      const unsigned LL  = m.fb.LineLen( NCL );
+      const unsigned EOL = 0<LL ? LL-1 : 0;
+
+      // Since cursor is now allowed past EOL, it may need to be moved back:
+      const unsigned NCC = Min( CrsChar(), EOL );
+
+      GoToCrsPos_NoWrite( NCL, NCC );
+    }
+    else
+    {
+      MoveInBounds_Line();
+    }
+  }
 }
 
 void View::MoveCurrLineToTop()
@@ -4141,7 +4168,7 @@ String View::Do_Star_GetNewPattern()
 
   if( 0<LL )
   {
-    MoveInBounds();
+    MoveInBounds_Line();
     const unsigned CC = CrsChar();
 
     const int C = m.fb.Get( CL,  CC );

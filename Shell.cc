@@ -92,7 +92,7 @@ bool Blocking_Cmd( Shell::Data& m )
 
   bool blocking_cmd = false;
 
-  m.cmd_copy = m.cmd; 
+  m.cmd_copy = m.cmd;
   bool ok = m.cmd_copy.split( " ", m.cmd_part );
   if( ok && 0 < m.cmd_part.len() )
   {
@@ -373,7 +373,7 @@ void Shell::Run()
   Trace trace( __PRETTY_FUNCTION__ );
 
 #ifndef WIN32
-  m.view = m.vis.CV(); 
+  m.view = m.vis.CV();
   m.pfb  = m.view->GetFB();
 
   bool ok = Get_Shell_Cmd( m );

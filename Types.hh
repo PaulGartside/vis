@@ -134,7 +134,14 @@ enum ChangeType
   Replace_Text
 };
 
+enum Encoding
+{
+  ENC_BYTE,
+  ENC_HEX
+};
+
 const char* ChangeType_Str( const ChangeType ct );
+const char* Encoding_Str( const Encoding E );
 
 enum File_Type
 {

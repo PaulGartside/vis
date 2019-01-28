@@ -104,6 +104,7 @@ static HiKeyVal HiPairs[] =
   { "__PRETTY_FUNCTION__", HI_DEFINE  },
   { "__TIMESTAMP__"      , HI_DEFINE  },
   { "__FILE__"           , HI_DEFINE  },
+  { "__func__"           , HI_DEFINE  },
   { "__LINE__"           , HI_DEFINE  },
   { 0 }
 };

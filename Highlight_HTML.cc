@@ -42,7 +42,7 @@ struct Edges
     beg.crsChar = p;
     end.crsLine = 0;
     end.crsChar = 0;
-  } 
+  }
   // cp is between beg and end
   bool contains( CrsPos cp )
   {
@@ -314,7 +314,7 @@ void Highlight_HTML::Hi_In_None()
       }
       else if( c3=='<' && c2=='!' && c1=='D' && c0=='O')
       {
-        // <!DOCTYPE html>   
+        // <!DOCTYPE html>
         m_fb.SetSyntaxStyle( m_l, m_p-3, HI_DEFINE ); //< '<'
         m_fb.SetSyntaxStyle( m_l, m_p-2, HI_DEFINE ); //< '!'
         m_p--; // Move back to 'D'

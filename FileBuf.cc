@@ -116,6 +116,8 @@ struct FileBuf::Data
   File_Type  file_type;
   const bool m_mutable; // mutable is used by preprocessor, so use m_mutable instead
   Line       line_buf;
+  Encoding   decoding;
+  Encoding   encoding;
 };
 
 FileBuf::Data::Data( FileBuf& parent
@@ -150,6 +152,8 @@ FileBuf::Data::Data( FileBuf& parent
   , LF_at_EOF( true )
   , file_type( FT )
   , m_mutable( MUTABLE )
+  , decoding( ENC_BYTE )
+  , encoding( ENC_BYTE )
 {
   if( is_dir )
   {
@@ -193,6 +197,8 @@ FileBuf::Data::Data( FileBuf& parent
   , file_type( rfb.m.file_type )
   , pHi( 0 )
   , m_mutable( true )
+  , decoding( rfb.m.decoding )
+  , encoding( rfb.m.encoding )
 {
   if( is_dir )
   {
@@ -865,6 +871,179 @@ void ClearStarStyle( FileBuf::Data& m
   sp->set( c_num, sp->get( c_num ) & ~HI_STAR );
 }
 
+Line* Append_hex_2_line( FileBuf::Data& m
+                     //, LinesList& n_lines
+                       , Array_t<Line*>& n_lines
+                       , Line* n_line
+                       , const uint8_t C )
+{
+  char C1 = MS_Hex_Digit( C );
+  char C2 = LS_Hex_Digit( C );
+
+  n_line->push(' ');
+  n_line->push(C1);
+  n_line->push(C2);
+
+  if( 47 < n_line->len() )
+  {
+    n_lines.push( n_line );
+    n_line = m.vis.BorrowLine( __FILE__,__LINE__ );
+  }
+  return n_line;
+}
+
+void Replace_current_file( FileBuf::Data& m
+                       //, LinesList& n_lines
+                         , Array_t<Line*>& n_lines
+                         , const Encoding enc
+                         , const bool LF_at_EOF )
+{
+  m.save_history = false;
+
+  m.self.ClearLines();
+
+  for( unsigned k=0; k<n_lines.len(); k++ )
+  {
+    // FileBuf takes responsibility for deleting line:
+    m.self.PushLine( *n_lines.get(k) );
+  }
+  m.save_history = true;
+
+  m.decoding = enc;
+  m.encoding = enc;
+  m.LF_at_EOF = LF_at_EOF;
+}
+
+bool BYTE_to_HEX( FileBuf::Data& m )
+{
+  bool ok = true;
+
+  Array_t<Line*> n_lines;
+  Line* n_line = m.vis.BorrowLine( __FILE__,__LINE__ );
+
+  const unsigned NUM_LINES = m.lines.len();
+
+  for( unsigned k=0; k<NUM_LINES; k++ )
+  {
+    Line* l = m.lines[k];
+    const int LL = l->len();
+
+    for( int i=0; i<LL; i++ )
+    {
+      n_line = Append_hex_2_line( m, n_lines, n_line, l->get(i) );
+    }
+    if( k<NUM_LINES-1 || m.LF_at_EOF )
+    {
+      n_line = Append_hex_2_line( m, n_lines, n_line, '\n' );
+    }
+  }
+  if( 0 < n_line->len() ) n_lines.push( n_line );
+
+  Replace_current_file( m, n_lines, ENC_HEX, false );
+  m.self.Set_File_Type("text");
+  return ok;
+}
+
+bool HEX_to_BYTE_check_format( FileBuf::Data& m )
+{
+  bool ok = true;
+
+  const int NUM_LINES = m.lines.len();
+  // Make sure lines are all 48 characters long, except last line,
+  // which must be a multiple of 3 characters long
+  for( unsigned k=0; ok && k<NUM_LINES; k++ )
+  {
+    Line* l = m.lines[k];
+    const unsigned LL = l->len();
+    if( k<(NUM_LINES-1) && LL != 48 )
+    {
+      ok = false;
+      m.vis.Window_Message("Line: %u is %u characters, not 48", (k+1), LL);
+    }
+    else { // Last line
+      if( 48 < LL || 0!=(LL%3) )
+      {
+        ok = false;
+        m.vis.Window_Message("Line: %u is %u characters, not multiple of 3", (k+1), LL);
+      }
+    }
+    // Make sure lines are: ' XX XX'
+    for( int i=0; ok && i<LL; i+=3 )
+    {
+      const char C0 = l->get(i);
+      const char C1 = l->get(i+1);
+      const char C2 = l->get(i+2);
+
+      if( C0 != ' ' )
+      {
+        ok = false;
+        m.vis.Window_Message("Expected space on Line: %u pos: %u", (k+1), (i+1));
+      }
+      else if( !IsHexDigit( C1 ) )
+      {
+        ok = false;
+        m.vis.Window_Message("Expected hex digit on Line: %u pos: %u : %c", (k+1), (i+2), C1);
+      }
+      else if( !IsHexDigit( C2 ) )
+      {
+        ok = false;
+        m.vis.Window_Message("Expected hex digit on Line: %u pos: %u : %c", (k+1), (i+3), C2);
+      }
+    }
+  }
+  return ok;
+}
+
+bool HEX_to_BYTE_get_lines( FileBuf::Data& m
+                          , Array_t<Line*>& n_lines
+                          , bool& LF_at_EOF )
+{
+  bool ok = HEX_to_BYTE_check_format(m);
+  if( ok )
+  {
+    Line* n_line = m.vis.BorrowLine( __FILE__,__LINE__ );
+
+    for( int k=0; k<m.lines.len(); k++ )
+    {
+      Line* l = m.lines[k];
+      const int LL = l->len();
+      for( int i=0; i<LL; i+=3 )
+      {
+        const char C1 = l->get(i+1);
+        const char C2 = l->get(i+2);
+        const char C  = Hex_Chars_2_Byte( C1, C2 );
+
+        if('\n' == C)
+        {
+          n_lines.push( n_line );
+          n_line = m.vis.BorrowLine( __FILE__,__LINE__ );
+          LF_at_EOF = true;
+        }
+        else {
+          n_line->push( C );
+          LF_at_EOF = false;
+        }
+      }
+    }
+    if( 0 < n_line->len() ) n_lines.push( n_line );
+  }
+  return ok;
+}
+
+bool HEX_to_BYTE( FileBuf::Data& m )
+{
+  Array_t<Line*> n_lines;
+  bool LF_at_EOF = true;
+
+  bool ok = HEX_to_BYTE_get_lines( m, n_lines, LF_at_EOF );
+  if( ok )
+  {
+    Replace_current_file( m, n_lines, ENC_BYTE, LF_at_EOF );
+    Find_File_Type_Suffix( m );
+  }
+  return ok;
+}
+
 FileBuf::FileBuf( Vis& vis
                 , const char* const FILE_NAME
                 , const bool MUTABLE
@@ -947,6 +1126,41 @@ void FileBuf::SetChangedExternally() { m.changed_externally = true; }
 const char* FileBuf::GetPathName() const { return m.path_name.c_str(); }
 const char* FileBuf::GetDirName() const { return m.dir_name.c_str(); }
 const char* FileBuf::GetFileName() const { return m.file_name.c_str(); }
+
+Encoding FileBuf::GetDecoding() const
+{
+  return m.decoding;
+}
+
+bool FileBuf::SetDecoding( const Encoding dec )
+{
+  bool ok = true;
+  if( dec != m.decoding )
+  {
+    if( m.decoding == ENC_BYTE )
+    {
+      if( dec == ENC_HEX ) ok = BYTE_to_HEX(m);
+      else ok = false;
+    }
+    else if( dec == ENC_BYTE )
+    {
+      if( m.decoding == ENC_HEX ) ok = HEX_to_BYTE(m);
+      else ok = false;
+    }
+    else ok = false;
+  }
+  return ok;
+}
+
+Encoding FileBuf::GetEncoding() const
+{
+  return m.encoding;
+}
+
+void FileBuf::SetEncoding( const Encoding E )
+{
+  m.encoding = E;
+}
 
 void FileBuf::Set_File_Type( const char* syn )
 {
@@ -1113,8 +1327,8 @@ void FileBuf::ReReadFile()
 
     pV->Check_Context();
   }
-  m.save_history      = true;
-  m.hi_touched_line   = 0;
+  m.save_history    = true;
+  m.hi_touched_line = 0;
 }
 
 bool FileBuf::Sort()
@@ -1233,7 +1447,9 @@ void FileBuf::ReadArray( const Line& line )
   if( lp ) PushLine( lp ); //< FileBuf::lines takes ownership of lp
 }
 
-void FileBuf::Write()
+void Write_p( FileBuf::Data& m
+            , const Array_t<Line*>& l_lines
+            , const bool l_LF_at_EOF )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   if( 0==m.path_name.len() )
@@ -1250,17 +1466,17 @@ void FileBuf::Write()
                            , m.path_name.c_str() );
     }
     else {
-      const unsigned NUM_LINES = m.lines.len();
+      const unsigned NUM_LINES = l_lines.len();
 
       for( unsigned k=0; k<NUM_LINES; k++ )
       {
-        const unsigned LL = m.lines[k]->len();
+        const unsigned LL = l_lines[k]->len();
         for( unsigned i=0; i<LL; i++ )
         {
-          int c = m.lines[k]->get(i);
+          int c = l_lines[k]->get(i);
           fputc( c, fp );
         }
-        if( k<NUM_LINES-1 || m.LF_at_EOF )
+        if( k<NUM_LINES-1 || l_LF_at_EOF )
         {
           fputc( '\n', fp );
         }
@@ -1274,6 +1490,28 @@ void FileBuf::Write()
       // Wrote to file message:
       m.vis.CmdLineMessage("\"%s\" written", m.path_name.c_str() );
     }
+  }
+}
+
+void FileBuf::Write()
+{
+  if( ENC_BYTE == m.encoding )
+  {
+    Write_p( m, m.lines, m.LF_at_EOF );
+  }
+  else if( ENC_HEX == m.encoding )
+  {
+    Array_t<Line*> n_lines;
+    bool LF_at_EOF = true;
+
+    if( HEX_to_BYTE_get_lines( m, n_lines, LF_at_EOF ) )
+    {
+      Write_p( m, n_lines, LF_at_EOF );
+    }
+  }
+  else {
+    m.vis.Window_Message("\nUnhandled Encoding: %s\n\n"
+                        , Encoding_Str( m.encoding ) );
   }
 }
 
@@ -2017,35 +2255,37 @@ void FileBuf::Update()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( m.vis.RunningDot() ) return;
+  if( !m.vis.RunningDot() )
+  {
+    UpdateWinViews( m, true );
 
-  UpdateWinViews( m, true );
+    Console::Update();
 
-  Console::Update();
-
-  // Put cursor back into current window
-  m.vis.CV()->PrintCursor();
+    // Put cursor back into current window
+    m.vis.CV()->PrintCursor();
+  }
 }
 
 void FileBuf::UpdateCmd()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( m.vis.RunningDot() ) return;
-
-  UpdateWinViews( m, false );
-
-  if( 0 != m.line_view )
+  if( !m.vis.RunningDot() )
   {
-    LineView* const pV = m.line_view;
+    UpdateWinViews( m, false );
 
-    pV->RepositionView();
-    pV->PrintWorkingView();
+    if( 0 != m.line_view )
+    {
+      LineView* const pV = m.line_view;
 
-    Console::Update();
+      pV->RepositionView();
+      pV->PrintWorkingView();
 
-    // Put cursor back into current window
-    pV->PrintCursor();
+      Console::Update();
+
+      // Put cursor back into current window
+      pV->PrintCursor();
+    }
   }
 }
 

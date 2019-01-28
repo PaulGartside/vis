@@ -1336,7 +1336,7 @@ bool Do_n_FindNextPattern( LineView::Data& m, CrsPos& ncp )
 bool Do_N_FindPrevPattern( LineView::Data& m, CrsPos& ncp )
 {
   Trace trace( __PRETTY_FUNCTION__ );
-  m.view.MoveInBounds();
+  m.view.MoveInBounds_Line();
 
   const unsigned NUM_LINES = m.fb.NumLines();
 
@@ -1485,7 +1485,7 @@ void Do_p_or_P_st_fn( LineView::Data& m, Paste_Pos paste_pos )
 
     if( 0 == k ) // Add to current line
     {
-      m.view.MoveInBounds();
+      m.view.MoveInBounds_Line();
       const unsigned OLL = m.fb.LineLen( OCL );
       const unsigned OCP = m.view.CrsChar();               // Old cursor position
 
@@ -1859,7 +1859,7 @@ void LineView::GoToEndOfRow()
 void LineView::GoToOppositeBracket()
 {
   Trace trace( __PRETTY_FUNCTION__ );
-  MoveInBounds();
+  MoveInBounds_Line();
   const unsigned NUM_LINES = m.fb.NumLines();
   const unsigned CL = CrsLine();
   const unsigned CC = CrsChar();
@@ -1960,7 +1960,7 @@ void LineView::GoToCrsPos_Write( const unsigned ncp_crsLine
 // If past end of line, move back to end of line.
 // Returns true if moved, false otherwise.
 //
-bool LineView::MoveInBounds()
+void LineView::MoveInBounds_Line()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -1971,9 +1971,7 @@ bool LineView::MoveInBounds()
   if( EOL < CrsChar() ) // Since cursor is now allowed past EOL,
   {                      // it may need to be moved back:
     GoToCrsPos_NoWrite( CL, EOL );
-    return true;
   }
-  return false;
 }
 
 // Returns true if end of line delimiter was entered, else false

@@ -128,7 +128,7 @@ public:
   void GoToCrsPos_Write( const unsigned ncp_crsLine
                        , const unsigned ncp_crsChar );
 
-  bool MoveInBounds();
+  void MoveInBounds_Line();
 
   bool InVisualArea ( const unsigned line, const unsigned pos );
   bool InVisualStFn ( const unsigned line, const unsigned pos );
