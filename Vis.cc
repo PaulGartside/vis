@@ -106,7 +106,6 @@ struct Vis::Data
   LinesList  line_cache;
   ChangeList change_cache;
   Paste_Mode paste_mode;
-  bool       diff_mode; // true if displaying diff
   bool       colon_mode;// true if cursor is on vis colon line
   bool       slash_mode;// true if cursor is on vis slash line
   bool       sort_by_time;
@@ -139,7 +138,6 @@ Vis::Data::Data( Vis& vis )
   , line_cache()
   , change_cache()
   , paste_mode( PM_LINE )
-  , diff_mode( false )
   , colon_mode( false )
   , slash_mode( false )
   , sort_by_time( false )
@@ -147,7 +145,7 @@ Vis::Data::Data( Vis& vis )
   , fast_char( -1 )
   , repeat( 1 )
   , repeat_buf()
-  , cv_old( nullptr )
+  , cv_old( 0 )
 {
 }
 
@@ -475,6 +473,85 @@ void GoToFile( Vis::Data& m )
   if( ok ) m.vis.GoToBuffer_Fname( fname );
 }
 
+// Set m_in_diff to false for any View of FileBuf fb
+void NoDiff_4_FileBuf( Vis::Data& m, FileBuf* pfb )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  for( unsigned w=0; w<MAX_WINS; w++ )
+  {
+    ViewList& vl = m.views[w];
+
+    for( unsigned f=0; f<vl.len(); f++ )
+    {
+      View* v_f = vl[ f ];
+
+      if( v_f->GetFB() == pfb )
+      {
+        v_f->SetInDiff( false );
+      }
+    }
+  }
+}
+
+void NoDiff_Copy_DiffContext_2_ViewContext( Vis::Data& m )
+{
+  View* pvS = m.diff.GetViewShort();
+  View* pvL = m.diff.GetViewLong ();
+
+  // Set the view contexts to similar values as the diff contexts:
+  if( 0 != pvS )
+  {
+    NoDiff_4_FileBuf( m, pvS->GetFB() );
+
+    pvS->SetTopLine ( m.diff.GetTopLine ( pvS ) );
+    pvS->SetLeftChar( m.diff.GetLeftChar() );
+    pvS->SetCrsRow  ( m.diff.GetCrsRow  () );
+    pvS->SetCrsCol  ( m.diff.GetCrsCol  () );
+  }
+  if( 0 != pvL )
+  {
+    NoDiff_4_FileBuf( m, pvL->GetFB() );
+
+    pvL->SetTopLine ( m.diff.GetTopLine ( pvL ) );
+    pvL->SetLeftChar( m.diff.GetLeftChar() );
+    pvL->SetCrsRow  ( m.diff.GetCrsRow  () );
+    pvL->SetCrsCol  ( m.diff.GetCrsCol  () );
+  }
+}
+
+void Clear_Diff( Vis::Data& m )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  // Make sure diff is turned off for everything:
+  for( unsigned w=0; w<MAX_WINS; w++ )
+  {
+    ViewList& vl = m.views[w];
+
+    for( unsigned f=0; f<vl.len(); f++ )
+    {
+      vl[ f ]->SetInDiff( false );
+    }
+  }
+  m.diff.ClearDiff();
+}
+
+void NoDiff_CV( Vis::Data& m )
+{
+  if( CV(m)->GetInDiff() )
+  {
+    NoDiff_Copy_DiffContext_2_ViewContext(m);
+
+    // Since currently only one diff can be running at a time,
+    // if the current view is going out of diff, might as well
+    // make sure diff is turned off completely:
+    Clear_Diff( m );
+
+    m.vis.UpdateViews( false );
+  }
+}
+
 void GoToBuffer( Vis::Data& m, const unsigned buf_idx )
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -491,7 +568,7 @@ void GoToBuffer( Vis::Data& m, const unsigned buf_idx )
       CV(m)->PrintCursor();
     }
     else {
-      m.vis.NoDiff();
+      NoDiff_CV(m);
 
       m.file_hist[m.win].insert( 0, buf_idx );
 
@@ -560,7 +637,7 @@ void GoToNextBuffer( Vis::Data& m )
     CV(m)->PrintCursor();
   }
   else {
-    m.vis.NoDiff();
+    NoDiff_CV(m);
 
     View*    const pV_old = CV(m);
     Tile_Pos const tp_old = pV_old->GetTilePos();
@@ -588,7 +665,7 @@ void GoToCurrBuffer( Vis::Data& m )
    || CVI == COLON_FILE
    || CVI == SLASH_FILE )
   {
-    m.vis.NoDiff();
+    NoDiff_CV(m);
 
     GoToBuffer( m, m.file_hist[m.win][1] );
   }
@@ -652,7 +729,6 @@ bool WentBackToPrevDirDiff( Vis::Data& m )
 
           went_back = m.diff.Run( cV_prev, oV_prev );
           if( went_back ) {
-            m.diff_mode = true;
             m.diff.GetViewShort()->SetInDiff( true );
             m.diff.GetViewLong() ->SetInDiff( true );
             m.diff.Update();
@@ -682,7 +758,7 @@ void GoToPrevBuffer( Vis::Data& m )
     {
       went_back_to_prev_dir_diff = WentBackToPrevDirDiff(m);
 
-      if( !went_back_to_prev_dir_diff ) m.vis.NoDiff();
+      if( !went_back_to_prev_dir_diff ) NoDiff_CV(m);
     }
     if( !went_back_to_prev_dir_diff )
     {
@@ -703,7 +779,7 @@ void GoToPrevBuffer( Vis::Data& m )
 
 void GoToPoundBuffer( Vis::Data& m )
 {
-  m.vis.NoDiff();
+  NoDiff_CV(m);
 
   if( BE_FILE == m.file_hist[m.win][1] )
   {
@@ -758,7 +834,7 @@ void GoToNextWindow( Vis::Data& m )
 
     Console::Update();
 
-    m.diff_mode ? m.diff.PrintCursor( pV ) : pV->PrintCursor();
+    CV(m)->GetInDiff() ? m.diff.PrintCursor( pV ) : pV->PrintCursor();
   }
 }
 
@@ -986,7 +1062,7 @@ void GoToNextWindow_l( Vis::Data& m )
 
       Console::Update();
 
-      m.diff_mode ? m.diff.PrintCursor( pV ) : pV->PrintCursor();
+      CV(m)->GetInDiff() ? m.diff.PrintCursor( pV ) : pV->PrintCursor();
     }
   }
 }
@@ -1217,7 +1293,7 @@ void GoToNextWindow_h( Vis::Data& m )
 
       Console::Update();
 
-      m.diff_mode ? m.diff.PrintCursor( pV ) : pV->PrintCursor();
+      CV(m)->GetInDiff() ? m.diff.PrintCursor( pV ) : pV->PrintCursor();
     }
   }
 }
@@ -1406,7 +1482,7 @@ void GoToNextWindow_jk( Vis::Data& m )
 
       Console::Update();
 
-      m.diff_mode ? m.diff.PrintCursor( pV ) : pV->PrintCursor();
+      CV(m)->GetInDiff() ? m.diff.PrintCursor( pV ) : pV->PrintCursor();
     }
   }
 }
@@ -1427,7 +1503,7 @@ void GoToNextWindow_jk( Vis::Data& m )
 //      pV1->SetTilePos( pV2->GetTilePos() );
 //      pV2->SetTilePos( tp_v1 );
 //    }
-//    m.vis.UpdateAll();
+//    m.vis.UpdateViews();
 //  }
 //}
 
@@ -1514,12 +1590,25 @@ void FlipWindows( Vis::Data& m )
         pV->SetTilePos( NTP );
       }
     }
-    m.vis.UpdateAll( false );
+    m.vis.UpdateViews( false );
   }
 }
 
-bool Have_TP_BOT__HALF( Vis::Data& m )
+bool Have_BOT__HALF( Vis::Data& m )
 {
+  // Diff occupies bottom half:
+  if( m.vis.InDiffMode() )
+  {
+    const Tile_Pos TP_s = m.diff.GetViewShort()->GetTilePos();
+    const Tile_Pos TP_l = m.diff.GetViewLong ()->GetTilePos();
+
+    if( ( TP_s == TP_BOT__LEFT_QTR && TP_l == TP_BOT__RITE_QTR )
+     || ( TP_s == TP_BOT__RITE_QTR && TP_l == TP_BOT__LEFT_QTR ) )
+    {
+      return true;
+    }
+  }
+  // A view occupies bottom half:
   for( unsigned k=0; k<m.num_wins; k++ )
   {
     View* v = GetView_Win( m, k );
@@ -1530,8 +1619,21 @@ bool Have_TP_BOT__HALF( Vis::Data& m )
   return false;
 }
 
-bool Have_TP_TOP__HALF( Vis::Data& m )
+bool Have_TOP__HALF( Vis::Data& m )
 {
+  // Diff occupies top half:
+  if( m.vis.InDiffMode() )
+  {
+    const Tile_Pos TP_s = m.diff.GetViewShort()->GetTilePos();
+    const Tile_Pos TP_l = m.diff.GetViewLong ()->GetTilePos();
+
+    if( ( TP_s == TP_TOP__LEFT_QTR && TP_l == TP_TOP__RITE_QTR )
+     || ( TP_s == TP_TOP__RITE_QTR && TP_l == TP_TOP__LEFT_QTR ) )
+    {
+      return true;
+    }
+  }
+  // A view occupies top half:
   for( unsigned k=0; k<m.num_wins; k++ )
   {
     View* v = GetView_Win( m, k );
@@ -1542,8 +1644,21 @@ bool Have_TP_TOP__HALF( Vis::Data& m )
   return false;
 }
 
-bool Have_TP_BOT__LEFT_QTR( Vis::Data& m )
+bool Have_BOT__LEFT_QTR( Vis::Data& m )
 {
+  // Diff occupies bottom left quarter:
+  if( m.vis.InDiffMode() )
+  {
+    const Tile_Pos TP_s = m.diff.GetViewShort()->GetTilePos();
+    const Tile_Pos TP_l = m.diff.GetViewLong ()->GetTilePos();
+
+    if( ( TP_s == TP_BOT__LEFT_8TH     && TP_l == TP_BOT__LEFT_CTR_8TH )
+     || ( TP_s == TP_BOT__LEFT_CTR_8TH && TP_l == TP_BOT__LEFT_8TH ) )
+    {
+      return true;
+    }
+  }
+  // A view occupies bottom left quarter:
   for( unsigned k=0; k<m.num_wins; k++ )
   {
     View* v = GetView_Win( m, k );
@@ -1554,8 +1669,21 @@ bool Have_TP_BOT__LEFT_QTR( Vis::Data& m )
   return false;
 }
 
-bool Have_TP_TOP__LEFT_QTR( Vis::Data& m )
+bool Have_TOP__LEFT_QTR( Vis::Data& m )
 {
+  // Diff occupies top left quarter:
+  if( m.vis.InDiffMode() )
+  {
+    const Tile_Pos TP_s = m.diff.GetViewShort()->GetTilePos();
+    const Tile_Pos TP_l = m.diff.GetViewLong ()->GetTilePos();
+
+    if( ( TP_s == TP_TOP__LEFT_8TH     && TP_l == TP_TOP__LEFT_CTR_8TH )
+     || ( TP_s == TP_TOP__LEFT_CTR_8TH && TP_l == TP_TOP__LEFT_8TH ) )
+    {
+      return true;
+    }
+  }
+  // A view occupies top left quarter:
   for( unsigned k=0; k<m.num_wins; k++ )
   {
     View* v = GetView_Win( m, k );
@@ -1566,8 +1694,21 @@ bool Have_TP_TOP__LEFT_QTR( Vis::Data& m )
   return false;
 }
 
-bool Have_TP_BOT__RITE_QTR( Vis::Data& m )
+bool Have_BOT__RITE_QTR( Vis::Data& m )
 {
+  // Diff occupies bottom right quarter:
+  if( m.vis.InDiffMode() )
+  {
+    const Tile_Pos TP_s = m.diff.GetViewShort()->GetTilePos();
+    const Tile_Pos TP_l = m.diff.GetViewLong ()->GetTilePos();
+
+    if( ( TP_s == TP_BOT__RITE_8TH     && TP_l == TP_BOT__RITE_CTR_8TH )
+     || ( TP_s == TP_BOT__RITE_CTR_8TH && TP_l == TP_BOT__RITE_8TH ) )
+    {
+      return true;
+    }
+  }
+  // A view occupies bottom right quarter:
   for( unsigned k=0; k<m.num_wins; k++ )
   {
     View* v = GetView_Win( m, k );
@@ -1578,8 +1719,21 @@ bool Have_TP_BOT__RITE_QTR( Vis::Data& m )
   return false;
 }
 
-bool Have_TP_TOP__RITE_QTR( Vis::Data& m )
+bool Have_TOP__RITE_QTR( Vis::Data& m )
 {
+  // Diff occupies top right quarter:
+  if( m.vis.InDiffMode() )
+  {
+    const Tile_Pos TP_s = m.diff.GetViewShort()->GetTilePos();
+    const Tile_Pos TP_l = m.diff.GetViewLong ()->GetTilePos();
+
+    if( ( TP_s == TP_TOP__RITE_8TH     && TP_l == TP_TOP__RITE_CTR_8TH )
+     || ( TP_s == TP_TOP__RITE_CTR_8TH && TP_l == TP_TOP__RITE_8TH ) )
+    {
+      return true;
+    }
+  }
+  // A view occupies top right quarter:
   for( unsigned k=0; k<m.num_wins; k++ )
   {
     View* v = GetView_Win( m, k );
@@ -1590,7 +1744,7 @@ bool Have_TP_TOP__RITE_QTR( Vis::Data& m )
   return false;
 }
 
-void Quit_JoinTiles_TP_LEFT_HALF( Vis::Data& m )
+void Quit_JoinTiles_LEFT_HALF( Vis::Data& m )
 {
   for( unsigned k=0; k<m.num_wins; k++ )
   {
@@ -1609,7 +1763,7 @@ void Quit_JoinTiles_TP_LEFT_HALF( Vis::Data& m )
   }
 }
 
-void Quit_JoinTiles_TP_RITE_HALF( Vis::Data& m )
+void Quit_JoinTiles_RITE_HALF( Vis::Data& m )
 {
   for( unsigned k=0; k<m.num_wins; k++ )
   {
@@ -1628,7 +1782,7 @@ void Quit_JoinTiles_TP_RITE_HALF( Vis::Data& m )
   }
 }
 
-void Quit_JoinTiles_TP_TOP__HALF( Vis::Data& m )
+void Quit_JoinTiles_TOP__HALF( Vis::Data& m )
 {
   for( unsigned k=0; k<m.num_wins; k++ )
   {
@@ -1645,7 +1799,7 @@ void Quit_JoinTiles_TP_TOP__HALF( Vis::Data& m )
   }
 }
 
-void Quit_JoinTiles_TP_BOT__HALF( Vis::Data& m )
+void Quit_JoinTiles_BOT__HALF( Vis::Data& m )
 {
   for( unsigned k=0; k<m.num_wins; k++ )
   {
@@ -1662,9 +1816,9 @@ void Quit_JoinTiles_TP_BOT__HALF( Vis::Data& m )
   }
 }
 
-void Quit_JoinTiles_TP_TOP__LEFT_QTR( Vis::Data& m )
+void Quit_JoinTiles_TOP__LEFT_QTR( Vis::Data& m )
 {
-  if( Have_TP_BOT__HALF(m) )
+  if( Have_BOT__HALF(m) )
   {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
@@ -1689,9 +1843,9 @@ void Quit_JoinTiles_TP_TOP__LEFT_QTR( Vis::Data& m )
   }
 }
 
-void Quit_JoinTiles_TP_TOP__RITE_QTR( Vis::Data& m )
+void Quit_JoinTiles_TOP__RITE_QTR( Vis::Data& m )
 {
-  if( Have_TP_BOT__HALF(m) )
+  if( Have_BOT__HALF(m) )
   {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
@@ -1716,9 +1870,9 @@ void Quit_JoinTiles_TP_TOP__RITE_QTR( Vis::Data& m )
   }
 }
 
-void Quit_JoinTiles_TP_BOT__LEFT_QTR( Vis::Data& m )
+void Quit_JoinTiles_BOT__LEFT_QTR( Vis::Data& m )
 {
-  if( Have_TP_TOP__HALF(m) )
+  if( Have_TOP__HALF(m) )
   {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
@@ -1743,9 +1897,9 @@ void Quit_JoinTiles_TP_BOT__LEFT_QTR( Vis::Data& m )
   }
 }
 
-void Quit_JoinTiles_TP_BOT__RITE_QTR( Vis::Data& m )
+void Quit_JoinTiles_BOT__RITE_QTR( Vis::Data& m )
 {
-  if( Have_TP_TOP__HALF(m) )
+  if( Have_TOP__HALF(m) )
   {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
@@ -1770,7 +1924,7 @@ void Quit_JoinTiles_TP_BOT__RITE_QTR( Vis::Data& m )
   }
 }
 
-void Quit_JoinTiles_TP_LEFT_QTR( Vis::Data& m )
+void Quit_JoinTiles_LEFT_QTR( Vis::Data& m )
 {
   for( unsigned k=0; k<m.num_wins; k++ )
   {
@@ -1783,7 +1937,7 @@ void Quit_JoinTiles_TP_LEFT_QTR( Vis::Data& m )
   }
 }
 
-void Quit_JoinTiles_TP_RITE_QTR( Vis::Data& m )
+void Quit_JoinTiles_RITE_QTR( Vis::Data& m )
 {
   for( unsigned k=0; k<m.num_wins; k++ )
   {
@@ -1796,7 +1950,7 @@ void Quit_JoinTiles_TP_RITE_QTR( Vis::Data& m )
   }
 }
 
-void Quit_JoinTiles_TP_LEFT_CTR__QTR( Vis::Data& m )
+void Quit_JoinTiles_LEFT_CTR__QTR( Vis::Data& m )
 {
   for( unsigned k=0; k<m.num_wins; k++ )
   {
@@ -1809,7 +1963,7 @@ void Quit_JoinTiles_TP_LEFT_CTR__QTR( Vis::Data& m )
   }
 }
 
-void Quit_JoinTiles_TP_RITE_CTR__QTR( Vis::Data& m )
+void Quit_JoinTiles_RITE_CTR__QTR( Vis::Data& m )
 {
   for( unsigned k=0; k<m.num_wins; k++ )
   {
@@ -1822,9 +1976,9 @@ void Quit_JoinTiles_TP_RITE_CTR__QTR( Vis::Data& m )
   }
 }
 
-void Quit_JoinTiles_TP_TOP__LEFT_8TH( Vis::Data& m )
+void Quit_JoinTiles_TOP__LEFT_8TH( Vis::Data& m )
 {
-  if( Have_TP_BOT__LEFT_QTR(m) )
+  if( Have_BOT__LEFT_QTR(m) )
   {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
@@ -1845,9 +1999,9 @@ void Quit_JoinTiles_TP_TOP__LEFT_8TH( Vis::Data& m )
   }
 }
 
-void Quit_JoinTiles_TP_TOP__RITE_8TH( Vis::Data& m )
+void Quit_JoinTiles_TOP__RITE_8TH( Vis::Data& m )
 {
-  if( Have_TP_BOT__RITE_QTR(m) )
+  if( Have_BOT__RITE_QTR(m) )
   {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
@@ -1868,9 +2022,9 @@ void Quit_JoinTiles_TP_TOP__RITE_8TH( Vis::Data& m )
   }
 }
 
-void Quit_JoinTiles_TP_TOP__LEFT_CTR_8TH( Vis::Data& m )
+void Quit_JoinTiles_TOP__LEFT_CTR_8TH( Vis::Data& m )
 {
-  if( Have_TP_BOT__LEFT_QTR(m) )
+  if( Have_BOT__LEFT_QTR(m) )
   {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
@@ -1891,9 +2045,9 @@ void Quit_JoinTiles_TP_TOP__LEFT_CTR_8TH( Vis::Data& m )
   }
 }
 
-void Quit_JoinTiles_TP_TOP__RITE_CTR_8TH( Vis::Data& m )
+void Quit_JoinTiles_TOP__RITE_CTR_8TH( Vis::Data& m )
 {
-  if( Have_TP_BOT__RITE_QTR(m) )
+  if( Have_BOT__RITE_QTR(m) )
   {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
@@ -1914,9 +2068,9 @@ void Quit_JoinTiles_TP_TOP__RITE_CTR_8TH( Vis::Data& m )
   }
 }
 
-void Quit_JoinTiles_TP_BOT__LEFT_8TH( Vis::Data& m )
+void Quit_JoinTiles_BOT__LEFT_8TH( Vis::Data& m )
 {
-  if( Have_TP_TOP__LEFT_QTR(m) )
+  if( Have_TOP__LEFT_QTR(m) )
   {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
@@ -1937,9 +2091,9 @@ void Quit_JoinTiles_TP_BOT__LEFT_8TH( Vis::Data& m )
   }
 }
 
-void Quit_JoinTiles_TP_BOT__RITE_8TH( Vis::Data& m )
+void Quit_JoinTiles_BOT__RITE_8TH( Vis::Data& m )
 {
-  if( Have_TP_TOP__RITE_QTR(m) )
+  if( Have_TOP__RITE_QTR(m) )
   {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
@@ -1960,9 +2114,9 @@ void Quit_JoinTiles_TP_BOT__RITE_8TH( Vis::Data& m )
   }
 }
 
-void Quit_JoinTiles_TP_BOT__LEFT_CTR_8TH( Vis::Data& m )
+void Quit_JoinTiles_BOT__LEFT_CTR_8TH( Vis::Data& m )
 {
-  if( Have_TP_TOP__LEFT_QTR(m) )
+  if( Have_TOP__LEFT_QTR(m) )
   {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
@@ -1983,9 +2137,9 @@ void Quit_JoinTiles_TP_BOT__LEFT_CTR_8TH( Vis::Data& m )
   }
 }
 
-void Quit_JoinTiles_TP_BOT__RITE_CTR_8TH( Vis::Data& m )
+void Quit_JoinTiles_BOT__RITE_CTR_8TH( Vis::Data& m )
 {
-  if( Have_TP_TOP__RITE_QTR(m) )
+  if( Have_TOP__RITE_QTR(m) )
   {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
@@ -2006,7 +2160,7 @@ void Quit_JoinTiles_TP_BOT__RITE_CTR_8TH( Vis::Data& m )
   }
 }
 
-void Quit_JoinTiles_TP_LEFT_THIRD( Vis::Data& m )
+void Quit_JoinTiles_LEFT_THIRD( Vis::Data& m )
 {
   for( unsigned k=0; k<m.num_wins; k++ )
   {
@@ -2018,7 +2172,7 @@ void Quit_JoinTiles_TP_LEFT_THIRD( Vis::Data& m )
   }
 }
 
-void Quit_JoinTiles_TP_CTR__THIRD( Vis::Data& m )
+void Quit_JoinTiles_CTR__THIRD( Vis::Data& m )
 {
   for( unsigned k=0; k<m.num_wins; k++ )
   {
@@ -2029,7 +2183,7 @@ void Quit_JoinTiles_TP_CTR__THIRD( Vis::Data& m )
   }
 }
 
-void Quit_JoinTiles_TP_RITE_THIRD( Vis::Data& m )
+void Quit_JoinTiles_RITE_THIRD( Vis::Data& m )
 {
   for( unsigned k=0; k<m.num_wins; k++ )
   {
@@ -2041,7 +2195,7 @@ void Quit_JoinTiles_TP_RITE_THIRD( Vis::Data& m )
   }
 }
 
-void Quit_JoinTiles_TP_LEFT_TWO_THIRDS( Vis::Data& m )
+void Quit_JoinTiles_LEFT_TWO_THIRDS( Vis::Data& m )
 {
   for( unsigned k=0; k<m.num_wins; k++ )
   {
@@ -2052,7 +2206,7 @@ void Quit_JoinTiles_TP_LEFT_TWO_THIRDS( Vis::Data& m )
   }
 }
 
-void Quit_JoinTiles_TP_RITE_TWO_THIRDS( Vis::Data& m )
+void Quit_JoinTiles_RITE_TWO_THIRDS( Vis::Data& m )
 {
   for( unsigned k=0; k<m.num_wins; k++ )
   {
@@ -2063,35 +2217,36 @@ void Quit_JoinTiles_TP_RITE_TWO_THIRDS( Vis::Data& m )
   }
 }
 
+// TP is disappearing
 void Quit_JoinTiles( Vis::Data& m, const Tile_Pos TP )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   // win is disappearing, so move its screen space to another view:
-  if     ( TP == TP_LEFT_HALF )         Quit_JoinTiles_TP_LEFT_HALF(m);
-  else if( TP == TP_RITE_HALF )         Quit_JoinTiles_TP_RITE_HALF(m);
-  else if( TP == TP_TOP__HALF )         Quit_JoinTiles_TP_TOP__HALF(m);
-  else if( TP == TP_BOT__HALF )         Quit_JoinTiles_TP_BOT__HALF(m);
-  else if( TP == TP_TOP__LEFT_QTR )     Quit_JoinTiles_TP_TOP__LEFT_QTR(m);
-  else if( TP == TP_TOP__RITE_QTR )     Quit_JoinTiles_TP_TOP__RITE_QTR(m);
-  else if( TP == TP_BOT__LEFT_QTR )     Quit_JoinTiles_TP_BOT__LEFT_QTR(m);
-  else if( TP == TP_BOT__RITE_QTR )     Quit_JoinTiles_TP_BOT__RITE_QTR(m);
-  else if( TP == TP_LEFT_QTR )          Quit_JoinTiles_TP_LEFT_QTR(m);
-  else if( TP == TP_RITE_QTR )          Quit_JoinTiles_TP_RITE_QTR(m);
-  else if( TP == TP_LEFT_CTR__QTR )     Quit_JoinTiles_TP_LEFT_CTR__QTR(m);
-  else if( TP == TP_RITE_CTR__QTR )     Quit_JoinTiles_TP_RITE_CTR__QTR(m);
-  else if( TP == TP_TOP__LEFT_8TH )     Quit_JoinTiles_TP_TOP__LEFT_8TH(m);
-  else if( TP == TP_TOP__RITE_8TH )     Quit_JoinTiles_TP_TOP__RITE_8TH(m);
-  else if( TP == TP_TOP__LEFT_CTR_8TH ) Quit_JoinTiles_TP_TOP__LEFT_CTR_8TH(m);
-  else if( TP == TP_TOP__RITE_CTR_8TH ) Quit_JoinTiles_TP_TOP__RITE_CTR_8TH(m);
-  else if( TP == TP_BOT__LEFT_8TH )     Quit_JoinTiles_TP_BOT__LEFT_8TH(m);
-  else if( TP == TP_BOT__RITE_8TH )     Quit_JoinTiles_TP_BOT__RITE_8TH(m);
-  else if( TP == TP_BOT__LEFT_CTR_8TH ) Quit_JoinTiles_TP_BOT__LEFT_CTR_8TH(m);
-  else if( TP == TP_BOT__RITE_CTR_8TH ) Quit_JoinTiles_TP_BOT__RITE_CTR_8TH(m);
-  else if( TP == TP_LEFT_THIRD )        Quit_JoinTiles_TP_LEFT_THIRD(m);
-  else if( TP == TP_CTR__THIRD )        Quit_JoinTiles_TP_CTR__THIRD(m);
-  else if( TP == TP_RITE_THIRD )        Quit_JoinTiles_TP_RITE_THIRD(m);
-  else if( TP == TP_LEFT_TWO_THIRDS )   Quit_JoinTiles_TP_LEFT_TWO_THIRDS(m);
-  else if( TP == TP_RITE_TWO_THIRDS )   Quit_JoinTiles_TP_RITE_TWO_THIRDS(m);
+  if     ( TP == TP_LEFT_HALF )         Quit_JoinTiles_LEFT_HALF(m);
+  else if( TP == TP_RITE_HALF )         Quit_JoinTiles_RITE_HALF(m);
+  else if( TP == TP_TOP__HALF )         Quit_JoinTiles_TOP__HALF(m);
+  else if( TP == TP_BOT__HALF )         Quit_JoinTiles_BOT__HALF(m);
+  else if( TP == TP_TOP__LEFT_QTR )     Quit_JoinTiles_TOP__LEFT_QTR(m);
+  else if( TP == TP_TOP__RITE_QTR )     Quit_JoinTiles_TOP__RITE_QTR(m);
+  else if( TP == TP_BOT__LEFT_QTR )     Quit_JoinTiles_BOT__LEFT_QTR(m);
+  else if( TP == TP_BOT__RITE_QTR )     Quit_JoinTiles_BOT__RITE_QTR(m);
+  else if( TP == TP_LEFT_QTR )          Quit_JoinTiles_LEFT_QTR(m);
+  else if( TP == TP_RITE_QTR )          Quit_JoinTiles_RITE_QTR(m);
+  else if( TP == TP_LEFT_CTR__QTR )     Quit_JoinTiles_LEFT_CTR__QTR(m);
+  else if( TP == TP_RITE_CTR__QTR )     Quit_JoinTiles_RITE_CTR__QTR(m);
+  else if( TP == TP_TOP__LEFT_8TH )     Quit_JoinTiles_TOP__LEFT_8TH(m);
+  else if( TP == TP_TOP__RITE_8TH )     Quit_JoinTiles_TOP__RITE_8TH(m);
+  else if( TP == TP_TOP__LEFT_CTR_8TH ) Quit_JoinTiles_TOP__LEFT_CTR_8TH(m);
+  else if( TP == TP_TOP__RITE_CTR_8TH ) Quit_JoinTiles_TOP__RITE_CTR_8TH(m);
+  else if( TP == TP_BOT__LEFT_8TH )     Quit_JoinTiles_BOT__LEFT_8TH(m);
+  else if( TP == TP_BOT__RITE_8TH )     Quit_JoinTiles_BOT__RITE_8TH(m);
+  else if( TP == TP_BOT__LEFT_CTR_8TH ) Quit_JoinTiles_BOT__LEFT_CTR_8TH(m);
+  else if( TP == TP_BOT__RITE_CTR_8TH ) Quit_JoinTiles_BOT__RITE_CTR_8TH(m);
+  else if( TP == TP_LEFT_THIRD )        Quit_JoinTiles_LEFT_THIRD(m);
+  else if( TP == TP_CTR__THIRD )        Quit_JoinTiles_CTR__THIRD(m);
+  else if( TP == TP_RITE_THIRD )        Quit_JoinTiles_RITE_THIRD(m);
+  else if( TP == TP_LEFT_TWO_THIRDS )   Quit_JoinTiles_LEFT_TWO_THIRDS(m);
+  else if( TP == TP_RITE_TWO_THIRDS )   Quit_JoinTiles_RITE_TWO_THIRDS(m);
 }
 
 void Quit_ShiftDown( Vis::Data& m )
@@ -2125,35 +2280,45 @@ void QuitAll( Vis::Data& m )
   m.running = false;
 }
 
+void Quit_One( Vis::Data& m )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  View* cv = CV(m);
+
+  const Tile_Pos TP = CV(m)->GetTilePos();
+
+  if( cv->GetInDiff() )
+  {
+    NoDiff_4_FileBuf( m, m.diff.GetViewShort()->GetFB() );
+    NoDiff_4_FileBuf( m, m.diff.GetViewLong() ->GetFB() );
+
+    m.diff.Copy_DiffContext_2_Remaining_ViewContext();
+  }
+  if( m.win < m.num_wins-1 )
+  {
+    Quit_ShiftDown(m);
+  }
+  if( 0 < m.win ) m.win--;
+  m.num_wins--;
+
+  Quit_JoinTiles( m, TP );
+
+  m.vis.UpdateViews( false );
+
+  CV(m)->PrintCursor();
+}
+
 void Quit( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( m.num_wins <= 1 ) QuitAll(m);
+  if( m.num_wins <= 1 )
+  {
+    QuitAll(m);
+  }
   else {
-    View* cv = CV(m);
-
-    const Tile_Pos TP = CV(m)->GetTilePos();
-
-    if( cv->GetInDiff() )
-    {
-      m.diff.GetViewShort()->SetInDiff( false );
-      m.diff.GetViewLong() ->SetInDiff( false );
-      m.diff.Set_Remaining_ViewContext_2_DiffContext();
-      m.diff_mode = false;
-    }
-    if( m.win < m.num_wins-1 )
-    {
-      Quit_ShiftDown(m);
-    }
-    if( 0 < m.win ) m.win--;
-    m.num_wins--;
-
-    Quit_JoinTiles( m, TP );
-
-    m.vis.UpdateAll( false );
-
-    CV(m)->PrintCursor();
+    Quit_One(m);
   }
 }
 
@@ -2375,7 +2540,7 @@ int DoDiff_Find_Win_2_Diff( Vis::Data& m )
   int diff_win_num = -1; // Failure value
 
   // Must be not already doing a diff and at least 2 buffers to do diff:
-  if( !m.diff_mode && 2 <= m.num_wins )
+  if( !m.vis.InDiffMode() && 2 <= m.num_wins )
   {
     View*     v_c = GetView_Win( m, m.win ); // Current View
     Tile_Pos tp_c = v_c->GetTilePos();       // Current Tile_Pos
@@ -2442,7 +2607,6 @@ void Diff_Files_Displayed( Vis::Data& m )
     if( ok ) {
       bool ok = m.diff.Run( pv0, pv1 );
       if( ok ) {
-        m.diff_mode = true;
         m.diff.GetViewShort()->SetInDiff( true );
         m.diff.GetViewLong()->SetInDiff( true );
         m.diff.Update();
@@ -2455,7 +2619,7 @@ void ReDiff( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( true == m.diff_mode )
+  if( true == m.vis.InDiffMode() )
   {
     m.diff.ReDiff();
   }
@@ -2465,7 +2629,7 @@ void VSplitWindow( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  m.vis.NoDiff();
+  NoDiff_CV(m);
 
   View* cv = CV(m);
   const Tile_Pos cv_tp = cv->GetTilePos();
@@ -2570,14 +2734,14 @@ void VSplitWindow( Vis::Data& m )
       nv->SetTilePos( TP_RITE_THIRD );
     }
   }
-  m.vis.UpdateAll( false );
+  m.vis.UpdateViews( false );
 }
 
 void HSplitWindow( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  m.vis.NoDiff();
+  NoDiff_CV(m);
 
   View* cv = CV(m);
   const Tile_Pos cv_tp = cv->GetTilePos();
@@ -2644,14 +2808,14 @@ void HSplitWindow( Vis::Data& m )
       nv->SetTilePos( TP_BOT__RITE_CTR_8TH );
     }
   }
-  m.vis.UpdateAll( false );
+  m.vis.UpdateViews( false );
 }
 
 void _3SplitWindow( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  m.vis.NoDiff();
+  NoDiff_CV(m);
 
   View* cv = CV(m);
   const Tile_Pos cv_tp = cv->GetTilePos();
@@ -2682,7 +2846,7 @@ void _3SplitWindow( Vis::Data& m )
     nv1->SetTilePos( TP_CTR__THIRD );
     nv2->SetTilePos( TP_RITE_THIRD );
   }
-  m.vis.UpdateAll( false );
+  m.vis.UpdateViews( false );
 }
 
 void ReHighlight_CV( Vis::Data& m )
@@ -3032,8 +3196,8 @@ void Handle_Colon_Cmd( Vis::Data& m )
   else if( 'b' == m.cbuf[0] )             HandleColon_b(m);
   else if( '0' <= m.cbuf[0] && m.cbuf[0] <= '9' ) MoveToLine(m);
   else { // Put cursor back to line and column in edit window:
-    if( m.diff_mode ) m.diff.PrintCursor( CV(m) );
-    else              CV(m)->PrintCursor();
+    if( m.vis.InDiffMode() ) m.diff.PrintCursor( CV(m) );
+    else                     CV(m)->PrintCursor();
   }
 }
 
@@ -3980,12 +4144,14 @@ void Handle_m( Vis::Data& m )
     Vis::Data::CmdFunc cf = m.ViewFuncs[ CC ];
     if( cf ) (*cf)(m);
   }
-  if( m.diff_mode ) {
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) {
     // Diff does its own update every time a command is run
   }
   else {
     // Dont update until after all the commands have been executed:
-    CV(m)->GetFB()->Update();
+    cv->GetFB()->Update();
   }
 }
 
@@ -4432,7 +4598,7 @@ void Handle_Star( Vis::Data& m )
       Do_Star_Update_Search_Editor(m);
     }
     // Show new star pattern for all windows currently displayed:
-    m.vis.UpdateAll( true );
+    m.vis.UpdateViews( true );
   }
 }
 
@@ -4917,7 +5083,7 @@ void Vis::Init( const int ARGC, const char* const ARGV[] )
 
   if( ! run_diff )
   {
-    UpdateAll( false );
+    UpdateViews( false );
   }
   else {
     // User supplied: "-d file1 file2", so run diff:
@@ -5027,22 +5193,13 @@ void Vis::SetPasteMode( Paste_Mode pm )
   m.paste_mode = pm;
 }
 
-void Clear_Diff( Vis::Data& m )
+bool Vis::InDiffMode() const
 {
-  Trace trace( __PRETTY_FUNCTION__ );
+  View* pvS = m.diff.GetViewShort();
+  View* pvL = m.diff.GetViewLong ();
 
-  m.diff_mode = false;
-
-  // Make sure diff is turned off for everything:
-  for( int w=0; w<MAX_WINS; w++ )
-  {
-    ViewList& vl = m.views[w];
-
-    for( int f=0; f<vl.len(); f++ )
-    {
-      vl[ f ]->SetInDiff( false );
-    }
-  }
+  return (0 != pvS && pvS->GetInDiff())
+      || (0 != pvL && pvL->GetInDiff());
 }
 
 void Vis::NoDiff()
@@ -5051,37 +5208,11 @@ void Vis::NoDiff()
 
   if( CV()->GetInDiff() )
   {
-    m.diff_mode = false;
-
-    View* pvS = m.diff.GetViewShort();
-    View* pvL = m.diff.GetViewLong();
-
-    // Set the view contexts to similar values as the diff contexts:
-    if( 0 != pvS )
-    {
-      pvS->SetInDiff( false );
-      pvS->SetTopLine ( m.diff.GetTopLine ( pvS ) );
-      pvS->SetLeftChar( m.diff.GetLeftChar() );
-      pvS->SetCrsRow  ( m.diff.GetCrsRow  () );
-      pvS->SetCrsCol  ( m.diff.GetCrsCol  () );
-    }
-    if( 0 != pvL )
-    {
-      pvL->SetInDiff( false );
-      pvL->SetTopLine ( m.diff.GetTopLine ( pvL ) );
-      pvL->SetLeftChar( m.diff.GetLeftChar() );
-      pvL->SetCrsRow  ( m.diff.GetCrsRow  () );
-      pvL->SetCrsCol  ( m.diff.GetCrsCol  () );
-    }
+    NoDiff_Copy_DiffContext_2_ViewContext(m);
   }
   Clear_Diff(m);
 
-  UpdateAll( false );
-}
-
-bool Vis::InDiffMode() const
-{
-  return m.diff_mode;
+  UpdateViews( false );
 }
 
 bool Vis::Shell_Running() const
@@ -5154,7 +5285,7 @@ void Vis::CheckWindowSize()
     {
       AdjustViews(m);
       Console::Invalidate();
-      UpdateAll( false );
+      UpdateViews( false );
     }
   }
 }
@@ -5251,7 +5382,7 @@ void Vis::Window_Message( const char* const msg_fmt, ... )
   ::Window_Message( m, msg_buf );
 }
 
-//void Vis::UpdateAll()
+//void Vis::UpdateViews()
 //{
 //  Trace trace( __PRETTY_FUNCTION__ );
 //
@@ -5268,7 +5399,7 @@ void Vis::Window_Message( const char* const msg_fmt, ... )
 //  }
 //}
 
-void Vis::UpdateAll( const bool show_search )
+void Vis::UpdateViews( const bool show_search )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -5286,7 +5417,7 @@ void Vis::UpdateAll( const bool show_search )
       pv->Update( false ); //< Do not print cursor
     }
   }
-  if( m.diff_mode )
+  if( InDiffMode() )
   {
     if( show_search )
     {
@@ -5306,7 +5437,7 @@ bool Vis::Update_Status_Lines()
 
   bool updated_a_sts_line = false;
 
-  if( m.diff_mode )
+  if( InDiffMode() )
   {
      updated_a_sts_line = m.diff.Update_Status_Lines();
   }
@@ -5525,7 +5656,7 @@ void Vis::Handle_Slash_GotPattern( const String& pattern
     else                     cv->Do_n();
   }
   // Show new slash pattern for all windows currently displayed:
-  m.vis.UpdateAll( true );
+  m.vis.UpdateViews( true );
 }
 
 // Given view of currently displayed on this side and other side,
@@ -5571,7 +5702,6 @@ bool Vis::Diff_By_File_Indexes( View* const cV, unsigned const c_file_idx
 
     ok = m.diff.Run( nv_c, nv_o );
     if( ok ) {
-      m.diff_mode = true;
       m.diff.GetViewShort()->SetInDiff( true );
       m.diff.GetViewLong() ->SetInDiff( true );
       m.diff.Update();

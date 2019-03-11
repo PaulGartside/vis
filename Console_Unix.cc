@@ -197,7 +197,7 @@ Color CONTROL_BG = Black;    Color CONTROL_BG_RV = Yellow;
 Color VARTYPE_FG = Green;    Color VARTYPE_FG_RV = White;
 Color VARTYPE_BG = Black;    Color VARTYPE_BG_RV = Green;
 
-Color BORDER_HI_FG = Blue;   Color BORDER_HI_FG_RV = Green;
+Color BORDER_HI_FG = White;  Color BORDER_HI_FG_RV = Green;
 Color BORDER_HI_BG = Green;  Color BORDER_HI_BG_RV = Blue;
 
 Color NONASCII_FG = Red;     Color NONASCII_FG_RV = Blue;
@@ -546,7 +546,7 @@ void Sig_Handle_SIGCONT( int signo )
   ioctl( FD_IO, TCSETA, &t );
 #endif
 
-  mp_vis->UpdateAll( false );
+  mp_vis->UpdateViews( false );
 }
 
 // Received when ^C is entered:
@@ -944,7 +944,7 @@ void Console::Set_Color_Scheme_1()
   VARTYPE_FG = Green;      VARTYPE_FG_RV = White;
   VARTYPE_BG = Black;      VARTYPE_BG_RV = Green;
 
-  BORDER_HI_FG = Blue;     BORDER_HI_FG_RV = Green;
+  BORDER_HI_FG = White;    BORDER_HI_FG_RV = Green;
   BORDER_HI_BG = Green;    BORDER_HI_BG_RV = White;
 
   NONASCII_FG = Red;       NONASCII_FG_RV = Blue;
@@ -1018,7 +1018,7 @@ void Console::Set_Color_Scheme_2()
   VARTYPE_FG = Green;      VARTYPE_FG_RV = White;
   VARTYPE_BG = Black;      VARTYPE_BG_RV = Green;
 
-  BORDER_HI_FG = Blue;     BORDER_HI_FG_RV = Green;
+  BORDER_HI_FG = White;    BORDER_HI_FG_RV = Green;
   BORDER_HI_BG = Green;    BORDER_HI_BG_RV = White;
 
   NONASCII_FG = Yellow;    NONASCII_FG_RV = Cyan;
@@ -1092,7 +1092,7 @@ void Console::Set_Color_Scheme_3()
   VARTYPE_FG = Black;      VARTYPE_FG_RV = Green;
   VARTYPE_BG = Green;      VARTYPE_BG_RV = Black;
 
-  BORDER_HI_FG = Blue;     BORDER_HI_FG_RV = Green;
+  BORDER_HI_FG = White;    BORDER_HI_FG_RV = Green;
   BORDER_HI_BG = Green;    BORDER_HI_BG_RV = White;
 
   NONASCII_FG = Yellow;    NONASCII_FG_RV = Cyan;
@@ -1165,7 +1165,7 @@ void Console::Set_Color_Scheme_4()
   VARTYPE_FG = Black;      VARTYPE_FG_RV = Green;
   VARTYPE_BG = Green;      VARTYPE_BG_RV = Black;
 
-  BORDER_HI_FG = Blue;     BORDER_HI_FG_RV = Green;
+  BORDER_HI_FG = White;    BORDER_HI_FG_RV = Green;
   BORDER_HI_BG = Green;    BORDER_HI_BG_RV = White;
 
   NONASCII_FG = Yellow;    NONASCII_FG_RV = Cyan;

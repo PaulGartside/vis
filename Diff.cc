@@ -1668,7 +1668,7 @@ void Find_Context( Diff::Data& m )
   }
 }
 
-void Diff::Set_Remaining_ViewContext_2_DiffContext()
+void Diff::Copy_DiffContext_2_Remaining_ViewContext()
 {
   View* shrt_view = GetViewShort();
   View* long_view = GetViewLong ();
@@ -1699,7 +1699,7 @@ void Clear_DI_List( Diff::Data& m, Array_t<Diff_Info>& DI_List )
   DI_List.clear();
 }
 
-void CleanDiff( Diff::Data& m )
+void Diff::ClearDiff()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -1723,6 +1723,10 @@ void CleanDiff( Diff::Data& m )
   m.v_st_char = 0;
   m.v_fn_line = 0;
   m.v_fn_char = 0;
+  m.pvS = 0;
+  m.pvL = 0;
+  m.pfS = 0;
+  m.pfL = 0;
 }
 
 bool DiffSameAsPrev( Diff::Data& m, View* const pv0, View* const pv1 )
@@ -1748,7 +1752,8 @@ bool DiffSameAsPrev( Diff::Data& m, View* const pv0, View* const pv1 )
       && DATES_SAME_AS_BEFORE;
 }
 
-void Set_ShortLong_ViewfileMod_Vars( Diff::Data& m, View* const pv0, View* const pv1 )
+void Set_ShortLong_ViewfileMod_Vars( Diff::Data& m
+                                   , View* const pv0, View* const pv1 )
 {
   const unsigned nLines_0 = pv0->GetFB()->NumLines();
   const unsigned nLines_1 = pv1->GetFB()->NumLines();
@@ -5046,29 +5051,26 @@ Diff::~Diff()
 bool Diff::Run( View* const pv0, View* const pv1 )
 {
   Trace trace( __PRETTY_FUNCTION__ );
+
+  bool ran_diff = false;
   // Each buffer must be displaying a different file to do diff:
   if( pv0->GetFB() != pv1->GetFB() )
   {
-    const Tile_Pos tp0 = pv0->GetTilePos();
-    const Tile_Pos tp1 = pv1->GetTilePos();
-
-    const bool same_as_prev = DiffSameAsPrev( m, pv0, pv1 );
-
-    Set_ShortLong_ViewfileMod_Vars( m, pv0, pv1 );
-
-    if( !same_as_prev )
+    if( !DiffSameAsPrev( m, pv0, pv1 ) )
     {
-      CleanDiff(m); //< Start over with clean slate
+      ClearDiff(); //< Start over with clean slate
+
+      Set_ShortLong_ViewfileMod_Vars( m, pv0, pv1 );
 
       // All lines in both files:
       DiffArea CA( 0, m.pfS->NumLines(), 0, m.pfL->NumLines() );
-
       RunDiff( m, CA );
+
       Find_Context(m);
     }
-    return true;
+    ran_diff = true;
   }
-  return false;
+  return ran_diff;
 }
 
 void Diff::Update()

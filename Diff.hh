@@ -35,12 +35,13 @@ public:
   ~Diff();
 
   bool   Run( View* const pv0, View* const pv1 );
+  void ClearDiff();
   void Update();
 
   View* GetViewShort() const;
   View* GetViewLong() const;
 
-  void Set_Remaining_ViewContext_2_DiffContext();
+  void Copy_DiffContext_2_Remaining_ViewContext();
 
   unsigned GetTopLine ( View* const pV ) const;
   unsigned GetLeftChar() const;

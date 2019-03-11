@@ -64,7 +64,7 @@ public:
   void Add_FileBuf_2_Lists_Create_Views( FileBuf* pfb, const char* fname );
   void CmdLineMessage( const char* const msg_fmt, ... );
   void Window_Message( const char* const msg_fmt, ... );
-  void UpdateAll( const bool show_search );
+  void UpdateViews( const bool show_search );
   bool Update_Status_Lines();
   bool Update_Change_Statuses();
   void PrintCursor();

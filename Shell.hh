@@ -39,6 +39,7 @@ public:
   struct Data;
 
 private:
+
   Data& m;
 };
 

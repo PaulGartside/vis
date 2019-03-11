@@ -28,7 +28,7 @@
 #include "gArray_t.hh"
 #include "Line.hh"
 
-const unsigned MAX_WINS   = 8;    // Maximum number of sub-windows
+const unsigned MAX_WINS = 8;  // Maximum number of sub-windows
 
 #ifdef WIN32
 const char  DIR_DELIM = '\\';

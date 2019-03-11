@@ -66,7 +66,7 @@ void ChangeHist::Undo( View& rV )
   {
     const ChangeType ct = plc->type;
 
-    if( m_vis.InDiffMode() )
+    if( rV.GetInDiff() )
     {
       if     ( ct ==  Insert_Line ) Undo_InsertLine_Diff( plc, rV );
       else if( ct ==  Remove_Line ) Undo_RemoveLine_Diff( plc, rV );
