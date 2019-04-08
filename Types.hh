@@ -84,6 +84,7 @@ enum Style
   S_VISUAL   , S_RV_VISUAL   ,
   S_NONASCII , S_RV_NONASCII ,
   S_EMPTY    ,
+  S_EOF      ,
   S_DIFF_DEL    ,
   S_DIFF_NORMAL ,
   S_DIFF_STAR   ,
@@ -98,7 +99,7 @@ enum Style
 
 enum Color
 {
-  Black,  White,
+  Black,  White, Gray,
   Red,    Green, Blue,
   Yellow, Cyan,  Magenta
 };

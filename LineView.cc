@@ -1579,10 +1579,10 @@ unsigned LineView::GetLeftChar() const { return m.leftChar; }
 unsigned LineView::GetCrsRow  () const { return 0; }
 unsigned LineView::GetCrsCol  () const { return m.crsCol  ; }
 
-const Line* LineView::GetCrsLine()
-{
-  return m.fb.GetLineP( m.topLine );
-}
+//const Line* LineView::GetCrsLine()
+//{
+//  return m.fb.GetLineP( m.topLine );
+//}
 
 void LineView::SetTopLine( const unsigned val )
 {

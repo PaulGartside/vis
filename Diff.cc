@@ -868,14 +868,14 @@ bool Popu_DI_List_Have_Diff_Files( Diff::Data& m
   if( m.pfS->IsDir() && m.pfL->IsDir() )
   {
     // fname_s and fname_l are head names
-    String fname_s = m.pfS->GetLine( line_s ).toString();
-    String fname_l = m.pfL->GetLine( line_l ).toString();
+    String fname_s = m.pfS->GetLineP( line_s )->toString();
+    String fname_l = m.pfL->GetLineP( line_l )->toString();
 
     if( (fname_s != "..") && !fname_s.ends_with( DirDelimStr() )
      && (fname_l != "..") && !fname_l.ends_with( DirDelimStr() ) )
     {
-      // fname_s and fname_l should now be full path names,
-      // tail and head, of regular files
+      // After prepending the directory names, fname_s and fname_l
+      // should be full path names, tail and head, of regular files
       fname_s.insert( 0, m.pfS->GetDirName() );
       fname_l.insert( 0, m.pfL->GetDirName() );
 
@@ -1064,21 +1064,34 @@ bool Do_n_Search_for_Same( Diff::Data& m
   return found;
 }
 
-bool Do_n_Search_for_Diff( Diff::Data& m
-                         , unsigned& dl
-                         , const Array_t<Diff_Info>& DI_List )
+// Look for difference based on Diff_Info:
+bool Do_n_Search_for_Diff_DT( Diff::Data& m
+                            , unsigned& dl
+                            , const Array_t<Diff_Info>& DI_List )
 {
-  Trace trace( __PRETTY_FUNCTION__ );
+  bool found_diff = false;
 
   const unsigned NUM_LINES = NumLines(m);
   const unsigned dl_st = dl;
 
-  // Search forward for non-DT_SAME
-  bool found = false;
-
-  if( 1 < NUM_LINES )
+  while( !found_diff && dl<NUM_LINES )
   {
-    while( !found && dl<NUM_LINES )
+    const Diff_Type DT = DI_List[dl].diff_type;
+
+    if( DT == DT_CHANGED
+     || DT == DT_INSERTED
+     || DT == DT_DELETED
+     || DT == DT_DIFF_FILES )
+    {
+      found_diff = true;
+    }
+    else dl++;
+  }
+  if( !found_diff )
+  {
+    // Wrap around back to top and search again:
+    dl = 0;
+    while( !found_diff && dl<dl_st )
     {
       const Diff_Type DT = DI_List[dl].diff_type;
 
@@ -1087,30 +1100,107 @@ bool Do_n_Search_for_Diff( Diff::Data& m
        || DT == DT_DELETED
        || DT == DT_DIFF_FILES )
       {
-        found = true;
+        found_diff = true;
       }
       else dl++;
     }
-    if( !found )
-    {
-      // Wrap around back to top and search again:
-      dl = 0;
-      while( !found && dl<dl_st )
-      {
-        const Diff_Type DT = DI_List[dl].diff_type;
+  }
+  return found_diff;
+}
 
-        if( DT == DT_CHANGED
-         || DT == DT_INSERTED
-         || DT == DT_DELETED
-         || DT == DT_DIFF_FILES )
-        {
-          found = true;
-        }
-        else dl++;
-      }
+bool
+Line_Has_Leading_or_Trailing_WS_Diff( unsigned& dl
+                                    , const unsigned k
+                                    , const Array_t<Diff_Info>& DI_List
+                                    , const Array_t<Diff_Info>& DI_List_o
+                                    , const FileBuf* pF_m
+                                    , const FileBuf* pF_o )
+{
+  bool L_T_WS_diff = false;
+
+  const Diff_Info& Di_m = DI_List[ k ];
+  const Diff_Info& Di_o = DI_List_o[ k ];
+
+  if( Di_m.diff_type == DT_SAME
+   && Di_o.diff_type == DT_SAME )
+  {
+    const Line* lm = pF_m->GetLineP( Di_m.line_num ); // Line from my    view
+    const Line* lo = pF_o->GetLineP( Di_o.line_num ); // Line from other view
+
+    if( lm->len() != lo->len() )
+    {
+      L_T_WS_diff = true;
+      dl = k;
     }
   }
-  return found;
+  return L_T_WS_diff;
+}
+
+// Look for difference in white space at beginning or ending of lines:
+bool Do_n_Search_for_Diff_WhiteSpace( Diff::Data& m
+                                    , unsigned& dl
+                                    , const Array_t<Diff_Info>& DI_List )
+{
+  bool found_diff = false;
+
+  const unsigned NUM_LINES = NumLines(m);
+
+  Array_t<Diff_Info>& DI_List_o = (&DI_List == &m.DI_List_S) ? m.DI_List_L : m.DI_List_S;
+  FileBuf* pF_m = (&DI_List == &m.DI_List_S) ? m.pfS : m.pfL;
+  FileBuf* pF_o = (&DI_List == &m.DI_List_S) ? m.pfL : m.pfS;
+
+  // If the current line has a difference in white space at beginning or end, start
+  // searching on next line so the current line number is not automatically returned.
+  bool curr_line_has_LT_WS_diff
+    = Line_Has_Leading_or_Trailing_WS_Diff( dl, dl
+                                          , DI_List, DI_List_o
+                                          , pF_m, pF_o );
+  const unsigned dl_st = curr_line_has_LT_WS_diff
+                       ? (dl + 1) % NUM_LINES
+                       : dl;
+
+  // Search from dl_st to end for lines of different length:
+  for( unsigned k=dl_st; !found_diff && k<NUM_LINES; k++ )
+  {
+    found_diff = Line_Has_Leading_or_Trailing_WS_Diff( dl, k
+                                                     , DI_List, DI_List_o
+                                                     , pF_m, pF_o );
+  }
+  if( !found_diff )
+  {
+    // Search from top to dl_st for lines of different length:
+    for( unsigned k=0; !found_diff && k<dl_st; k++ )
+    {
+      found_diff = Line_Has_Leading_or_Trailing_WS_Diff( dl, k
+                                                       , DI_List, DI_List_o
+                                                       , pF_m, pF_o );
+    }
+  }
+  return found_diff;
+}
+
+bool Do_n_Search_for_Diff( Diff::Data& m
+                         , unsigned& dl
+                         , const Array_t<Diff_Info>& DI_List )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  const unsigned dl_st = dl;
+
+  // Search forward for non-DT_SAME
+  bool found_diff = false;
+
+  if( 1 < NumLines(m) )
+  {
+    found_diff = Do_n_Search_for_Diff_DT( m, dl, DI_List );
+
+    if( !found_diff )
+    {
+      dl = dl_st;
+      found_diff = Do_n_Search_for_Diff_WhiteSpace( m, dl, DI_List );
+    }
+  }
+  return found_diff;
 }
 
 unsigned Do_n_Find_Crs_Pos( Diff::Data& m
@@ -1602,7 +1692,7 @@ void Do_n_Diff( Diff::Data& m, const bool write )
 
     const Diff_Type DT = DI_List[dl].diff_type; // Current diff type
 
-    bool found = true;
+    bool found_same = true;
 
     if( DT == DT_CHANGED
      || DT == DT_INSERTED
@@ -1610,13 +1700,13 @@ void Do_n_Diff( Diff::Data& m, const bool write )
      || DT == DT_DIFF_FILES )
     {
       // If currently on a diff, search for same before searching for diff
-      found = Do_n_Search_for_Same( m, dl, DI_List );
+      found_same = Do_n_Search_for_Same( m, dl, DI_List );
     }
-    if( found )
+    if( found_same )
     {
-      found = Do_n_Search_for_Diff( m, dl, DI_List );
+      bool found_diff = Do_n_Search_for_Diff( m, dl, DI_List );
 
-      if( found )
+      if( found_diff )
       {
         const unsigned NCL = dl;
         const unsigned NCP = Do_n_Find_Crs_Pos( m, NCL, DI_List );
@@ -2110,7 +2200,7 @@ void PrintWorkingView_DT_CHANGED( Diff::Data& m
     }
     for( ; col<WC; col++ )
     {
-      Console::Set( G_ROW, Col_Win_2_GL( m, pV, col ), ' ', S_NORMAL );
+      Console::Set( G_ROW, Col_Win_2_GL( m, pV, col ), ' ', S_EMPTY );
     }
   }
   else {
@@ -2177,7 +2267,8 @@ void PrintWorkingView_DT_INSERTED_SAME( Diff::Data& m
   }
   for( ; col<WC; col++ )
   {
-    Console::Set( G_ROW, Col_Win_2_GL( m, pV, col ), ' ', DT==DT_SAME ? S_NORMAL : S_DIFF_NORMAL );
+    Console::Set( G_ROW, Col_Win_2_GL( m, pV, col ), ' '
+                , DT==DT_SAME ? S_EMPTY : S_DIFF_NORMAL );
   }
 }
 
@@ -2194,11 +2285,11 @@ void PrintWorkingView_EOF( Diff::Data& m
   {
     const unsigned G_ROW = Row_Win_2_GL( m, pV, row );
 
-    Console::Set( G_ROW, Col_Win_2_GL( m, pV, 0 ), '~', S_EMPTY );
+    Console::Set( G_ROW, Col_Win_2_GL( m, pV, 0 ), '~', S_EOF );
 
     for( unsigned col=1; col<WC; col++ )
     {
-      Console::Set( G_ROW, Col_Win_2_GL( m, pV, col ), ' ', S_EMPTY );
+      Console::Set( G_ROW, Col_Win_2_GL( m, pV, col ), ' ', S_EOF );
     }
   }
 }
@@ -2972,21 +3063,34 @@ bool Do_N_Search_for_Same( Diff::Data& m
   return found;
 }
 
-bool Do_N_Search_for_Diff( Diff::Data& m
-                         , int& dl
-                         , const Array_t<Diff_Info>& DI_List )
+// Look for difference based on Diff_Info:
+bool Do_N_Search_for_Diff_DT( Diff::Data& m
+                            , int& dl
+                            , const Array_t<Diff_Info>& DI_List )
 {
-  Trace trace( __PRETTY_FUNCTION__ );
+  bool found_diff = false;
 
   const unsigned NUM_LINES = NumLines(m);
   const unsigned dl_st = dl;
 
-  // Search backwards for non-DT_SAME
-  bool found = false;
-
-  if( 1 < NUM_LINES )
+  while( !found_diff && 0<=dl )
   {
-    while( !found && 0<=dl )
+    const Diff_Type DT = DI_List[dl].diff_type;
+
+    if( DT == DT_CHANGED
+     || DT == DT_INSERTED
+     || DT == DT_DELETED
+     || DT == DT_DIFF_FILES )
+    {
+      found_diff = true;
+    }
+    else dl--;
+  }
+  if( !found_diff )
+  {
+    // Wrap around back to bottom and search again:
+    dl = NUM_LINES-1;
+    while( !found_diff && dl_st<dl )
     {
       const Diff_Type DT = DI_List[dl].diff_type;
 
@@ -2995,30 +3099,109 @@ bool Do_N_Search_for_Diff( Diff::Data& m
        || DT == DT_DELETED
        || DT == DT_DIFF_FILES )
       {
-        found = true;
+        found_diff = true;
       }
       else dl--;
     }
-    if( !found )
-    {
-      // Wrap around back to bottom and search again:
-      dl = NUM_LINES-1;
-      while( !found && dl_st<dl )
-      {
-        const Diff_Type DT = DI_List[dl].diff_type;
+  }
+  return found_diff;
+}
 
-        if( DT == DT_CHANGED
-         || DT == DT_INSERTED
-         || DT == DT_DELETED
-         || DT == DT_DIFF_FILES )
-        {
-          found = true;
-        }
-        else dl--;
-      }
+bool
+Line_Has_Leading_or_Trailing_WS_Diff( int& dl
+                                    , const int k
+                                    , const Array_t<Diff_Info>& DI_List
+                                    , const Array_t<Diff_Info>& DI_List_o
+                                    , const FileBuf* pF_m
+                                    , const FileBuf* pF_o )
+{
+  bool L_T_WS_diff = false;
+
+  const Diff_Info& Di_m = DI_List[ k ];
+  const Diff_Info& Di_o = DI_List_o[ k ];
+
+  if( Di_m.diff_type == DT_SAME
+   && Di_o.diff_type == DT_SAME )
+  {
+    const Line* lm = pF_m->GetLineP( Di_m.line_num ); // Line from my    view
+    const Line* lo = pF_o->GetLineP( Di_o.line_num ); // Line from other view
+
+    if( lm->len() != lo->len() )
+    {
+      L_T_WS_diff = true;
+      dl = k;
     }
   }
-  return found;
+  return L_T_WS_diff;
+}
+
+// Look for difference in white space at beginning or ending of lines:
+bool Do_N_Search_for_Diff_WhiteSpace( Diff::Data& m
+                                    , int& dl
+                                    , const Array_t<Diff_Info>& DI_List )
+{
+  bool found_diff = false;
+
+  const unsigned NUM_LINES = NumLines(m);
+
+  Array_t<Diff_Info>& DI_List_o = (&DI_List == &m.DI_List_S) ? m.DI_List_L : m.DI_List_S;
+  FileBuf* pF_m = (&DI_List == &m.DI_List_S) ? m.pfS : m.pfL;
+  FileBuf* pF_o = (&DI_List == &m.DI_List_S) ? m.pfL : m.pfS;
+
+  // If the current line has a difference in white space at beginning or end, start
+  // searching on next line so the current line number is not automatically returned.
+  bool curr_line_has_LT_WS_diff
+    = Line_Has_Leading_or_Trailing_WS_Diff( dl, dl
+                                          , DI_List, DI_List_o
+                                          , pF_m, pF_o );
+  const unsigned dl_st = curr_line_has_LT_WS_diff
+                       ? ( 0 < dl ? (dl - 1) % NUM_LINES
+                                  : NUM_LINES-1 )
+                       : dl;
+
+  // Search from dl_st to end for lines of different length:
+  for( int k=dl_st; !found_diff && 0<=k; k-- )
+  {
+    found_diff = Line_Has_Leading_or_Trailing_WS_Diff( dl, k
+                                                     , DI_List, DI_List_o
+                                                     , pF_m, pF_o );
+  }
+  if( !found_diff )
+  {
+    // Search from top to dl_st for lines of different length:
+    for( int k=NUM_LINES-1; !found_diff && dl_st<k; k-- )
+    {
+      found_diff = Line_Has_Leading_or_Trailing_WS_Diff( dl, k
+                                                       , DI_List, DI_List_o
+                                                       , pF_m, pF_o );
+    }
+  }
+  return found_diff;
+}
+
+
+bool Do_N_Search_for_Diff( Diff::Data& m
+                         , int& dl
+                         , const Array_t<Diff_Info>& DI_List )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  const unsigned dl_st = dl;
+
+  // Search backwards for non-DT_SAME
+  bool found_diff = false;
+
+  if( 1 < NumLines(m) )
+  {
+    found_diff = Do_N_Search_for_Diff_DT( m, dl, DI_List );
+
+    if( !found_diff )
+    {
+      dl = dl_st;
+      found_diff = Do_N_Search_for_Diff_WhiteSpace( m, dl, DI_List );
+    }
+  }
+  return found_diff;
 }
 
 void Do_N_Diff( Diff::Data& m )
@@ -3037,7 +3220,7 @@ void Do_N_Diff( Diff::Data& m )
 
     const Diff_Type DT = DI_List[dl].diff_type; // Current diff type
 
-    bool found = true;
+    bool found_same = true;
 
     if( DT == DT_CHANGED
      || DT == DT_INSERTED
@@ -3045,13 +3228,13 @@ void Do_N_Diff( Diff::Data& m )
      || DT == DT_DIFF_FILES )
     {
       // If currently on a diff, search for same before searching for diff
-      found = Do_N_Search_for_Same( m, dl, DI_List );
+      found_same = Do_N_Search_for_Same( m, dl, DI_List );
     }
-    if( found )
+    if( found_same )
     {
-      found = Do_N_Search_for_Diff( m, dl, DI_List );
+      bool found_diff = Do_N_Search_for_Diff( m, dl, DI_List );
 
-      if( found )
+      if( found_diff )
       {
         const unsigned NCL = dl;
         const unsigned NCP = Do_n_Find_Crs_Pos( m, NCL, DI_List );
@@ -6140,10 +6323,10 @@ void Diff::Do_yy()
     {
       const unsigned VL = ViewLine( m, pV, DL ); // View Cursor line
 
-      Line l = pfb->GetLine( VL );
+      const Line* lp = pfb->GetLineP( VL );
 
       m.reg.clear();
-      m.reg.push( m.vis.BorrowLine( __FILE__,__LINE__, l ) );
+      m.reg.push( m.vis.BorrowLine( __FILE__,__LINE__, *lp ) );
 
       m.vis.SetPasteMode( PM_LINE );
     }
@@ -6850,5 +7033,4 @@ void Diff::DisplayMapping()
   Console::Update();
   PrintCursor( pV ); // Put cursor back in position.
 }
-
 

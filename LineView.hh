@@ -53,7 +53,7 @@ public:
   unsigned GetLeftChar() const;
   unsigned GetCrsRow  () const;
   unsigned GetCrsCol  () const;
-  const Line* GetCrsLine();
+//const Line* GetCrsLine();
 
   void SetTopLine ( const unsigned val );
   void SetLeftChar( const unsigned val );

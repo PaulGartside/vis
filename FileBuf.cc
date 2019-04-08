@@ -217,6 +217,8 @@ FileBuf::Data::~Data()
 
 bool Find_File_Type_Bash( FileBuf::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   if( m.path_name.ends_with(".sh"      )
    || m.path_name.ends_with(".sh.new"  )
    || m.path_name.ends_with(".sh.old"  )
@@ -238,6 +240,8 @@ bool Find_File_Type_Bash( FileBuf::Data& m )
 
 bool Find_File_Type_CPP( FileBuf::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   if( m.path_name.ends_with(".h"      )
    || m.path_name.ends_with(".h.new"  )
    || m.path_name.ends_with(".h.old"  )
@@ -269,6 +273,8 @@ bool Find_File_Type_CPP( FileBuf::Data& m )
 
 bool Find_File_Type_IDL( FileBuf::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   if( m.path_name.ends_with(".idl"    )
    || m.path_name.ends_with(".idl.new")
    || m.path_name.ends_with(".idl.old") )
@@ -282,6 +288,8 @@ bool Find_File_Type_IDL( FileBuf::Data& m )
 
 bool Find_File_Type_Java( FileBuf::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   if( m.path_name.ends_with(".java"    )
    || m.path_name.ends_with(".java.new")
    || m.path_name.ends_with(".java.old") )
@@ -295,6 +303,8 @@ bool Find_File_Type_Java( FileBuf::Data& m )
 
 bool Find_File_Type_HTML( FileBuf::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   if( m.path_name.ends_with(".htm"     )
    || m.path_name.ends_with(".htm.new" )
    || m.path_name.ends_with(".htm.old" )
@@ -311,6 +321,8 @@ bool Find_File_Type_HTML( FileBuf::Data& m )
 
 bool Find_File_Type_XML( FileBuf::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   if( m.path_name.ends_with(".xml"       )
    || m.path_name.ends_with(".xml.new"   )
    || m.path_name.ends_with(".xml.old"   )
@@ -327,6 +339,8 @@ bool Find_File_Type_XML( FileBuf::Data& m )
 
 bool Find_File_Type_JS( FileBuf::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   if( m.path_name.ends_with(".js"    )
    || m.path_name.ends_with(".js.new")
    || m.path_name.ends_with(".js.old") )
@@ -340,6 +354,8 @@ bool Find_File_Type_JS( FileBuf::Data& m )
 
 bool Find_File_Type_Make( FileBuf::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   if( m.path_name.ends_with(".Make"       )
    || m.path_name.ends_with(".make"       )
    || m.path_name.ends_with(".Make.new"   )
@@ -362,6 +378,8 @@ bool Find_File_Type_Make( FileBuf::Data& m )
 
 bool Find_File_Type_CMake( FileBuf::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   if( m.path_name.ends_with(".cmake"    )
    || m.path_name.ends_with(".cmake.new")
    || m.path_name.ends_with(".cmake.old")
@@ -378,6 +396,8 @@ bool Find_File_Type_CMake( FileBuf::Data& m )
 
 bool Find_File_Type_Python( FileBuf::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   if( m.path_name.ends_with(".py"    )
    || m.path_name.ends_with(".py.new")
    || m.path_name.ends_with(".py.old") )
@@ -391,6 +411,8 @@ bool Find_File_Type_Python( FileBuf::Data& m )
 
 bool Find_File_Type_SQL( FileBuf::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   if( m.path_name.ends_with(".sql"    )
    || m.path_name.ends_with(".sql.new")
    || m.path_name.ends_with(".sql.old") )
@@ -404,6 +426,8 @@ bool Find_File_Type_SQL( FileBuf::Data& m )
 
 bool Find_File_Type_STL( FileBuf::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   if( m.path_name.ends_with(".stl"    )
    || m.path_name.ends_with(".stl.new")
    || m.path_name.ends_with(".stl.old")
@@ -420,6 +444,8 @@ bool Find_File_Type_STL( FileBuf::Data& m )
 
 bool Find_File_Type_ODB( FileBuf::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   if( m.path_name.ends_with(".odb"    )
    || m.path_name.ends_with(".odb.new")
    || m.path_name.ends_with(".odb.old") )
@@ -433,6 +459,8 @@ bool Find_File_Type_ODB( FileBuf::Data& m )
 
 bool Find_File_Type_Swift( FileBuf::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   if( m.path_name.ends_with(".swift"    )
    || m.path_name.ends_with(".swift.new")
    || m.path_name.ends_with(".swift.old") )
@@ -446,6 +474,8 @@ bool Find_File_Type_Swift( FileBuf::Data& m )
 
 bool Find_File_Type_TCL( FileBuf::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   if( m.path_name.ends_with(".tcl"    )
    || m.path_name.ends_with(".tcl.new")
    || m.path_name.ends_with(".tcl.old") )
@@ -459,6 +489,8 @@ bool Find_File_Type_TCL( FileBuf::Data& m )
 
 void Find_File_Type_Suffix( FileBuf::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   if( m.is_dir )
   {
     m.file_type = FT_DIR;
@@ -490,6 +522,7 @@ void Find_File_Type_Suffix( FileBuf::Data& m )
 
 void Find_File_Type_FirstLine( FileBuf::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
   const unsigned NUM_LINES = m.self.NumLines();
 
   if( 0 < NUM_LINES )
@@ -628,6 +661,8 @@ void ReadExistingDir_AddLink( FileBuf::Data& m
                             , const unsigned LINE_NUM )
 {
 #ifndef WIN32
+  Trace trace( __PRETTY_FUNCTION__ );
+
   const unsigned mbuf_sz = 1024;
   char mbuf[ 1024 ];
   int rval = readlink( dir_path_fname.c_str(), mbuf, mbuf_sz );
@@ -654,6 +689,8 @@ void ReadExistingDir_AddLink( FileBuf::Data& m
 
 void ReadExistingDir_Sort( FileBuf::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   const unsigned NUM_LINES = m.self.NumLines();
 
   // Sort lines (file names), least to greatest:
@@ -689,6 +726,7 @@ void ReadExistingDir_Sort( FileBuf::Data& m )
 
 void ReadExistingDir( FileBuf::Data& m, DIR* dp, String dir_path )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
   // Make sure dir_path ends in '/'
   if( DIR_DELIM != dir_path.get_end() ) dir_path.push( DIR_DELIM );
 
@@ -747,6 +785,8 @@ void Adjust_View_topLine( FileBuf::Data& m
                         , View_IF* pV
                         , const unsigned l_num )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   const unsigned top_line = pV->GetTopLine();
 
   if( l_num < top_line )
@@ -771,6 +811,8 @@ void Adjust_View_topLine( FileBuf::Data& m
 
 void RemoveLine_Adjust_Views_topLines( FileBuf::Data& m, const unsigned l_num )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   for( unsigned w=0; w<MAX_WINS && w<m.views.len(); w++ )
   {
     View* pV = m.views[w];
@@ -877,6 +919,8 @@ Line* Append_hex_2_line( FileBuf::Data& m
                        , Line* n_line
                        , const uint8_t C )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   char C1 = MS_Hex_Digit( C );
   char C2 = LS_Hex_Digit( C );
 
@@ -898,6 +942,8 @@ void Replace_current_file( FileBuf::Data& m
                          , const Encoding enc
                          , const bool LF_at_EOF )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   m.save_history = false;
 
   m.self.ClearLines();
@@ -916,6 +962,8 @@ void Replace_current_file( FileBuf::Data& m
 
 bool BYTE_to_HEX( FileBuf::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   bool ok = true;
 
   Array_t<Line*> n_lines;
@@ -946,6 +994,7 @@ bool BYTE_to_HEX( FileBuf::Data& m )
 
 bool HEX_to_BYTE_check_format( FileBuf::Data& m )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
   bool ok = true;
 
   const int NUM_LINES = m.lines.len();
@@ -998,6 +1047,8 @@ bool HEX_to_BYTE_get_lines( FileBuf::Data& m
                           , Array_t<Line*>& n_lines
                           , bool& LF_at_EOF )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   bool ok = HEX_to_BYTE_check_format(m);
   if( ok )
   {
@@ -1101,6 +1152,8 @@ FileBuf::FileBuf( Vis& vis
 
 FileBuf::~FileBuf()
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   Line* p_line = 0;
   while( 0<m.lines.len() )
   {
@@ -1134,6 +1187,8 @@ Encoding FileBuf::GetDecoding() const
 
 bool FileBuf::SetDecoding( const Encoding dec )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   bool ok = true;
   if( dec != m.decoding )
   {
@@ -1164,6 +1219,8 @@ void FileBuf::SetEncoding( const Encoding E )
 
 void FileBuf::Set_File_Type( const char* syn )
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   if( !m.is_dir )
   {
     bool found_syntax_type = true;
@@ -1284,6 +1341,8 @@ void FileBuf::AddView( LineView* v )
 
 void FileBuf::ReadFile()
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   if( m.is_dir )
   {
     // Directory
@@ -1313,22 +1372,28 @@ void FileBuf::ReadFile()
 
 void FileBuf::ReReadFile()
 {
-  ClearChanged();
-  ClearLines();
+  Trace trace( __PRETTY_FUNCTION__ );
 
-  m.save_history = false; //< Gets turned back on in ReadFile()
-
-  ReadFile();
-
-  // To be safe, put cursor at top,left of each view of this file:
-  for( unsigned w=0; w<MAX_WINS; w++ )
+  // Can only re-read user files
+  if( USER_FILE <= m.vis.Buf2FileNum( this ) )
   {
-    View* const pV = m.views[w];
+    ClearChanged();
+    ClearLines();
 
-    pV->Check_Context();
+    m.save_history = false; //< Gets turned back on in ReadFile()
+
+    ReadFile();
+
+    // To be safe, put cursor at top,left of each view of this file:
+    for( unsigned w=0; w<MAX_WINS; w++ )
+    {
+      View* const pV = m.views[w];
+
+      pV->Check_Context();
+    }
+    m.save_history    = true;
+    m.hi_touched_line = 0;
   }
-  m.save_history    = true;
-  m.hi_touched_line = 0;
 }
 
 bool FileBuf::Sort()
@@ -1340,6 +1405,8 @@ bool FileBuf::Sort()
 
 bool FileBuf::BufferEditor_SortName()
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   bool changed = false;
   const unsigned NUM_LINES = NumLines();
 
@@ -1366,6 +1433,8 @@ bool FileBuf::BufferEditor_SortName()
 
 bool FileBuf::BufferEditor_SortTime()
 {
+  Trace trace( __PRETTY_FUNCTION__ );
+
   bool changed = false;
   const unsigned NUM_BUILT_IN_FILES = USER_FILE;
 
@@ -1588,22 +1657,22 @@ void FileBuf::Set( const unsigned l_num
 
 bool FileBuf::Has_LF_at_EOF() { return m.LF_at_EOF; }
 
-// Return copy of line l_num
+// Return reference to line l_num
 //
-Line FileBuf::GetLine( const unsigned l_num ) const
+const Line& FileBuf::GetLine( const unsigned l_num ) const
 {
   Trace trace( __PRETTY_FUNCTION__ );
   ASSERT( __LINE__, l_num < m.lines.len(), "l_num < m.lines.len()" );
 
-  Line* lp  = m.lines[ l_num ];
+  const Line* lp  = m.lines[ l_num ];
   ASSERT( __LINE__, lp, "m.lines[ %u ]", l_num );
 
   return *lp;
 }
 
-// Return copy of line l_num
+// Return reference to line l_num
 //
-Line FileBuf::GetStyle( const unsigned l_num ) const
+const Line& FileBuf::GetStyle( const unsigned l_num ) const
 {
   Trace trace( __PRETTY_FUNCTION__ );
   ASSERT( __LINE__, l_num < m.styles.len(), "l_num < m.styles.len()" );

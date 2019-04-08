@@ -894,27 +894,21 @@ bool Files_Are_Same( const FileBuf& fb_s, const FileBuf& fb_l )
 
   if( fb_s.IsRegular() && fb_l.IsRegular() )
   {
-    const size_t len_s = FileSize( fb_s.GetPathName() );
-    const size_t len_l = FileSize( fb_l.GetPathName() );
+    const unsigned num_lines_s = fb_s.NumLines();
+    const unsigned num_lines_l = fb_l.NumLines();
 
-    if( len_s == len_l )
+    if( num_lines_s == num_lines_l )
     {
-      const unsigned lines_s = fb_s.NumLines();
-      const unsigned lines_l = fb_l.NumLines();
+      files_are_same = true;
 
-      if( lines_s == lines_l )
+      for( unsigned k=0; files_are_same && k<num_lines_s; k++ )
       {
-        files_are_same = true;
+        const Line& l_s = fb_s.GetLine( k );
+        const Line& l_l = fb_l.GetLine( k );
 
-        for( unsigned k=0; files_are_same && k<lines_s; k++ )
+        if( !l_s.eq( l_l ) )
         {
-          const Line& l_s = fb_s.GetLine( k );
-          const Line& l_l = fb_l.GetLine( k );
-
-          if( !l_s.eq( l_l ) )
-          {
-            files_are_same = false;
-          }
+          files_are_same = false;
         }
       }
     }

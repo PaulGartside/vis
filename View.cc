@@ -4068,11 +4068,11 @@ void View::PrintWorkingView()
   {
     const unsigned G_ROW = Row_Win_2_GL( row );
 
-    Console::Set( G_ROW, Col_Win_2_GL( 0 ), '~', S_EMPTY );
+    Console::Set( G_ROW, Col_Win_2_GL( 0 ), '~', S_EOF );
 
     for( unsigned col=1; col<WC; col++ )
     {
-      Console::Set( G_ROW, Col_Win_2_GL( col ), ' ', S_EMPTY );
+      Console::Set( G_ROW, Col_Win_2_GL( col ), ' ', S_EOF );
     }
   }
 }

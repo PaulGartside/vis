@@ -61,8 +61,8 @@ public:
 
   unsigned NumLines() const;
   unsigned LineLen( const unsigned line_num ) const;
-  Line     GetLine( const unsigned l_num ) const;
-  Line     GetStyle( const unsigned l_num ) const;
+  const Line& GetLine( const unsigned l_num ) const;
+  const Line& GetStyle( const unsigned l_num ) const;
   void     GetLine( const unsigned l_num, Line& l ) const;
   const Line* GetLineP( const unsigned l_num ) const;
   void     InsertLine( const unsigned l_num, const Line& line );
