@@ -42,12 +42,8 @@ private:
   void Hi_BegCPP_Comment( unsigned& l, unsigned& p );
   void Hi_In_CPP_Comment( unsigned& l, unsigned& p );
   void Hi_EndCPP_Comment( unsigned& l, unsigned& p );
-  void Hi_BegSingleQuote( unsigned& l, unsigned& p );
   void Hi_In_SingleQuote( unsigned& l, unsigned& p );
-  void Hi_EndSingleQuote( unsigned& l, unsigned& p );
-  void Hi_BegDoubleQuote( unsigned& l, unsigned& p );
   void Hi_In_DoubleQuote( unsigned& l, unsigned& p );
-  void Hi_EndDoubleQuote( unsigned& l, unsigned& p );
   void Hi_NumberBeg     ( unsigned& l, unsigned& p );
   void Hi_NumberIn      ( unsigned& l, unsigned& p );
   void Hi_NumberHex     ( unsigned& l, unsigned& p );

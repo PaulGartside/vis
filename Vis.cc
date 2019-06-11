@@ -1978,7 +1978,7 @@ void Quit_JoinTiles_RITE_CTR__QTR( Vis::Data& m )
 
 void Quit_JoinTiles_TOP__LEFT_8TH( Vis::Data& m )
 {
-  if( Have_BOT__LEFT_QTR(m) )
+  if( Have_BOT__HALF(m) || Have_BOT__LEFT_QTR(m) )
   {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
@@ -2001,7 +2001,7 @@ void Quit_JoinTiles_TOP__LEFT_8TH( Vis::Data& m )
 
 void Quit_JoinTiles_TOP__RITE_8TH( Vis::Data& m )
 {
-  if( Have_BOT__RITE_QTR(m) )
+  if( Have_BOT__HALF(m) || Have_BOT__RITE_QTR(m) )
   {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
@@ -2024,7 +2024,7 @@ void Quit_JoinTiles_TOP__RITE_8TH( Vis::Data& m )
 
 void Quit_JoinTiles_TOP__LEFT_CTR_8TH( Vis::Data& m )
 {
-  if( Have_BOT__LEFT_QTR(m) )
+  if( Have_BOT__HALF(m) || Have_BOT__LEFT_QTR(m) )
   {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
@@ -2047,7 +2047,7 @@ void Quit_JoinTiles_TOP__LEFT_CTR_8TH( Vis::Data& m )
 
 void Quit_JoinTiles_TOP__RITE_CTR_8TH( Vis::Data& m )
 {
-  if( Have_BOT__RITE_QTR(m) )
+  if( Have_BOT__HALF(m) || Have_BOT__RITE_QTR(m) )
   {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
@@ -2070,7 +2070,7 @@ void Quit_JoinTiles_TOP__RITE_CTR_8TH( Vis::Data& m )
 
 void Quit_JoinTiles_BOT__LEFT_8TH( Vis::Data& m )
 {
-  if( Have_TOP__LEFT_QTR(m) )
+  if( Have_TOP__HALF(m) || Have_TOP__LEFT_QTR(m) )
   {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
@@ -2093,7 +2093,7 @@ void Quit_JoinTiles_BOT__LEFT_8TH( Vis::Data& m )
 
 void Quit_JoinTiles_BOT__RITE_8TH( Vis::Data& m )
 {
-  if( Have_TOP__RITE_QTR(m) )
+  if( Have_TOP__HALF(m) || Have_TOP__RITE_QTR(m) )
   {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
@@ -2116,7 +2116,7 @@ void Quit_JoinTiles_BOT__RITE_8TH( Vis::Data& m )
 
 void Quit_JoinTiles_BOT__LEFT_CTR_8TH( Vis::Data& m )
 {
-  if( Have_TOP__LEFT_QTR(m) )
+  if( Have_TOP__HALF(m) || Have_TOP__LEFT_QTR(m) )
   {
     for( unsigned k=0; k<m.num_wins; k++ )
     {
@@ -2139,7 +2139,7 @@ void Quit_JoinTiles_BOT__LEFT_CTR_8TH( Vis::Data& m )
 
 void Quit_JoinTiles_BOT__RITE_CTR_8TH( Vis::Data& m )
 {
-  if( Have_TOP__RITE_QTR(m) )
+  if( Have_TOP__HALF(m) || Have_TOP__RITE_QTR(m) )
   {
     for( unsigned k=0; k<m.num_wins; k++ )
     {

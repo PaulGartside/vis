@@ -54,68 +54,6 @@ void Highlight_CMake::Run_Range( const CrsPos st, const unsigned fn )
   Find_Styles_Keys_In_Range( st, fn );
 }
 
-//void Highlight_CMake::Hi_In_None( unsigned& l, unsigned& p )
-//{
-//  Trace trace( __PRETTY_FUNCTION__ );
-//  for( ; l<m_fb.NumLines(); l++ )
-//  {
-//    const unsigned LL = m_fb.LineLen( l );
-//    const Line&    lr = m_fb.GetLine( l );
-//
-//    for( ; p<LL; p++ )
-//    {
-//      m_fb.ClearSyntaxStyles( l, p );
-//
-//      const char* s = lr.c_str( p );
-//
-//      if     ( 0==strncmp( s, "#" , 1 ) ) { m_state = &ME::Hi_In_Comment; }
-//      else if( 0==strncmp( s, "\'", 1 ) ) { m_state = &ME::Hi_SingleQuote; }
-//      else if( 0==strncmp( s, "\"", 1 ) ) { m_state = &ME::Hi_DoubleQuote; }
-//      else if( 0==strncmp( s, "`",  1 ) ) { m_state = &ME::Hi_96_Quote; }
-//      else if( 0<p && !IsIdent((s-1)[0])
-//                   &&  isdigit( s   [0]) ){ m_state = &ME::Hi_NumberBeg; }
-//
-//      else if( p<LL-1
-//            && (0==strncmp( s, "::", 2 )
-//             || 0==strncmp( s, "->", 2 )) ) { m_fb.SetSyntaxStyle( l, p++, HI_VARTYPE );
-//                                              m_fb.SetSyntaxStyle( l, p  , HI_VARTYPE ); }
-//      else if( p<LL-1
-//            &&( 0==strncmp( s, "==", 2 )
-//             || 0==strncmp( s, "&&", 2 )
-//             || 0==strncmp( s, "||", 2 )
-//             || 0==strncmp( s, "|=", 2 )
-//             || 0==strncmp( s, "&=", 2 )
-//             || 0==strncmp( s, "!=", 2 )
-//             || 0==strncmp( s, "+=", 2 )
-//             || 0==strncmp( s, "-=", 2 )) ) { m_fb.SetSyntaxStyle( l, p++, HI_CONTROL );
-//                                              m_fb.SetSyntaxStyle( l, p  , HI_CONTROL ); }
-//
-//      else if( s[0]=='$' ) { m_fb.SetSyntaxStyle( l, p, HI_DEFINE ); }
-//      else if( s[0]=='&'
-//            || s[0]=='.' || s[0]=='*'
-//            || s[0]=='[' || s[0]==']' ) { m_fb.SetSyntaxStyle( l, p, HI_VARTYPE ); }
-//
-//      else if( s[0]=='=' || s[0]=='@'
-//            || s[0]=='^' || s[0]=='~'
-//            || s[0]==':' || s[0]=='%'
-//            || s[0]=='+' || s[0]=='-'
-//            || s[0]=='<' || s[0]=='>'
-//            || s[0]=='!' || s[0]=='?'
-//            || s[0]=='(' || s[0]==')'
-//            || s[0]=='{' || s[0]=='}'
-//            || s[0]==',' || s[0]==';'
-//            || s[0]=='/' || s[0]=='|' ) { m_fb.SetSyntaxStyle( l, p, HI_CONTROL ); }
-//
-//      else if( s[0] < 32 || 126 < s[0] ) { m_fb.SetSyntaxStyle( l, p, HI_NONASCII ); }
-//      else if( LL-1 == p && s[0]=='\\')  { m_fb.SetSyntaxStyle( l, p, HI_DEFINE ); }
-//
-//      if( &ME::Hi_In_None != m_state ) return;
-//    }
-//    p = 0;
-//  }
-//  m_state = 0;
-//}
-
 static bool Quote_Start( const char qt
                        , const char c2
                        , const char c1
@@ -239,11 +177,11 @@ void Highlight_CMake::Hi_SingleQuote( unsigned& l, unsigned& p )
     bool slash_escaped = false;
     for( ; p<LL; p++ )
     {
-      // c0 is ahead of c1: c1,c0
-      const char c1 = p ? m_fb.Get( l, p-1 ) : m_fb.Get( l, p );
-      const char c0 = p ? m_fb.Get( l, p   ) : 0;
+      // c0 is ahead of c1: (c1,c0)
+      const char c1 = p ? m_fb.Get( l, p-1 ) : 0;
+      const char c0 =     m_fb.Get( l, p );
 
-      if( (c1=='\'' && c0==0   )
+      if( (c1==0    && c0=='\'')
        || (c1!='\\' && c0=='\'')
        || (c1=='\\' && c0=='\'' && slash_escaped) )
       {
@@ -251,7 +189,7 @@ void Highlight_CMake::Hi_SingleQuote( unsigned& l, unsigned& p )
         m_state = &ME::Hi_In_None;
       }
       else {
-        if( c1=='\\' && c0=='\\' ) slash_escaped = true;
+        if( c1=='\\' && c0=='\\' ) slash_escaped = !slash_escaped;
         else                       slash_escaped = false;
 
         m_fb.SetSyntaxStyle( l, p, HI_CONST );
@@ -276,11 +214,11 @@ void Highlight_CMake::Hi_DoubleQuote( unsigned& l, unsigned& p )
     bool slash_escaped = false;
     for( ; p<LL; p++ )
     {
-      // c0 is ahead of c1: c1,c0
-      const char c1 = p ? m_fb.Get( l, p-1 ) : m_fb.Get( l, p );
-      const char c0 = p ? m_fb.Get( l, p   ) : 0;
+      // c0 is ahead of c1: (c1,c0)
+      const char c1 = p ? m_fb.Get( l, p-1 ) : 0;
+      const char c0 =     m_fb.Get( l, p );
 
-      if( (c1=='\"' && c0==0   )
+      if( (c1==0    && c0=='\"')
        || (c1!='\\' && c0=='\"')
        || (c1=='\\' && c0=='\"' && slash_escaped) )
       {
@@ -288,7 +226,7 @@ void Highlight_CMake::Hi_DoubleQuote( unsigned& l, unsigned& p )
         m_state = &ME::Hi_In_None;
       }
       else {
-        if( c1=='\\' && c0=='\\' ) slash_escaped = true;
+        if( c1=='\\' && c0=='\\' ) slash_escaped = !slash_escaped;
         else                       slash_escaped = false;
 
         m_fb.SetSyntaxStyle( l, p, HI_CONST );
@@ -313,11 +251,11 @@ void Highlight_CMake::Hi_96_Quote( unsigned& l, unsigned& p )
     bool slash_escaped = false;
     for( ; p<LL; p++ )
     {
-      // c0 is ahead of c1: c1,c0
-      const char c1 = p ? m_fb.Get( l, p-1 ) : m_fb.Get( l, p );
-      const char c0 = p ? m_fb.Get( l, p   ) : 0;
+      // c0 is ahead of c1: (c1,c0)
+      const char c1 = p ? m_fb.Get( l, p-1 ) : 0;
+      const char c0 =     m_fb.Get( l, p );
 
-      if( (c1=='`'  && c0==0  )
+      if( (c1==0    && c0=='`')
        || (c1!='\\' && c0=='`')
        || (c1=='\\' && c0=='`' && slash_escaped) )
       {
@@ -325,7 +263,7 @@ void Highlight_CMake::Hi_96_Quote( unsigned& l, unsigned& p )
         m_state = &ME::Hi_In_None;
       }
       else {
-        if( c1=='\\' && c0=='\\' ) slash_escaped = true;
+        if( c1=='\\' && c0=='\\' ) slash_escaped = !slash_escaped;
         else                       slash_escaped = false;
 
         m_fb.SetSyntaxStyle( l, p, HI_CONST );

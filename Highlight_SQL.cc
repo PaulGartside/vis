@@ -117,8 +117,8 @@ void Highlight_SQL::Hi_In_None( unsigned& l, unsigned& p )
       const char* s = lr.c_str( p );
 
       if     ( p<LL-1 && 0==strncmp( s, "--", 2 ) ) { m_state = &ME::Hi_Beg_Comment; }
-      else if(           0==strncmp( s, "\'", 1 ) ) { m_state = &ME::Hi_BegSingleQuote; }
-      else if(           0==strncmp( s, "\"", 1 ) ) { m_state = &ME::Hi_BegDoubleQuote; }
+      else if(           0==strncmp( s, "\'", 1 ) ) { m_state = &ME::Hi_In_SingleQuote; }
+      else if(           0==strncmp( s, "\"", 1 ) ) { m_state = &ME::Hi_In_DoubleQuote; }
       else if( 0<p && !IsIdent((s-1)[0])
                    &&  isdigit( s   [0]) ){ m_state = &ME::Hi_NumberBeg; }
 
@@ -189,17 +189,12 @@ void Highlight_SQL::Hi_End_Comment( unsigned& l, unsigned& p )
   m_state = &ME::Hi_In_None;
 }
 
-void Highlight_SQL::Hi_BegSingleQuote( unsigned& l, unsigned& p )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-  m_fb.SetSyntaxStyle( l, p, HI_CONST );
-  p++;
-  m_state = &ME::Hi_In_SingleQuote;
-}
-
 void Highlight_SQL::Hi_In_SingleQuote( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
+
+  m_fb.SetSyntaxStyle( l, p, HI_CONST );
+  p++;
   for( ; l<m_fb.NumLines(); l++ )
   {
     const unsigned LL = m_fb.LineLen( l );
@@ -207,18 +202,20 @@ void Highlight_SQL::Hi_In_SingleQuote( unsigned& l, unsigned& p )
     bool slash_escaped = false;
     for( ; p<LL; p++ )
     {
-      // c0 is ahead of c1: c1,c0
-      const char c1 = p ? m_fb.Get( l, p-1 ) : m_fb.Get( l, p );
-      const char c0 = p ? m_fb.Get( l, p   ) : 0;
+      // c0 is ahead of c1: (c1,c0)
+      const char c1 = p ? m_fb.Get( l, p-1 ) : 0;
+      const char c0 =     m_fb.Get( l, p   );
 
-      if( (c1=='\'' && c0==0   )
+      if( (c1==0    && c0=='\'')
        || (c1!='\\' && c0=='\'')
        || (c1=='\\' && c0=='\'' && slash_escaped) )
       {
-        m_state = &ME::Hi_EndSingleQuote;
+        m_fb.SetSyntaxStyle( l, p, HI_CONST );
+        p++;
+        m_state = &ME::Hi_In_None;
       }
       else {
-        if( c1=='\\' && c0=='\\' ) slash_escaped = true;
+        if( c1=='\\' && c0=='\\' ) slash_escaped = !slash_escaped;
         else                       slash_escaped = false;
 
         m_fb.SetSyntaxStyle( l, p, HI_CONST );
@@ -230,25 +227,12 @@ void Highlight_SQL::Hi_In_SingleQuote( unsigned& l, unsigned& p )
   m_state = 0;
 }
 
-void Highlight_SQL::Hi_EndSingleQuote( unsigned& l, unsigned& p )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-  m_fb.SetSyntaxStyle( l, p, HI_CONST );
-  p++; //p++;
-  m_state = &ME::Hi_In_None;
-}
-
-void Highlight_SQL::Hi_BegDoubleQuote( unsigned& l, unsigned& p )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-  m_fb.SetSyntaxStyle( l, p, HI_CONST );
-  p++;
-  m_state = &ME::Hi_In_DoubleQuote;
-}
-
 void Highlight_SQL::Hi_In_DoubleQuote( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
+
+  m_fb.SetSyntaxStyle( l, p, HI_CONST );
+  p++;
   for( ; l<m_fb.NumLines(); l++ )
   {
     const unsigned LL = m_fb.LineLen( l );
@@ -257,17 +241,19 @@ void Highlight_SQL::Hi_In_DoubleQuote( unsigned& l, unsigned& p )
     for( ; p<LL; p++ )
     {
       // c0 is ahead of c1: c1,c0
-      const char c1 = p ? m_fb.Get( l, p-1 ) : m_fb.Get( l, p );
-      const char c0 = p ? m_fb.Get( l, p   ) : 0;
+      const char c1 = p ? m_fb.Get( l, p-1 ) : 0;
+      const char c0 =     m_fb.Get( l, p   );
 
-      if( (c1=='\"' && c0==0   )
+      if( (c1==0    && c0=='\"')
        || (c1!='\\' && c0=='\"')
        || (c1=='\\' && c0=='\"' && slash_escaped) )
       {
-        m_state = &ME::Hi_EndDoubleQuote;
+        m_fb.SetSyntaxStyle( l, p, HI_CONST );
+        p++;
+        m_state = &ME::Hi_In_None;
       }
       else {
-        if( c1=='\\' && c0=='\\' ) slash_escaped = true;
+        if( c1=='\\' && c0=='\\' ) slash_escaped = !slash_escaped;
         else                       slash_escaped = false;
 
         m_fb.SetSyntaxStyle( l, p, HI_CONST );
@@ -277,14 +263,6 @@ void Highlight_SQL::Hi_In_DoubleQuote( unsigned& l, unsigned& p )
     p = 0;
   }
   m_state = 0;
-}
-
-void Highlight_SQL::Hi_EndDoubleQuote( unsigned& l, unsigned& p )
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-  m_fb.SetSyntaxStyle( l, p, HI_CONST );
-  p++; //p++;
-  m_state = &ME::Hi_In_None;
 }
 
 void Highlight_SQL::Hi_NumberBeg( unsigned& l, unsigned& p )

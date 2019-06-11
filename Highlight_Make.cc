@@ -133,8 +133,8 @@ void Highlight_Make::Hi_SingleQuote( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  m_fb.SetSyntaxStyle( l, p, HI_CONST ); p++;
-
+  m_fb.SetSyntaxStyle( l, p, HI_CONST );
+  p++;
   for( ; l<m_fb.NumLines(); l++ )
   {
     const unsigned LL = m_fb.LineLen( l );
@@ -142,19 +142,20 @@ void Highlight_Make::Hi_SingleQuote( unsigned& l, unsigned& p )
     bool slash_escaped = false;
     for( ; p<LL; p++ )
     {
-      // c0 is ahead of c1: c1,c0
-      const char c1 = p ? m_fb.Get( l, p-1 ) : m_fb.Get( l, p );
-      const char c0 = p ? m_fb.Get( l, p   ) : 0;
+      // c0 is ahead of c1: (c1,c0)
+      const char c1 = p ? m_fb.Get( l, p-1 ) : 0;
+      const char c0 =     m_fb.Get( l, p );
 
-      if( (c1=='\'' && c0==0   )
+      if( (c1==0    && c0=='\'')
        || (c1!='\\' && c0=='\'')
        || (c1=='\\' && c0=='\'' && slash_escaped) )
       {
-        m_fb.SetSyntaxStyle( l, p, HI_CONST ); p++;
+        m_fb.SetSyntaxStyle( l, p, HI_CONST );
+        p++;
         m_state = &ME::Hi_In_None;
       }
       else {
-        if( c1=='\\' && c0=='\\' ) slash_escaped = true;
+        if( c1=='\\' && c0=='\\' ) slash_escaped = !slash_escaped;
         else                       slash_escaped = false;
 
         m_fb.SetSyntaxStyle( l, p, HI_CONST );
@@ -170,8 +171,8 @@ void Highlight_Make::Hi_DoubleQuote( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  m_fb.SetSyntaxStyle( l, p, HI_CONST ); p++;
-
+  m_fb.SetSyntaxStyle( l, p, HI_CONST );
+  p++;
   for( ; l<m_fb.NumLines(); l++ )
   {
     const unsigned LL = m_fb.LineLen( l );
@@ -179,19 +180,20 @@ void Highlight_Make::Hi_DoubleQuote( unsigned& l, unsigned& p )
     bool slash_escaped = false;
     for( ; p<LL; p++ )
     {
-      // c0 is ahead of c1: c1,c0
-      const char c1 = p ? m_fb.Get( l, p-1 ) : m_fb.Get( l, p );
-      const char c0 = p ? m_fb.Get( l, p   ) : 0;
+      // c0 is ahead of c1: (c1,c0)
+      const char c1 = p ? m_fb.Get( l, p-1 ) : 0;
+      const char c0 =     m_fb.Get( l, p );
 
-      if( (c1=='\"' && c0==0   )
+      if( (c1==0    && c0=='\"')
        || (c1!='\\' && c0=='\"')
        || (c1=='\\' && c0=='\"' && slash_escaped) )
       {
-        m_fb.SetSyntaxStyle( l, p, HI_CONST ); p++;
+        m_fb.SetSyntaxStyle( l, p, HI_CONST );
+        p++;
         m_state = &ME::Hi_In_None;
       }
       else {
-        if( c1=='\\' && c0=='\\' ) slash_escaped = true;
+        if( c1=='\\' && c0=='\\' ) slash_escaped = !slash_escaped;
         else                       slash_escaped = false;
 
         m_fb.SetSyntaxStyle( l, p, HI_CONST );
@@ -207,8 +209,8 @@ void Highlight_Make::Hi_96_Quote( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  m_fb.SetSyntaxStyle( l, p, HI_CONST ); p++;
-
+  m_fb.SetSyntaxStyle( l, p, HI_CONST );
+  p++;
   for( ; l<m_fb.NumLines(); l++ )
   {
     const unsigned LL = m_fb.LineLen( l );
@@ -216,22 +218,20 @@ void Highlight_Make::Hi_96_Quote( unsigned& l, unsigned& p )
     bool slash_escaped = false;
     for( ; p<LL; p++ )
     {
-      // c0 is ahead of c1: c1,c0
-      const char c1 = p ? m_fb.Get( l, p-1 ) : m_fb.Get( l, p );
-      const char c0 = p ? m_fb.Get( l, p   ) : 0;
+      // c0 is ahead of c1: (c1,c0)
+      const char c1 = p ? m_fb.Get( l, p-1 ) : 0;
+      const char c0 =     m_fb.Get( l, p   );
 
-      if( (c1=='`'  && c0==0  )
+      if( (c1==0    && c0=='`')
        || (c1!='\\' && c0=='`')
        || (c1=='\\' && c0=='`' && slash_escaped) )
-     //|| (c1=='\'' && c0==0   )
-     //|| (c1!='\\' && c0=='\'')
-     //|| (c1=='\\' && c0=='\'' && slash_escaped) )
       {
-        m_fb.SetSyntaxStyle( l, p, HI_CONST ); p++;
+        m_fb.SetSyntaxStyle( l, p, HI_CONST );
+        p++;
         m_state = &ME::Hi_In_None;
       }
       else {
-        if( c1=='\\' && c0=='\\' ) slash_escaped = true;
+        if( c1=='\\' && c0=='\\' ) slash_escaped = !slash_escaped;
         else                       slash_escaped = false;
 
         m_fb.SetSyntaxStyle( l, p, HI_CONST );

@@ -2046,6 +2046,124 @@ bool Do_n_FindNextPattern( View::Data& m, CrsPos& ncp )
   return found_next_star;
 }
 
+// Go to next pattern
+void Do_n_Pattern( View::Data& m )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( 0 < m.fb.NumLines() )
+  {
+    String msg("/");
+    m.view.Set_Cmd_Line_Msg( msg += m.vis.GetRegex() );
+
+    CrsPos ncp = { 0, 0 }; // Next cursor position
+
+    if( Do_n_FindNextPattern( m, ncp ) )
+    {
+      m.view.GoToCrsPos_Write( ncp.crsLine, ncp.crsChar );
+    }
+    else {
+      // Pattern not found, so put cursor back in view:
+      m.view.PrintCursor();
+    }
+  }
+}
+
+bool Do_n_NextDir_Next_Line( View::Data& m, unsigned& dl )
+{
+  const unsigned NUM_LINES = m.fb.NumLines();
+
+  // Search forward for next line
+  bool found = false;
+
+  if( 1 < NUM_LINES )
+  {
+    dl = ( NUM_LINES-1 <= dl ) ? 0 : dl+1;
+
+    found = true;
+  }
+  return found;
+}
+
+bool Line_is_dir_name( View::Data& m, const unsigned line_num )
+{
+  bool line_is_dir = false;
+
+  String fname = m.fb.GetLine( line_num ).toString();
+
+  FileBuf* pfb = m.vis.GetFileBuf( fname );
+
+  if( 0 != pfb && pfb->IsDir() )
+  {
+    line_is_dir = true;
+  }
+  return line_is_dir;
+}
+
+// This function will only be called if 1<NUM_LINES
+bool Do_n_NextDir_Search_for_Dir( View::Data& m, unsigned& dl )
+{
+  bool found_dir = false;
+
+  const unsigned NUM_LINES = m.fb.NumLines();
+  const unsigned dl_st = dl;
+
+  // Search forward from dl_st:
+  while( !found_dir && dl<NUM_LINES )
+  {
+    if( Line_is_dir_name( m, dl ) )
+    {
+      found_dir = true;
+    }
+    else dl++;
+  }
+  if( !found_dir )
+  {
+    // Wrap around back to top and search down to dl_st:
+    dl = 0;
+    while( !found_dir && dl<dl_st )
+    {
+      if( Line_is_dir_name( m, dl ) )
+      {
+        found_dir = true;
+      }
+      else dl++;
+    }
+  }
+  return found_dir;
+}
+
+void Do_n_NextDir( View::Data& m )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( 1 < m.fb.NumLines() )
+  {
+    m.view.Set_Cmd_Line_Msg("Searching down for dir");
+    unsigned dl = m.view.CrsLine(); // Dir line, changed by search methods below
+
+    bool found_line = true;
+
+    if( Line_is_dir_name( m, dl ) )
+    {
+      // If currently on a dir, go to next line before searching for dir
+      found_line = Do_n_NextDir_Next_Line( m, dl );
+    }
+    if( found_line )
+    {
+      bool found_dir = Do_n_NextDir_Search_for_Dir( m, dl );
+
+      if( found_dir )
+      {
+        const unsigned NCL = dl;
+        const unsigned NCP = LLM1( m.fb.LineLen( NCL ) );
+
+        m.view.GoToCrsPos_Write( NCL, NCP );
+      }
+    }
+  }
+}
+
 bool Do_N_FindPrevPattern( View::Data& m, CrsPos& ncp )
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -2105,6 +2223,113 @@ bool Do_N_FindPrevPattern( View::Data& m, CrsPos& ncp )
     }
   }
   return found_prev_star;
+}
+
+// Go to previous pattern
+void Do_N_Pattern( View::Data& m )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( 0 < m.fb.NumLines() )
+  {
+    String msg("/");
+    m.view.Set_Cmd_Line_Msg( msg += m.vis.GetRegex() );
+
+    CrsPos ncp = { 0, 0 }; // Prev cursor position
+
+    if( Do_N_FindPrevPattern( m, ncp ) )
+    {
+      m.view.GoToCrsPos_Write( ncp.crsLine, ncp.crsChar );
+    }
+    else {
+      // Pattern not found, so put cursor back in view:
+      m.view.PrintCursor();
+    }
+  }
+}
+
+bool Do_N_PrevDir_Prev_Line( View::Data& m, unsigned& dl )
+{
+  const unsigned NUM_LINES = m.fb.NumLines();
+
+  // Search backward for prev line
+  bool found = false;
+
+  if( 1 < NUM_LINES )
+  {
+    dl = ( 0 == dl ) ? NUM_LINES-1 : dl-1;
+
+    found = true;
+  }
+  return found;
+}
+
+// This function will only be called if 1<NUM_LINES
+bool Do_N_PrevDir_Search_for_Dir( View::Data& m, unsigned& dl )
+{
+  bool found_dir = false;
+
+  const unsigned NUM_LINES = m.fb.NumLines();
+  const unsigned dl_st = dl;
+
+  // Search backward from dl_st:
+  while( !found_dir && 0<dl )
+  {
+    if( Line_is_dir_name( m, dl ) )
+    {
+      found_dir = true;
+    }
+    else dl--;
+  }
+  if( !found_dir && 0==dl && Line_is_dir_name( m, dl ) )
+  {
+    found_dir = true;
+  }
+  if( !found_dir )
+  {
+    // Wrap around back to bottom and search up to dl_st:
+    dl = NUM_LINES-1;
+    while( !found_dir && dl_st<dl )
+    {
+      if( Line_is_dir_name( m, dl ) )
+      {
+        found_dir = true;
+      }
+      else dl--;
+    }
+  }
+  return found_dir;
+}
+
+void Do_N_PrevDir( View::Data& m )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( 1 < m.fb.NumLines() )
+  {
+    m.view.Set_Cmd_Line_Msg("Searching up for dir");
+    unsigned dl = m.view.CrsLine(); // Dir line, changed by search methods below
+
+    bool found_line = true;
+
+    if( Line_is_dir_name( m, dl ) )
+    {
+      // If currently on a dir, go to prev line before searching for dir
+      found_line = Do_N_PrevDir_Prev_Line( m, dl );
+    }
+    if( found_line )
+    {
+      bool found_dir = Do_N_PrevDir_Search_for_Dir( m, dl );
+
+      if( found_dir )
+      {
+        const unsigned NCL = dl;
+        const unsigned NCP = LLM1( m.fb.LineLen( NCL ) );
+
+        m.view.GoToCrsPos_Write( NCL, NCP );
+      }
+    }
+  }
 }
 
 bool Do_dw_get_fn( View::Data& m
@@ -3518,49 +3743,33 @@ void View::Do_f( const char FAST_CHAR )
   }
 }
 
-// Go to next pattern
+// Goto next pattern or goto next dir in buffer editor or do nothing
 void View::Do_n()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( 0 < m.fb.NumLines() )
+  if( 0 < m.vis.GetRegexLen() )
   {
-    String msg("/");
-    Set_Cmd_Line_Msg( msg += m.vis.GetRegex() );
-
-    CrsPos ncp = { 0, 0 }; // Next cursor position
-
-    if( Do_n_FindNextPattern( m, ncp ) )
-    {
-      GoToCrsPos_Write( ncp.crsLine, ncp.crsChar );
-    }
-    else {
-      // Pattern not found, so put cursor back in view:
-      PrintCursor();
-    }
+    Do_n_Pattern(m);
+  }
+  else if( &m.fb == m.vis.GetFileBuf( BE_FILE ) )
+  {
+    Do_n_NextDir(m);
   }
 }
 
-// Go to previous pattern
+// Goto previous pattern or goto previous dir in buffer editor or do nothing
 void View::Do_N()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  if( 0 < m.fb.NumLines() )
+  if( 0 < m.vis.GetRegexLen() )
   {
-    String msg("/");
-    Set_Cmd_Line_Msg( msg += m.vis.GetRegex() );
-
-    CrsPos ncp = { 0, 0 }; // Next cursor position
-
-    if( Do_N_FindPrevPattern( m, ncp ) )
-    {
-      GoToCrsPos_Write( ncp.crsLine, ncp.crsChar );
-    }
-    else {
-      // Pattern not found, so put cursor back in view:
-      PrintCursor();
-    }
+    Do_N_Pattern(m);
+  }
+  else if( &m.fb == m.vis.GetFileBuf( BE_FILE ) )
+  {
+    Do_N_PrevDir(m);
   }
 }
 
