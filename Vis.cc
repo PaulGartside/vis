@@ -3909,16 +3909,21 @@ void Handle_Return( Vis::Data& m )
 
   if( cv->GetInDiff() ) m.diff.GoToBegOfNextLine();
   else {
-    if( SLASH_FILE != Curr_FileNum(m) )
+    if( BE_FILE == Curr_FileNum(m) )
     {
-      // Normal case:
-      cv->GoToBegOfNextLine();
+      // In buffer editor, so go to end of next line:
+      cv->GoToEndOfNextLine();
     }
-    else {
+    else if( SLASH_FILE == Curr_FileNum(m) )
+    {
       // In search buffer, search for pattern on current line:
       const Line* lp = cv->GetFB()->GetLineP( cv->CrsLine() );
 
       m.vis.Handle_Slash_GotPattern( lp->toString() );
+    }
+    else {
+      // Normal case:
+      cv->GoToBegOfNextLine();
     }
   }
 }

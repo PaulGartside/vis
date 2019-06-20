@@ -2986,6 +2986,26 @@ void View::GoToBegOfNextLine()
   }
 }
 
+void View::GoToEndOfNextLine()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  const unsigned NUM_LINES = m.fb.NumLines();
+
+  if( 0<NUM_LINES )
+  {
+    const unsigned OCL = CrsLine(); // Old cursor line
+
+    if( OCL < (NUM_LINES-1) )
+    {
+      // Before last line, so can go down
+      const unsigned LL = m.fb.LineLen( OCL+1 );
+
+      GoToCrsPos_Write( OCL+1, LLM1( LL ) );
+    }
+  }
+}
+
 void View::GoToTopLineInView()
 {
   Trace trace( __PRETTY_FUNCTION__ );
