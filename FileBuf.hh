@@ -127,6 +127,8 @@ public:
   void dos2unix();
   void unix2dos();
   bool Has_Pattern( const String& pattern ) const;
+  void Comment();
+  void UnComment();
 
   struct Data;
 

@@ -3009,3 +3009,195 @@ bool FileBuf::Has_Pattern( const String& pattern ) const
   return false;
 }
 
+bool Comment_CPP( FileBuf::Data& m )
+{
+  bool commented = false;
+
+  if( FT_CPP  == m.file_type
+   || FT_IDL  == m.file_type
+   || FT_JAVA == m.file_type
+   || FT_JS   == m.file_type
+   || FT_STL  == m.file_type )
+  {
+    const unsigned NUM_LINES = m.self.NumLines();
+
+    // Comment all lines:
+    for( unsigned k=0; k<NUM_LINES; k++ )
+    {
+      m.self.InsertChar( k, 0, '/' );
+      m.self.InsertChar( k, 0, '/' );
+    }
+    commented = true;
+  }
+  return commented;
+}
+bool Comment_Script( FileBuf::Data& m )
+{
+  bool commented = false;
+
+  if( FT_BASH  == m.file_type
+   || FT_CMAKE == m.file_type
+   || FT_MAKE  == m.file_type
+   || FT_PY    == m.file_type )
+  {
+    const unsigned NUM_LINES = m.self.NumLines();
+
+    // Comment all lines:
+    for( unsigned k=0; k<NUM_LINES; k++ )
+    {
+      m.self.InsertChar( k, 0, '#' );
+    }
+    commented = true;
+  }
+  return commented;
+}
+bool Comment_MIB( FileBuf::Data& m )
+{
+  bool commented = false;
+
+  if( FT_SQL == m.file_type )
+  {
+    const unsigned NUM_LINES = m.self.NumLines();
+
+    // Comment all lines:
+    for( unsigned k=0; k<NUM_LINES; k++ )
+    {
+      m.self.InsertChar( k, 0, '-' );
+      m.self.InsertChar( k, 0, '-' );
+    }
+    commented = true;
+  }
+  return commented;
+}
+
+void FileBuf::Comment()
+{
+  if( Comment_CPP(m)
+   || Comment_Script(m)
+   || Comment_MIB(m) )
+  {
+    Update();
+  }
+}
+
+bool UnComment_CPP( FileBuf::Data& m )
+{
+  bool uncommented = false;
+
+  if( FT_CPP  == m.file_type
+   || FT_IDL  == m.file_type
+   || FT_JAVA == m.file_type
+   || FT_JS   == m.file_type
+   || FT_STL  == m.file_type )
+  {
+    bool all_lines_commented = true;
+
+    const unsigned NUM_LINES = m.self.NumLines();
+
+    // Determine if all lines are commented:
+    for( unsigned k=0; all_lines_commented && k<NUM_LINES; k++ )
+    {
+      const Line& l_k = m.self.GetLine( k );
+
+      if( (l_k.len() < 2)
+       || ('/' != l_k.get( 0 ))
+       || ('/' != l_k.get( 1 )) )
+      {
+        all_lines_commented = false;
+      }
+    }
+    // Un-Comment all lines:
+    if( all_lines_commented )
+    {
+      for( unsigned k=0; k<NUM_LINES; k++ )
+      {
+        m.self.RemoveChar( k, 0 );
+        m.self.RemoveChar( k, 0 );
+      }
+      uncommented = true;
+    }
+  }
+  return uncommented;
+}
+bool UnComment_Script( FileBuf::Data& m )
+{
+  bool uncommented = false;
+
+  if( FT_BASH  == m.file_type
+   || FT_CMAKE == m.file_type
+   || FT_MAKE  == m.file_type
+   || FT_PY    == m.file_type )
+  {
+    bool all_lines_commented = true;
+
+    const unsigned NUM_LINES = m.self.NumLines();
+
+    // Determine if all lines are commented:
+    for( unsigned k=0; all_lines_commented && k<NUM_LINES; k++ )
+    {
+      const Line& l_k = m.self.GetLine( k );
+
+      if( (l_k.len() < 1)
+       || ('#' != l_k.get( 0 )) )
+      {
+        all_lines_commented = false;
+      }
+    }
+    // Un-Comment all lines:
+    if( all_lines_commented )
+    {
+      for( unsigned k=0; k<NUM_LINES; k++ )
+      {
+        m.self.RemoveChar( k, 0 );
+      }
+      uncommented = true;
+    }
+  }
+  return uncommented;
+}
+bool UnComment_MIB( FileBuf::Data& m )
+{
+  bool uncommented = false;
+
+  if( FT_SQL == m.file_type )
+  {
+    bool all_lines_commented = true;
+
+    const unsigned NUM_LINES = m.self.NumLines();
+
+    // Determine if all lines are commented:
+    for( unsigned k=0; all_lines_commented && k<NUM_LINES; k++ )
+    {
+      const Line& l_k = m.self.GetLine( k );
+
+      if( (l_k.len() < 2)
+       || ('-' != l_k.get( 0 ))
+       || ('-' != l_k.get( 1 )) )
+      {
+        all_lines_commented = false;
+      }
+    }
+    // Un-Comment all lines:
+    if( all_lines_commented )
+    {
+      for( unsigned k=0; k<NUM_LINES; k++ )
+      {
+        m.self.RemoveChar( k, 0 );
+        m.self.RemoveChar( k, 0 );
+      }
+      uncommented = true;
+    }
+  }
+  return uncommented;
+}
+
+void FileBuf::UnComment()
+{
+  if( UnComment_CPP(m)
+   || UnComment_Script(m)
+   || UnComment_MIB(m) )
+  {
+    Update();
+  }
+}
+

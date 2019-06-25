@@ -2912,6 +2912,16 @@ void HandleColon_sort( Vis::Data& m )
   }
 }
 
+void HandleColon_comment( Vis::Data& m )
+{
+  CV(m)->GetFB()->Comment();
+}
+
+void HandleColon_uncomment( Vis::Data& m )
+{
+  CV(m)->GetFB()->UnComment();
+}
+
 bool Matches_BYTE( String S )
 {
   return 0==S.compareToIgnoreCase("byte")
@@ -3189,6 +3199,8 @@ void Handle_Colon_Cmd( Vis::Data& m )
   else if( strcmp( m.cbuf,"dos2unix")==0) HandleColon_dos2unix(m);
   else if( strcmp( m.cbuf,"unix2dos")==0) HandleColon_unix2dos(m);
   else if( strcmp( m.cbuf,"sort")==0)     HandleColon_sort(m);
+  else if( strcmp( m.cbuf,"comment")==0)  HandleColon_comment(m);
+  else if( strcmp( m.cbuf,"uncomment")==0)HandleColon_uncomment(m);
   else if( strncmp(m.cbuf,"dec=",4)==0 )  HandleColon_decoding(m);
   else if( strncmp(m.cbuf,"enc=",4)==0 )  HandleColon_encoding(m);
   else if( 'e' == m.cbuf[0] )             HandleColon_e(m);
