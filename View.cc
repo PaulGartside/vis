@@ -3010,7 +3010,7 @@ void View::GoToTopLineInView()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  GoToCrsPos_Write( m.topLine, 0 );
+  GoToCrsPos_Write( m.topLine, CrsChar() );
 }
 
 void View::GoToMidLineInView()
@@ -3040,7 +3040,7 @@ void View::GoToBotLineInView()
 
   bottom_line_in_view = Min( NUM_LINES-1, bottom_line_in_view );
 
-  GoToCrsPos_Write( bottom_line_in_view, 0 );
+  GoToCrsPos_Write( bottom_line_in_view, CrsChar() );
 }
 
 void View::GoToLine( const unsigned user_line_num )

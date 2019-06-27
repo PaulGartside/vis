@@ -35,6 +35,7 @@ SOURCES = ChangeHist \
           Highlight_JS \
           Highlight_Java \
           Highlight_Make \
+          Highlight_MIB \
           Highlight_CMake \
           Highlight_ODB \
           Highlight_Python \

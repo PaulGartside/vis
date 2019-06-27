@@ -44,6 +44,7 @@
 #include "FileBuf.hh"
 #include "Highlight_Bash.hh"
 #include "Highlight_BufferEditor.hh"
+#include "Highlight_CMake.hh"
 #include "Highlight_CPP.hh"
 #include "Highlight_Dir.hh"
 #include "Highlight_HTML.hh"
@@ -51,7 +52,7 @@
 #include "Highlight_Java.hh"
 #include "Highlight_JS.hh"
 #include "Highlight_Make.hh"
-#include "Highlight_CMake.hh"
+#include "Highlight_MIB.hh"
 #include "Highlight_ODB.hh"
 #include "Highlight_Python.hh"
 #include "Highlight_SQL.hh"
@@ -277,7 +278,10 @@ bool Find_File_Type_IDL( FileBuf::Data& m )
 
   if( m.path_name.ends_with(".idl"    )
    || m.path_name.ends_with(".idl.new")
-   || m.path_name.ends_with(".idl.old") )
+   || m.path_name.ends_with(".idl.old")
+   || m.path_name.ends_with(".idl.in"    )
+   || m.path_name.ends_with(".idl.in.new")
+   || m.path_name.ends_with(".idl.in.old") )
   {
     m.file_type = FT_IDL;
     m.pHi = new(__FILE__,__LINE__) Highlight_IDL( m.self );
@@ -371,6 +375,24 @@ bool Find_File_Type_Make( FileBuf::Data& m )
   {
     m.file_type = FT_MAKE;
     m.pHi = new(__FILE__,__LINE__) Highlight_Make( m.self );
+    return true;
+  }
+  return false;
+}
+
+bool Find_File_Type_MIB( FileBuf::Data& m )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( m.path_name.ends_with(".mib"    )
+   || m.path_name.ends_with(".mib.new")
+   || m.path_name.ends_with(".mib.old")
+   || m.path_name.ends_with("-MIB.txt")
+   || m.path_name.ends_with("-MIB.txt.new")
+   || m.path_name.ends_with("-MIB.txt.old") )
+  {
+    m.file_type = FT_MIB;
+    m.pHi = new(__FILE__,__LINE__) Highlight_MIB( m.self );
     return true;
   }
   return false;
@@ -504,6 +526,7 @@ void Find_File_Type_Suffix( FileBuf::Data& m )
         || Find_File_Type_XML   ( m )
         || Find_File_Type_JS    ( m )
         || Find_File_Type_Make  ( m )
+        || Find_File_Type_MIB   ( m )
         || Find_File_Type_CMake ( m )
         || Find_File_Type_ODB   ( m )
         || Find_File_Type_Python( m )
@@ -1268,6 +1291,11 @@ void FileBuf::Set_File_Type( const char* syn )
     {
       m.file_type = FT_MAKE;
       p_new_Hi = new(__FILE__,__LINE__) Highlight_Make( *this );
+    }
+    else if( 0==strcmp( syn, "mib") )
+    {
+      m.file_type = FT_MIB;
+      p_new_Hi = new(__FILE__,__LINE__) Highlight_MIB( *this );
     }
     else if( 0==strcmp( syn, "odb") )
     {
@@ -3055,7 +3083,8 @@ bool Comment_MIB( FileBuf::Data& m )
 {
   bool commented = false;
 
-  if( FT_SQL == m.file_type )
+  if( FT_MIB == m.file_type
+   || FT_SQL == m.file_type )
   {
     const unsigned NUM_LINES = m.self.NumLines();
 
@@ -3159,7 +3188,8 @@ bool UnComment_MIB( FileBuf::Data& m )
 {
   bool uncommented = false;
 
-  if( FT_SQL == m.file_type )
+  if( FT_MIB == m.file_type
+   || FT_SQL == m.file_type )
   {
     bool all_lines_commented = true;
 

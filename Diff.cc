@@ -5590,7 +5590,7 @@ void Diff::GoToTopLineInView()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  GoToCrsPos_Write( m, m.topLine, 0 );
+  GoToCrsPos_Write( m, m.topLine, CrsChar(m) );
 }
 
 void Diff::GoToMidLineInView()
@@ -5624,7 +5624,7 @@ void Diff::GoToBotLineInView()
 
   bottom_line_in_view = Min( NUM_LINES-1, bottom_line_in_view );
 
-  GoToCrsPos_Write( m, bottom_line_in_view, 0  );
+  GoToCrsPos_Write( m, bottom_line_in_view, CrsChar(m) );
 }
 
 void Diff::GoToTopOfFile()

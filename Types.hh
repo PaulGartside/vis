@@ -156,6 +156,7 @@ enum File_Type
   FT_JAVA,
   FT_JS,
   FT_MAKE,
+  FT_MIB,
   FT_CMAKE,
   FT_ODB,
   FT_PY,

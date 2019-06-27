@@ -160,6 +160,42 @@ void Highlight_Bash::Hi_In_Comment( unsigned& l, unsigned& p )
   m_state = &ME::Hi_In_None;
 }
 
+//void Highlight_Bash::Hi_SingleQuote( unsigned& l, unsigned& p )
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//
+//  m_fb.SetSyntaxStyle( l, p, HI_CONST ); p++;
+//
+//  for( ; l<m_fb.NumLines(); l++ )
+//  {
+//    const unsigned LL = m_fb.LineLen( l );
+//
+//    bool slash_escaped = false;
+//    for( ; p<LL; p++ )
+//    {
+//      // c0 is ahead of c1: (c1,c0)
+//      const char c1 = p ? m_fb.Get( l, p-1 ) : 0;
+//      const char c0 =     m_fb.Get( l, p );
+//
+//      if( (c1==0    && c0=='\'')
+//       || (c1!='\\' && c0=='\'')
+//       || (c1=='\\' && c0=='\'' && slash_escaped) )
+//      {
+//        m_fb.SetSyntaxStyle( l, p, HI_CONST ); p++;
+//        m_state = &ME::Hi_In_None;
+//      }
+//      else {
+//        if( c1=='\\' && c0=='\\' ) slash_escaped = !slash_escaped;
+//        else                       slash_escaped = false;
+//
+//        m_fb.SetSyntaxStyle( l, p, HI_CONST );
+//      }
+//      if( &ME::Hi_SingleQuote != m_state ) return;
+//    }
+//    p = 0;
+//  }
+//  m_state = 0;
+//}
 void Highlight_Bash::Hi_SingleQuote( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -181,14 +217,20 @@ void Highlight_Bash::Hi_SingleQuote( unsigned& l, unsigned& p )
        || (c1!='\\' && c0=='\'')
        || (c1=='\\' && c0=='\'' && slash_escaped) )
       {
+        // End of single quote:
         m_fb.SetSyntaxStyle( l, p, HI_CONST ); p++;
         m_state = &ME::Hi_In_None;
       }
       else {
-        if( c1=='\\' && c0=='\\' ) slash_escaped = !slash_escaped;
-        else                       slash_escaped = false;
-
-        m_fb.SetSyntaxStyle( l, p, HI_CONST );
+        if( (c1!='\\' && c0=='$')
+         || (c1=='\\' && c0=='$' && slash_escaped) )
+        {
+          m_fb.SetSyntaxStyle( l, p, HI_DEFINE );
+        }
+        else {
+          m_fb.SetSyntaxStyle( l, p, HI_CONST );
+        }
+        slash_escaped = (c1=='\\' && c0=='\\') ? !slash_escaped : false;
       }
       if( &ME::Hi_SingleQuote != m_state ) return;
     }
@@ -197,6 +239,43 @@ void Highlight_Bash::Hi_SingleQuote( unsigned& l, unsigned& p )
   m_state = 0;
 }
 
+//void Highlight_Bash::Hi_DoubleQuote( unsigned& l, unsigned& p )
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//
+//  m_fb.SetSyntaxStyle( l, p, HI_CONST ); p++;
+//
+//  for( ; l<m_fb.NumLines(); l++ )
+//  {
+//    const unsigned LL = m_fb.LineLen( l );
+//
+//    bool slash_escaped = false;
+//    for( ; p<LL; p++ )
+//    {
+//      // c0 is ahead of c1: c1,c0
+//      const char c1 = p ? m_fb.Get( l, p-1 ) : 0;
+//      const char c0 =     m_fb.Get( l, p   );
+//
+//      // c0 is ahead of c1: (c1,c0)
+//      if( (c1==0    && c0=='\"')
+//       || (c1!='\\' && c0=='\"')
+//       || (c1=='\\' && c0=='\"' && slash_escaped) )
+//      {
+//        m_fb.SetSyntaxStyle( l, p, HI_CONST ); p++;
+//        m_state = &ME::Hi_In_None;
+//      }
+//      else {
+//        if( c1=='\\' && c0=='\\' ) slash_escaped = !slash_escaped;
+//        else                       slash_escaped = false;
+//
+//        m_fb.SetSyntaxStyle( l, p, HI_CONST );
+//      }
+//      if( &ME::Hi_DoubleQuote != m_state ) return;
+//    }
+//    p = 0;
+//  }
+//  m_state = 0;
+//}
 void Highlight_Bash::Hi_DoubleQuote( unsigned& l, unsigned& p )
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -214,19 +293,24 @@ void Highlight_Bash::Hi_DoubleQuote( unsigned& l, unsigned& p )
       const char c1 = p ? m_fb.Get( l, p-1 ) : 0;
       const char c0 =     m_fb.Get( l, p   );
 
-      // c0 is ahead of c1: (c1,c0)
       if( (c1==0    && c0=='\"')
        || (c1!='\\' && c0=='\"')
        || (c1=='\\' && c0=='\"' && slash_escaped) )
       {
+        // End of double quote:
         m_fb.SetSyntaxStyle( l, p, HI_CONST ); p++;
         m_state = &ME::Hi_In_None;
       }
       else {
-        if( c1=='\\' && c0=='\\' ) slash_escaped = !slash_escaped;
-        else                       slash_escaped = false;
-
-        m_fb.SetSyntaxStyle( l, p, HI_CONST );
+        if( (c1!='\\' && c0=='$')
+         || (c1=='\\' && c0=='$' && slash_escaped) )
+        {
+          m_fb.SetSyntaxStyle( l, p, HI_DEFINE );
+        }
+        else {
+          m_fb.SetSyntaxStyle( l, p, HI_CONST );
+        }
+        slash_escaped = (c1=='\\' && c0=='\\') ? !slash_escaped : false;
       }
       if( &ME::Hi_DoubleQuote != m_state ) return;
     }
@@ -368,7 +452,7 @@ static HiKeyVal HiPairs[] =
   { "if"                 , HI_CONTROL },
   { "fi"                 , HI_CONTROL },
   { "else"               , HI_CONTROL },
-  { "elsif"              , HI_CONTROL },
+  { "elif"               , HI_CONTROL },
   { "for"                , HI_CONTROL },
   { "done"               , HI_CONTROL },
   { "while"              , HI_CONTROL },
