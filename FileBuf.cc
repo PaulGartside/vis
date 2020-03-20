@@ -1431,6 +1431,45 @@ bool FileBuf::Sort()
        : BufferEditor_SortName();
 }
 
+// Return true if l_0 (dname,fname)
+// is greater then l_1 (dname,fname)
+bool BufferEditor_SortName_Swap( const Line& l_0, const Line& l_1 )
+{
+  bool swap = false;
+
+  const String& l_0_s = l_0.toString();
+  const String& l_1_s = l_1.toString();
+
+  // Tail is the directory name:
+  const String& l_0_dn = GetFnameTail( l_0_s.c_str() );
+  const String& l_1_dn = GetFnameTail( l_1_s.c_str() );
+
+  const int dn_compare = l_0_dn.compareTo( l_1_dn );
+
+  if( 0<dn_compare )
+  {
+    // l_0 dname is greater than l_1 dname
+    swap = true;
+  }
+  else if( 0==dn_compare )
+  {
+    // l_0 dname == l_1 dname
+    // Head is the file name:
+    const String& l_0_fn = GetFnameHead( l_0_s.c_str() );
+    const String& l_1_fn = GetFnameHead( l_1_s.c_str() );
+
+    if( 0<l_0_fn.compareTo( l_1_fn ) )
+    {
+      // l_0 fname is greater than l_1 fname
+      swap = true;
+    }
+  }
+  return swap;
+}
+
+// Move largest file name to bottom.
+// Files are grouped under directories.
+// Returns true if any lines were swapped.
 bool FileBuf::BufferEditor_SortName()
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -1449,7 +1488,7 @@ bool FileBuf::BufferEditor_SortName()
       const Line& l_0 = *m.lines[ k   ];
       const Line& l_1 = *m.lines[ k+1 ];
 
-      if( l_0.gt( l_1 ) )
+      if( BufferEditor_SortName_Swap( l_0, l_1 ) )
       {
         SwapLines( m, k, k+1 );
         changed = true;
