@@ -69,6 +69,7 @@ public:
   void GoToBegOfLine();
   void GoToEndOfLine();
   void GoToBegOfNextLine();
+  void GoToEndOfNextLine();
   void GoToTopLineInView();
   void GoToMidLineInView();
   void GoToBotLineInView();

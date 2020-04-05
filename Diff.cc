@@ -5564,6 +5564,29 @@ void Diff::GoToBegOfNextLine()
   }
 }
 
+void Diff::GoToEndOfNextLine()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  const unsigned NUM_LINES = NumLines(m); // Diff
+
+  if( 0<NUM_LINES )
+  {
+    const unsigned OCL = CrsLine(m); // Old cursor diff line
+
+    if( OCL < (NUM_LINES-1) )
+    {
+      // Before last line, so can go down
+      View*    pV  = m.vis.CV();
+      FileBuf* pfb = pV->GetFB();
+      const unsigned VL = ViewLine( m, pV, OCL+1 ); // View line
+      const unsigned LL = pfb->LineLen( VL );
+
+      GoToCrsPos_Write( m, OCL+1, LLM1(LL) );
+    }
+  }
+}
+
 void Diff::GoToLine( const unsigned user_line_num )
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -5667,7 +5690,7 @@ void Diff::GoToEndOfRow()
     View*    pV  = m.vis.CV();
     FileBuf* pfb = pV->GetFB();
 
-    const int DL = CrsLine(m);          // Diff line
+    const int DL = CrsLine(m);            // Diff line
     const int VL = ViewLine( m, pV, DL ); // View line
 
     const int LL = pfb->LineLen( VL );
