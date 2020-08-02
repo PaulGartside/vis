@@ -21,6 +21,7 @@
 // DEALINGS IN THE SOFTWARE.                                                  //
 ////////////////////////////////////////////////////////////////////////////////
 
+#include <errno.h>
 #include <stdio.h>     // memcpy, memset
 #include <string.h>    // memcpy, memset
 #include <unistd.h>    // write, ioctl[unix], read
@@ -28,11 +29,13 @@
 #include <stdarg.h>    // va_list, va_start, va_end
 #include <sys/ioctl.h> // ioctl
 
-#if defined(OSX)
-#  include <termios.h>  // struct termios
-#else
-#  include <termio.h>  // struct termio
-#endif
+//#if defined(OSX)
+//#  include <termios.h>  // struct termios
+//#else
+//#  include <termio.h>  // struct termio
+//#endif
+
+#include <termios.h>  // struct termios
 
 #include "MemLog.hh"
 #include "Utilities.hh"
@@ -42,11 +45,12 @@
 
 extern MemLog<MEM_LOG_BUF_SIZE> Log;
 
-#if defined(OSX)
 static termios m_origTTyState;
-#else
-static termio m_origTTyState;
-#endif
+//#if defined(OSX)
+//static termios m_origTTyState;
+//#else
+//static termios m_origTTyState;
+//#endif
 
 unsigned gl_bytes_out = 0;
 
@@ -54,7 +58,8 @@ static Vis*     mp_vis   = 0;
 static unsigned m_num_rows = 0;
 static unsigned m_num_cols = 0;
 
-const int FD_IO = 0; // read/write file descriptor
+//const int FD_IN  = STDIN_FILENO; // read file descriptor
+//const int FD_OUT = STDOUT_FILENO; // write file descriptor
 
 const char* const STR_CLEAR       = "\E[J";       // "\E[nJ" n=0, clear from cursor to end of screen, n=1, clear from cursor to beginning of screen, n=2, clear screen
 const char* const STR_HOME        = "\E[H";       // "\E[H" moves cursor home
@@ -393,6 +398,19 @@ int Foreground_2_Code( const Color FG )
   return code;
 }
 
+//void Set_Style( const Color BG, const Color FG, const bool BB )
+//{
+//  char s[32];
+//  const unsigned LEN = sprintf( s, "\E[%i;%i;%im"
+//                                 , BB ? 1 : 0
+//                                 , Background_2_Code( BG )
+//                                 , Foreground_2_Code( FG ) );
+//  for( unsigned k=0; k<LEN; k++ )
+//  {
+//    out_buf->push( s[k] );
+//  }
+//}
+
 void Set_Style( const Color BG, const Color FG, const bool BB )
 {
   char s[32];
@@ -515,46 +533,48 @@ bool Style_2_BB( const uint8_t S )
 
 void Reset_tty()
 {
-#if defined(OSX)
-  int err = ioctl( FD_IO, TIOCSETA, &m_origTTyState );
-#else
-  int err = ioctl( FD_IO, TCSETA, &m_origTTyState );
-#endif
+  int err = tcsetattr( STDIN_FILENO, TCSAFLUSH, &m_origTTyState );
+//#if defined(OSX)
+//  int err = ioctl( FD_IO, TIOCSETA, &m_origTTyState );
+//#else
+////int err = ioctl( FD_IO, TCSETA, &m_origTTyState );
+//  int err = tcsetattr( FD_IO, TCSAFLUSH, &m_origTTyState );
+//#endif
   if( err ) {
     printf("\nFailed to reset tty.\n"
            "Type \"stty sane\" to reset tty.\n\n");
   }
 }
 
-void Sig_Handle_SIGCONT( int signo )
-{
-#ifdef OSX
-  termios t;
-#else
-  termio t;
-#endif
-
-  t.c_cc[VMIN ] = 0;
-  t.c_cc[VTIME] = 1;   // reads time out after 100 ms
-
-  t.c_lflag &= ~( ICANON | ECHO | ECHONL | PENDIN );
-  t.c_lflag |= ECHOK ;
-
-  t.c_iflag &= ~( IXON | IXANY | IMAXBEL | IGNCR );
-  t.c_iflag |= ICRNL;
-
-  t.c_oflag |= OPOST | ONLCR;
-
-  t.c_cflag &= ~( HUPCL );
-
-#ifdef OSX
-  ioctl( FD_IO, TIOCSETA, &t );
-#else
-  ioctl( FD_IO, TCSETA, &t );
-#endif
-
-  mp_vis->UpdateViews( false );
-}
+//void Sig_Handle_SIGCONT( int signo )
+//{
+//#ifdef OSX
+//  termios t;
+//#else
+//  termio t;
+//#endif
+//
+//  t.c_cc[VMIN ] = 0;
+//  t.c_cc[VTIME] = 1;   // reads time out after 100 ms
+//
+//  t.c_lflag &= ~( ICANON | ECHO | ECHONL | PENDIN );
+//  t.c_lflag |= ECHOK ;
+//
+//  t.c_iflag &= ~( IXON | IXANY | IMAXBEL | IGNCR );
+//  t.c_iflag |= ICRNL;
+//
+//  t.c_oflag |= OPOST | ONLCR;
+//
+//  t.c_cflag &= ~( HUPCL );
+//
+//#ifdef OSX
+//  ioctl( FD_IO, TIOCSETA, &t );
+//#else
+//  ioctl( FD_IO, TCSETA, &t );
+//#endif
+//
+//  mp_vis->UpdateViews( false );
+//}
 
 // Received when ^C is entered:
 void Sig_Handle_SIGINT( int signo )
@@ -619,57 +639,95 @@ void Console::AtExit()
   Reset_tty();
 }
 
-#if defined(OSX)
+//#if defined(OSX)
+//bool Console::Set_tty()
+//{
+//  termios t;
+//  if( -1 == ioctl( FD_IO, TIOCGETA, &t ) ) return false;
+//
+//  memcpy( &m_origTTyState, &t, sizeof(t) );
+//
+//  t.c_cc[VMIN ] = 0;
+//  t.c_cc[VTIME] = 1;   // reads time out after 100 ms
+//
+//  t.c_lflag &= ~( ICANON | ECHO | ECHONL | PENDIN );
+//  t.c_lflag |= ECHOK ;
+//
+//  t.c_iflag &= ~( IXON | IXANY | IMAXBEL | IGNCR );
+//  t.c_iflag |= ICRNL;
+//
+//  t.c_oflag |= OPOST | ONLCR;
+//
+//  t.c_cflag &= ~( HUPCL );
+//
+//  ioctl( FD_IO, TIOCSETA, &t );
+//
+//  return true;
+//}
+//#else
+//bool Console::Set_tty()
+//{
+//  termio t;
+////if( -1 == ioctl( FD_IO, TCGETA, &t ) ) return false;
+//  if( -1 == ioctl( FD_IO, TCGETA, &t ) )
+//  {
+//    Log.Log("ioctl( FD_IO, TCGETA, &t ): errno=%s\n", strerror(errno) );
+//    return false;
+//  }
+//  memcpy( &m_origTTyState, &t, sizeof(t) );
+//
+//  t.c_cc[VMIN ] = 0;
+//  t.c_cc[VTIME] = 1;   // reads time out after 100 ms
+//
+//  t.c_lflag &= ~( ICANON | ECHO | ECHONL | PENDIN );
+//  t.c_lflag |= ECHOK ;
+//
+//  t.c_iflag &= ~( IXON | IXANY | IMAXBEL | IGNCR );
+//  t.c_iflag |= ICRNL;
+//
+//  t.c_oflag |= OPOST | ONLCR;
+//
+//  t.c_cflag &= ~( HUPCL );
+//
+//  ioctl( FD_IO, TCSETA, &t );
+//
+//  return true;
+//}
 bool Console::Set_tty()
 {
+  bool ok = true;
+
   termios t;
-  if( -1 == ioctl( FD_IO, TIOCGETA, &t ) ) return false;
+  if( -1 == tcgetattr( STDIN_FILENO, &t ) )
+  {
+    Log.Log("tcgetattr( STDIN_FILENO, &t ): errno=%s\n", strerror(errno) );
+    ok  = false;
+  }
+  else {
+    memcpy( &m_origTTyState, &t, sizeof(t) );
 
-  memcpy( &m_origTTyState, &t, sizeof(t) );
+    t.c_cc[VMIN ] = 0;
+    t.c_cc[VTIME] = 1;   // reads time out after 100 ms
 
-  t.c_cc[VMIN ] = 0;
-  t.c_cc[VTIME] = 1;   // reads time out after 100 ms
+    t.c_lflag &= ~( ICANON | ECHO | ECHONL | PENDIN );
+    t.c_lflag |= ECHOK ;
 
-  t.c_lflag &= ~( ICANON | ECHO | ECHONL | PENDIN );
-  t.c_lflag |= ECHOK ;
+    t.c_iflag &= ~( IXON | IXANY | IMAXBEL | IGNCR );
+    t.c_iflag |= ICRNL;
 
-  t.c_iflag &= ~( IXON | IXANY | IMAXBEL | IGNCR );
-  t.c_iflag |= ICRNL;
+    t.c_oflag |= OPOST | ONLCR;
 
-  t.c_oflag |= OPOST | ONLCR;
+    t.c_cflag &= ~( HUPCL );
 
-  t.c_cflag &= ~( HUPCL );
-
-  ioctl( FD_IO, TIOCSETA, &t );
-
-  return true;
+    if( -1 == tcsetattr( STDIN_FILENO, TCSAFLUSH, &t ) )
+    {
+      Log.Log("tcsetattr( STDIN_FILENO, TCSAFLUSH  &t ): errno=%s\n", strerror(errno) );
+      ok  = false;
+    }
+  }
+  return ok;
 }
-#else
-bool Console::Set_tty()
-{
-  termio t;
-  if( -1 == ioctl( FD_IO, TCGETA, &t ) ) return false;
-
-  memcpy( &m_origTTyState, &t, sizeof(t) );
-
-  t.c_cc[VMIN ] = 0;
-  t.c_cc[VTIME] = 1;   // reads time out after 100 ms
-
-  t.c_lflag &= ~( ICANON | ECHO | ECHONL | PENDIN );
-  t.c_lflag |= ECHOK ;
-
-  t.c_iflag &= ~( IXON | IXANY | IMAXBEL | IGNCR );
-  t.c_iflag |= ICRNL;
-
-  t.c_oflag |= OPOST | ONLCR;
-
-  t.c_cflag &= ~( HUPCL );
-
-  ioctl( FD_IO, TCSETA, &t );
-
-  return true;
-}
-#endif
+//#endif
 
 void Console::SetConsoleCursor()
 {
@@ -678,7 +736,7 @@ void Console::SetConsoleCursor()
 
 void Console::SetSignals()
 {
-  signal( SIGCONT, Sig_Handle_SIGCONT );
+//signal( SIGCONT, Sig_Handle_SIGCONT );
   signal( SIGINT , Sig_Handle_SIGINT ); // ^C
   signal( SIGBUS , Sig_Handle_HW );
   signal( SIGIOT , Sig_Handle_HW );
@@ -772,7 +830,7 @@ void Console::Flush()
 
   if( 0<LEN )
   {
-    gl_bytes_out += write( FD_IO, out_buf->c_str(0), LEN );
+    gl_bytes_out += write( STDOUT_FILENO, out_buf->c_str(0), LEN );
 
     out_buf->clear();
   }
@@ -783,10 +841,11 @@ bool Console::GetWindowSize()
   Trace trace( __PRETTY_FUNCTION__ );
 
   winsize ws;
-  int err = ioctl( FD_IO, TIOCGWINSZ, &ws );
+  int err = ioctl( STDIN_FILENO, TIOCGWINSZ, &ws );
   if( err < 0 )
   {
-    DBG(__LINE__,"ioctl(%i, TIOCGWINSZ) returned %s", FD_IO, strerror(err) );
+    DBG(__LINE__,"ioctl(%i, TIOCGWINSZ) returned %s"
+                , STDIN_FILENO, strerror(err) );
     return false;
   }
   else {
@@ -848,7 +907,7 @@ char Console::KeyIn()
   // Return the first single char read.
   char str[16]; // Maximum F1-F12 and arrow key interpretation
   // Returns number of bytes read, 0 if EOF, -1 on error:
-  while( read( FD_IO, str, 16 ) != 1 )
+  while( read( STDIN_FILENO, str, 16 ) != 1 )
   {
     // Try to use less CPU time while waiting:
     if( 0==count ) vis.CheckWindowSize(); // If window has resized, update window

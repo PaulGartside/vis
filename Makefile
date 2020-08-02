@@ -1,7 +1,7 @@
 
 # Select your operating system:
-OS = OSX
-#OS = LINUX
+#OS = OSX
+OS = LINUX
 #OS = WIN32
 #OS = SUNOS
 
