@@ -2587,6 +2587,41 @@ void Do_P_block( View::Data& m )
   m.fb.Update();
 }
 
+void Do_r_replace_white_space_with_register_line( View::Data& m
+                                                , const unsigned k
+                                                , const unsigned OCL
+                                                , const unsigned ISP )
+{
+  // Replace white space with register line, insert after white space used:
+  const Line* p_reg_line = m.reg[k];
+  const unsigned RLL = p_reg_line->len();
+  const unsigned OLL = m.fb.LineLen( OCL+k );
+
+  bool continue_last_update = false;
+
+  for( unsigned i=0; i<RLL; i++ )
+  {
+    uint8_t C_reg = p_reg_line->get(i);
+
+    bool replaced_space = false;
+
+    if( ISP+i < OLL )
+    {
+      char C_old = m.fb.Get( OCL+k, ISP+i );
+
+      if( C_old == ' ' )
+      {
+        // Replace ' ' with C_reg:
+        m.fb.Set( OCL+k, ISP+i, C_reg, continue_last_update );
+        replaced_space = true;
+        continue_last_update = true;
+      }
+    }
+    // No more spaces or end of line, so insert:
+    if( !replaced_space ) m.fb.InsertChar( OCL+k, ISP+i, C_reg );
+  }
+}
+
 View::View( Vis& vis
           , Key& key
           , FileBuf& fb
@@ -3877,6 +3912,40 @@ void View::Do_P()
   else /*( PM_LINE  == PM*/ Do_P_line(m);
 }
 
+void View::Do_r()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  const unsigned OCL = CrsLine();           // Old cursor line
+  const unsigned OCP = CrsChar();           // Old cursor position
+  const unsigned OLL = m.fb.LineLen( OCL ); // Old line length
+  const unsigned ISP = 0<OLL ? OCP+1 : 0;   // Insert position
+
+  const unsigned N_REG_LINES = m.reg.len();
+
+  for( unsigned k=0; k<N_REG_LINES; k++ )
+  {
+    // Make sure file has a line where register line will be inserted:
+    if( m.fb.NumLines()<=OCL+k ) m.fb.InsertLine( OCL+k );
+
+    const unsigned LL = m.fb.LineLen( OCL+k );
+
+    // Make sure file line is as long as ISP before inserting register line:
+    if( LL < ISP )
+    {
+      // Fill in line with white space up to ISP:
+      for( unsigned i=0; i<(ISP-LL); i++ )
+      {
+        // Insert at end of line so undo will be atomic:
+        const unsigned NLL = m.fb.LineLen( OCL+k ); // New line length
+        m.fb.InsertChar( OCL+k, NLL, ' ' );
+      }
+    }
+    Do_r_replace_white_space_with_register_line( m, k, OCL, ISP );
+  }
+  m.fb.Update();
+}
+
 void View::Do_R()
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -3919,7 +3988,7 @@ void View::Do_J()
   GoToEndOfLine();
 
   Line* lp = m.fb.RemoveLineP( CL+1 );
-  m.fb.AppendLineToLine( CL  , lp );
+  m.fb.AppendLineToLine( CL, lp );
 
   // Update() is less efficient than only updating part of the screen,
   //   but it makes the code simpler.

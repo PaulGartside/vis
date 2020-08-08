@@ -6435,6 +6435,10 @@ bool Diff::Do_V()
   return Do_visualMode(m);
 }
 
+void Diff::Do_r()
+{
+}
+
 void Diff::Do_R()
 {
   Trace trace( __PRETTY_FUNCTION__ );

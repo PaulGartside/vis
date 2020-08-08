@@ -103,6 +103,7 @@ public:
   void Do_O();
   void Do_p();
   void Do_P();
+  void Do_r();
   void Do_R();
   void Do_s();
   void Do_Tilda();

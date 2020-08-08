@@ -29,12 +29,6 @@
 #include <stdarg.h>    // va_list, va_start, va_end
 #include <sys/ioctl.h> // ioctl
 
-//#if defined(OSX)
-//#  include <termios.h>  // struct termios
-//#else
-//#  include <termio.h>  // struct termio
-//#endif
-
 #include <termios.h>  // struct termios
 
 #include "MemLog.hh"
@@ -46,20 +40,12 @@
 extern MemLog<MEM_LOG_BUF_SIZE> Log;
 
 static termios m_origTTyState;
-//#if defined(OSX)
-//static termios m_origTTyState;
-//#else
-//static termios m_origTTyState;
-//#endif
 
 unsigned gl_bytes_out = 0;
 
 static Vis*     mp_vis   = 0;
 static unsigned m_num_rows = 0;
 static unsigned m_num_cols = 0;
-
-//const int FD_IN  = STDIN_FILENO; // read file descriptor
-//const int FD_OUT = STDOUT_FILENO; // write file descriptor
 
 const char* const STR_CLEAR       = "\E[J";       // "\E[nJ" n=0, clear from cursor to end of screen, n=1, clear from cursor to beginning of screen, n=2, clear screen
 const char* const STR_HOME        = "\E[H";       // "\E[H" moves cursor home
@@ -398,19 +384,6 @@ int Foreground_2_Code( const Color FG )
   return code;
 }
 
-//void Set_Style( const Color BG, const Color FG, const bool BB )
-//{
-//  char s[32];
-//  const unsigned LEN = sprintf( s, "\E[%i;%i;%im"
-//                                 , BB ? 1 : 0
-//                                 , Background_2_Code( BG )
-//                                 , Foreground_2_Code( FG ) );
-//  for( unsigned k=0; k<LEN; k++ )
-//  {
-//    out_buf->push( s[k] );
-//  }
-//}
-
 void Set_Style( const Color BG, const Color FG, const bool BB )
 {
   char s[32];
@@ -534,47 +507,13 @@ bool Style_2_BB( const uint8_t S )
 void Reset_tty()
 {
   int err = tcsetattr( STDIN_FILENO, TCSAFLUSH, &m_origTTyState );
-//#if defined(OSX)
-//  int err = ioctl( FD_IO, TIOCSETA, &m_origTTyState );
-//#else
-////int err = ioctl( FD_IO, TCSETA, &m_origTTyState );
-//  int err = tcsetattr( FD_IO, TCSAFLUSH, &m_origTTyState );
-//#endif
-  if( err ) {
+
+  if( err )
+  {
     printf("\nFailed to reset tty.\n"
            "Type \"stty sane\" to reset tty.\n\n");
   }
 }
-
-//void Sig_Handle_SIGCONT( int signo )
-//{
-//#ifdef OSX
-//  termios t;
-//#else
-//  termio t;
-//#endif
-//
-//  t.c_cc[VMIN ] = 0;
-//  t.c_cc[VTIME] = 1;   // reads time out after 100 ms
-//
-//  t.c_lflag &= ~( ICANON | ECHO | ECHONL | PENDIN );
-//  t.c_lflag |= ECHOK ;
-//
-//  t.c_iflag &= ~( IXON | IXANY | IMAXBEL | IGNCR );
-//  t.c_iflag |= ICRNL;
-//
-//  t.c_oflag |= OPOST | ONLCR;
-//
-//  t.c_cflag &= ~( HUPCL );
-//
-//#ifdef OSX
-//  ioctl( FD_IO, TIOCSETA, &t );
-//#else
-//  ioctl( FD_IO, TCSETA, &t );
-//#endif
-//
-//  mp_vis->UpdateViews( false );
-//}
 
 // Received when ^C is entered:
 void Sig_Handle_SIGINT( int signo )
@@ -639,60 +578,6 @@ void Console::AtExit()
   Reset_tty();
 }
 
-//#if defined(OSX)
-//bool Console::Set_tty()
-//{
-//  termios t;
-//  if( -1 == ioctl( FD_IO, TIOCGETA, &t ) ) return false;
-//
-//  memcpy( &m_origTTyState, &t, sizeof(t) );
-//
-//  t.c_cc[VMIN ] = 0;
-//  t.c_cc[VTIME] = 1;   // reads time out after 100 ms
-//
-//  t.c_lflag &= ~( ICANON | ECHO | ECHONL | PENDIN );
-//  t.c_lflag |= ECHOK ;
-//
-//  t.c_iflag &= ~( IXON | IXANY | IMAXBEL | IGNCR );
-//  t.c_iflag |= ICRNL;
-//
-//  t.c_oflag |= OPOST | ONLCR;
-//
-//  t.c_cflag &= ~( HUPCL );
-//
-//  ioctl( FD_IO, TIOCSETA, &t );
-//
-//  return true;
-//}
-//#else
-//bool Console::Set_tty()
-//{
-//  termio t;
-////if( -1 == ioctl( FD_IO, TCGETA, &t ) ) return false;
-//  if( -1 == ioctl( FD_IO, TCGETA, &t ) )
-//  {
-//    Log.Log("ioctl( FD_IO, TCGETA, &t ): errno=%s\n", strerror(errno) );
-//    return false;
-//  }
-//  memcpy( &m_origTTyState, &t, sizeof(t) );
-//
-//  t.c_cc[VMIN ] = 0;
-//  t.c_cc[VTIME] = 1;   // reads time out after 100 ms
-//
-//  t.c_lflag &= ~( ICANON | ECHO | ECHONL | PENDIN );
-//  t.c_lflag |= ECHOK ;
-//
-//  t.c_iflag &= ~( IXON | IXANY | IMAXBEL | IGNCR );
-//  t.c_iflag |= ICRNL;
-//
-//  t.c_oflag |= OPOST | ONLCR;
-//
-//  t.c_cflag &= ~( HUPCL );
-//
-//  ioctl( FD_IO, TCSETA, &t );
-//
-//  return true;
-//}
 bool Console::Set_tty()
 {
   bool ok = true;
@@ -727,7 +612,6 @@ bool Console::Set_tty()
   }
   return ok;
 }
-//#endif
 
 void Console::SetConsoleCursor()
 {
@@ -1023,41 +907,9 @@ void Console::Set_Color_Scheme_2()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  NORMAL_FG       = White  ;  NORMAL_BG       = Black  ;
-  STATUS_FG       = White  ;  STATUS_BG       = Blue   ;
-  BORDER_HI_FG    = White  ;  BORDER_HI_BG    = Green  ;
-  BANNER_FG       = White  ;  BANNER_BG       = Red    ;
-  STAR_FG         = White  ;  STAR_BG         = Red    ;
-  COMMENT_FG      = Blue   ;  COMMENT_BG      = Black  ;
-  DEFINE_FG       = Magenta;  DEFINE_BG       = Black  ;
-  QUOTE_FG        = Cyan   ;  QUOTE_BG        = Black  ;
-  CONTROL_FG      = Yellow ;  CONTROL_BG      = Black  ;
-  VARTYPE_FG      = Green  ;  VARTYPE_BG      = Black  ;
-  VISUAL_FG       = White  ;  VISUAL_BG       = Red    ;
-  NONASCII_FG     = Yellow ;  NONASCII_BG     = Cyan   ;
-  RV_NORMAL_FG    = Black  ;  RV_NORMAL_BG    = White  ;
-  RV_STATUS_FG    = Blue   ;  RV_STATUS_BG    = White  ;
-  RV_BORDER_HI_FG = Green  ;  RV_BORDER_HI_BG = White  ;
-  RV_BANNER_FG    = Red    ;  RV_BANNER_BG    = White  ;
-  RV_STAR_FG      = Red    ;  RV_STAR_BG      = White  ;
-  RV_COMMENT_FG   = White  ;  RV_COMMENT_BG   = Blue   ;
-  RV_DEFINE_FG    = White  ;  RV_DEFINE_BG    = Magenta;
-  RV_QUOTE_FG     = Black  ;  RV_QUOTE_BG     = Cyan   ;
-  RV_CONTROL_FG   = Black  ;  RV_CONTROL_BG   = Yellow ;
-  RV_VARTYPE_FG   = White  ;  RV_VARTYPE_BG   = Green  ;
-  RV_VISUAL_FG    = Red    ;  RV_VISUAL_BG    = White  ;
-  RV_NONASCII_FG  = Cyan   ;  RV_NONASCII_BG  = Yellow ;
-  EMPTY_FG        = Red    ;  EMPTY_BG        = Gray   ;
-  EOF_FG          = Red    ;  EOF_BG          = Gray   ;
-  DIFF_DELETED_FG = White  ;  DIFF_DELETED_BG = Red    ;
-  DIFF_NORMAL_FG  = White  ;  DIFF_NORMAL_BG  = Blue   ;
-  DIFF_STAR_FG    = Blue   ;  DIFF_STAR_BG    = Red    ;
-  DIFF_COMMENT_FG = White  ;  DIFF_COMMENT_BG = Blue   ;
-  DIFF_DEFINE_FG  = Magenta;  DIFF_DEFINE_BG  = Blue   ;
-  DIFF_QUOTE_FG   = Cyan   ;  DIFF_QUOTE_BG   = Blue   ;
-  DIFF_CONTROL_FG = Yellow ;  DIFF_CONTROL_BG = Blue   ;
-  DIFF_VARTYPE_FG = Green  ;  DIFF_VARTYPE_BG = Blue   ;
-  DIFF_VISUAL_FG  = Blue   ;  DIFF_VISUAL_BG  = Red    ;
+  Set_Color_Scheme_1();
+
+  EMPTY_BG = Gray;
 
   Refresh();
 }
@@ -1073,21 +925,21 @@ void Console::Set_Color_Scheme_3()
   STAR_FG         = White  ;  STAR_BG         = Red    ;
   COMMENT_FG      = Blue   ;  COMMENT_BG      = White  ;
   DEFINE_FG       = Magenta;  DEFINE_BG       = White  ;
-  QUOTE_FG        = Black  ;  QUOTE_BG        = Cyan   ;
-  CONTROL_FG      = Black  ;  CONTROL_BG      = Yellow ;
-  VARTYPE_FG      = Black  ;  VARTYPE_BG      = Green  ;
+  QUOTE_FG        = Cyan   ;  QUOTE_BG        = White  ;
+  CONTROL_FG      = Yellow ;  CONTROL_BG      = White  ;
+  VARTYPE_FG      = Green  ;  VARTYPE_BG      = White  ;
   VISUAL_FG       = Red    ;  VISUAL_BG       = White  ;
   NONASCII_FG     = Yellow ;  NONASCII_BG     = Cyan   ;
   RV_NORMAL_FG    = White  ;  RV_NORMAL_BG    = Black  ;
   RV_STATUS_FG    = Blue   ;  RV_STATUS_BG    = White  ;
   RV_BORDER_HI_FG = Green  ;  RV_BORDER_HI_BG = White  ;
-  RV_BANNER_FG    = Red    ;  RV_BANNER_BG    = White  ;
+  RV_BANNER_FG    = White  ;  RV_BANNER_BG    = Red    ;
   RV_STAR_FG      = Red    ;  RV_STAR_BG      = White  ;
   RV_COMMENT_FG   = White  ;  RV_COMMENT_BG   = Blue   ;
-  RV_DEFINE_FG    = White  ;  RV_DEFINE_BG    = Magenta;
+  RV_DEFINE_FG    = Magenta;  RV_DEFINE_BG    = White  ;
   RV_QUOTE_FG     = Cyan   ;  RV_QUOTE_BG     = Black  ;
-  RV_CONTROL_FG   = Yellow ;  RV_CONTROL_BG   = Black  ;
-  RV_VARTYPE_FG   = Green  ;  RV_VARTYPE_BG   = Black  ;
+  RV_CONTROL_FG   = Black  ;  RV_CONTROL_BG   = Yellow ;
+  RV_VARTYPE_FG   = Green  ;  RV_VARTYPE_BG   = White  ;
   RV_VISUAL_FG    = White  ;  RV_VISUAL_BG    = Red    ;
   RV_NONASCII_FG  = Cyan   ;  RV_NONASCII_BG  = Yellow ;
   EMPTY_FG        = Red    ;  EMPTY_BG        = White  ;
@@ -1109,41 +961,9 @@ void Console::Set_Color_Scheme_4()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  NORMAL_FG       = Black  ;  NORMAL_BG       = White  ;
-  STATUS_FG       = White  ;  STATUS_BG       = Blue   ;
-  BORDER_HI_FG    = White  ;  BORDER_HI_BG    = Green  ;
-  BANNER_FG       = White  ;  BANNER_BG       = Red    ;
-  STAR_FG         = White  ;  STAR_BG         = Red    ;
-  COMMENT_FG      = Blue   ;  COMMENT_BG      = White  ;
-  DEFINE_FG       = Magenta;  DEFINE_BG       = White  ;
-  QUOTE_FG        = Black  ;  QUOTE_BG        = Cyan   ;
-  CONTROL_FG      = Black  ;  CONTROL_BG      = Yellow ;
-  VARTYPE_FG      = Black  ;  VARTYPE_BG      = Green  ;
-  VISUAL_FG       = Red    ;  VISUAL_BG       = White  ;
-  NONASCII_FG     = Yellow ;  NONASCII_BG     = Cyan   ;
-  RV_NORMAL_FG    = White  ;  RV_NORMAL_BG    = Black  ;
-  RV_STATUS_FG    = Blue   ;  RV_STATUS_BG    = White  ;
-  RV_BORDER_HI_FG = Green  ;  RV_BORDER_HI_BG = White  ;
-  RV_BANNER_FG    = Red    ;  RV_BANNER_BG    = White  ;
-  RV_STAR_FG      = Red    ;  RV_STAR_BG      = White  ;
-  RV_COMMENT_FG   = White  ;  RV_COMMENT_BG   = Blue   ;
-  RV_DEFINE_FG    = White  ;  RV_DEFINE_BG    = Magenta;
-  RV_QUOTE_FG     = Cyan   ;  RV_QUOTE_BG     = Black  ;
-  RV_CONTROL_FG   = Yellow ;  RV_CONTROL_BG   = Black  ;
-  RV_VARTYPE_FG   = Green  ;  RV_VARTYPE_BG   = Black  ;
-  RV_VISUAL_FG    = White  ;  RV_VISUAL_BG    = Red    ;
-  RV_NONASCII_FG  = Cyan   ;  RV_NONASCII_BG  = Yellow ;
-  EMPTY_FG        = Red    ;  EMPTY_BG        = Black  ;
-  EOF_FG          = Red    ;  EOF_BG          = Gray   ;
-  DIFF_DELETED_FG = White  ;  DIFF_DELETED_BG = Red    ;
-  DIFF_NORMAL_FG  = White  ;  DIFF_NORMAL_BG  = Blue   ;
-  DIFF_STAR_FG    = Blue   ;  DIFF_STAR_BG    = Red    ;
-  DIFF_COMMENT_FG = White  ;  DIFF_COMMENT_BG = Blue   ;
-  DIFF_DEFINE_FG  = Magenta;  DIFF_DEFINE_BG  = Blue   ;
-  DIFF_QUOTE_FG   = Cyan   ;  DIFF_QUOTE_BG   = Blue   ;
-  DIFF_CONTROL_FG = Yellow ;  DIFF_CONTROL_BG = Blue   ;
-  DIFF_VARTYPE_FG = Green  ;  DIFF_VARTYPE_BG = Blue   ;
-  DIFF_VISUAL_FG  = Blue   ;  DIFF_VISUAL_BG  = Red    ;
+  Set_Color_Scheme_3();
+
+  EMPTY_BG = Black;
 
   Refresh();
 }

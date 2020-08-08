@@ -4700,6 +4700,21 @@ void L_Handle_P( Vis::Data& m )
   else if( m.slash_mode ) m.slash_view->Do_P();
 }
 
+void Handle_r( Vis::Data& m )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( !m.key.get_from_dot_buf_n )
+  {
+    m.key.dot_buf_n.clear();
+    m.key.dot_buf_n.push('r');
+  }
+  View* cv = CV(m);
+
+  if( cv->GetInDiff() ) m.diff.Do_r();
+  else                     cv->Do_r();
+}
+
 void Handle_R( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -4866,6 +4881,7 @@ void InitViewFuncs( Vis::Data& m )
   m.ViewFuncs[ 'D' ] = &Handle_D;
   m.ViewFuncs[ 'p' ] = &Handle_p;
   m.ViewFuncs[ 'P' ] = &Handle_P;
+  m.ViewFuncs[ 'r' ] = &Handle_r;
   m.ViewFuncs[ 'R' ] = &Handle_R;
   m.ViewFuncs[ 'J' ] = &Handle_J;
   m.ViewFuncs[ '~' ] = &Handle_Tilda;

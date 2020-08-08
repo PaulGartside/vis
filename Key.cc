@@ -50,6 +50,7 @@ char Key::In()
   Trace trace( __PRETTY_FUNCTION__ );
 
   char C = 0;
+
   if     ( get_from_map_buf   ) C = In_MapBuf();
   else if( get_from_dot_buf_n ) C = In_DotBuf_n();
   else if( get_from_dot_buf_l ) C = In_DotBuf_l();
