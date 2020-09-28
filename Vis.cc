@@ -593,6 +593,13 @@ void GoToBuffer( Vis::Data& m, const unsigned buf_idx )
           }
         }
       }
+      // For DIR and BUFFER_EDITOR, invalidate regex's so that files that
+      // no longer contain the current regex are no longer highlighted
+      if( nv->GetFB()->GetFileType() == FT_DIR
+       || nv->GetFB()->GetFileType() == FT_BUFFER_EDITOR )
+      {
+        nv->GetFB()->Invalidate_Regexs();
+      }
       nv->SetTilePos( PV(m)->GetTilePos() );
       nv->Update();
     }
@@ -770,6 +777,13 @@ void GoToPrevBuffer( Vis::Data& m )
       m.file_hist[m.win].remove( 0, view_index_old );
       m.file_hist[m.win].push( view_index_old );
 
+      // For DIR and BUFFER_EDITOR, invalidate regex's so that files that
+      // no longer contain the current regex are no longer highlighted
+      if( CV(m)->GetFB()->GetFileType() == FT_DIR
+       || CV(m)->GetFB()->GetFileType() == FT_BUFFER_EDITOR )
+      {
+        CV(m)->GetFB()->Invalidate_Regexs();
+      }
       // Redisplay current window with new view:
       CV(m)->SetTilePos( tp_old );
       CV(m)->Update();

@@ -1202,6 +1202,7 @@ void FileBuf::SetChangedExternally() { m.changed_externally = true; }
 const char* FileBuf::GetPathName() const { return m.path_name.c_str(); }
 const char* FileBuf::GetDirName() const { return m.dir_name.c_str(); }
 const char* FileBuf::GetFileName() const { return m.file_name.c_str(); }
+File_Type   FileBuf::GetFileType() const { return m.file_type; }
 
 Encoding FileBuf::GetDecoding() const
 {
@@ -2484,12 +2485,20 @@ void FileBuf::Check_4_New_Regex()
 
   if( m.regex != m.vis.GetRegex() )
   {
-    // Invalidate all regexes
-    for( unsigned k=0; k<m.lineRegexsValid.len(); k++ )
-    {
-      m.lineRegexsValid.set( k, false );
-    }
+    Invalidate_Regexs();
+
     m.regex = m.vis.GetRegex();
+  }
+}
+
+void FileBuf::Invalidate_Regexs()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  // Invalidate all regexes
+  for( unsigned k=0; k<m.lineRegexsValid.len(); k++ )
+  {
+    m.lineRegexsValid.set( k, false );
   }
 }
 
@@ -2566,43 +2575,98 @@ void FileBuf::Find_Regexs_4_Line( const unsigned line_num )
 
 #else
 
+//void Find_patterns_for_line( FileBuf::Data& m
+//                           , const unsigned line_num
+//                           , Line* lp
+//                           , const unsigned LL )
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//
+//  // Find the patterns for the line:
+//  bool        boundary_st = false; // word boundary at start
+//  bool        boundary_fn = false; // word boundary at end
+//  unsigned    star_len = m.regex.len();
+//  const char* star_str = m.regex.c_str();
+//
+//  if( 2<star_len && m.regex.has_at("\\b", 0) )
+//  {
+//    star_str += 2;
+//    star_len -= 2;
+//    boundary_st = true;
+//  }
+//  if( 2<star_len && m.regex.ends_with("\\b") )
+//  {
+//    star_len -= 2;
+//    boundary_fn = true;
+//  }
+//  if( star_len<=LL ) //< This prevents unsigned subtraction overflow.
+//  {
+//    // Search for m.regex in Line, lp, at each position p:
+//    for( unsigned p=0; p<=(LL-star_len); p++ )
+//    {
+//      bool matches = !boundary_st || line_start_or_prev_C_non_ident( *lp, p );
+//
+//      for( unsigned k=0; matches && (p+k)<LL && k<star_len; k++ )
+//      {
+//        if( star_str[k] != lp->get(p+k) ) matches = false;
+//        else {
+//          if( k+1 == star_len ) // Found pattern
+//          {
+//            matches = !boundary_fn || line_end_or_non_ident( *lp, LL, p+k );
+//            if( matches ) {
+//              for( unsigned n=p; n<p+star_len; n++ ) Set__StarStyle( m, line_num, n );
+//              // Increment p one less than star_len, because p
+//              // will be incremented again by the for loop
+//              p += star_len-1;
+//            }
+//          }
+//        }
+//      }
+//    }
+//  }
+//}
+
 void Find_patterns_for_line( FileBuf::Data& m
                            , const unsigned line_num
                            , Line* lp
-                           , const unsigned LL )
+                           , const int LL )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
   // Find the patterns for the line:
-        bool     boundary = false; // word boundary
-        unsigned star_len = m.regex.len();
-  const char*    star_str = m.regex.c_str();
-  if( 4<m.regex.len()
-   && m.regex.has_at("\\b", 0)
-   && m.regex.ends_with("\\b") )
+  bool        boundary_st = false; // word boundary at start
+  bool        boundary_fn = false; // word boundary at end
+  int         star_len = m.regex.len();
+  const char* star_str = m.regex.c_str();
+
+  if( 2<star_len && m.regex.has_at("\\b", 0) )
   {
     star_str += 2;
-    star_len -= 4;
-    boundary  = true;
+    star_len -= 2;
+    boundary_st = true;
   }
-  if( star_len<=LL )
+  if( 2<star_len && m.regex.ends_with("\\b") )
   {
-    for( unsigned p=0; p<LL; p++ )
+    star_len -= 2;
+    boundary_fn = true;
+  }
+  // Search for m.regex in Line, lp, at each position p:
+  for( int p=0; p<=(LL-star_len); p++ )
+  {
+    bool matches = !boundary_st || line_start_or_prev_C_non_ident( *lp, p );
+
+    for( int k=0; matches && (p+k)<LL && k<star_len; k++ )
     {
-      bool matches = !boundary || line_start_or_prev_C_non_ident( *lp, p );
-      for( unsigned k=0; matches && (p+k)<LL && k<star_len; k++ )
-      {
-        if( star_str[k] != lp->get(p+k) ) matches = false;
-        else {
-          if( k+1 == star_len ) // Found pattern
-          {
-            matches = !boundary || line_end_or_non_ident( *lp, LL, p+k );
-            if( matches ) {
-              for( unsigned n=p; n<p+star_len; n++ ) Set__StarStyle( m, line_num, n );
-              // Increment p one less than star_len, because p
-              // will be incremented again by the for loop
-              p += star_len-1;
-            }
+      if( star_str[k] != lp->get(p+k) ) matches = false;
+      else {
+        if( k+1 == star_len ) // Found pattern
+        {
+          matches = !boundary_fn || line_end_or_non_ident( *lp, LL, p+k );
+          if( matches ) {
+            for( int n=p; n<p+star_len; n++ ) Set__StarStyle( m, line_num, n );
+            // Increment p one less than star_len, because p
+            // will be incremented again by the for loop
+            p += star_len-1;
           }
         }
       }
@@ -2827,7 +2891,7 @@ void FileBuf::Find_Regexs_4_Line( const unsigned line_num )
     {
       ClearStarStyle( m, line_num, pos );
     }
-    if( 0<m.regex.len() )
+    if( 0<m.regex.len() && 0<LL )
     {
       if( m.file_type == FT_BUFFER_EDITOR
        || m.file_type == FT_DIR )
