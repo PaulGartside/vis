@@ -62,6 +62,7 @@ static HiKeyVal HiPairs[] =
   { "dynamic_cast"       , HI_CONTROL },
   { "reinterpret_cast"   , HI_CONTROL },
 
+  { "auto"               , HI_VARTYPE },
   { "int"                , HI_VARTYPE },
   { "long"               , HI_VARTYPE },
   { "void"               , HI_VARTYPE },

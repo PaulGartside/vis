@@ -735,6 +735,48 @@ void Do_y_v_block( View::Data& m )
   m.view.GoToCrsPos_NoWrite( ncl, ncc );
 }
 
+void Do_r_v_block( View::Data& m )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  Swap_Visual_St_Fn_If_Needed( m );
+
+  const unsigned old_v_st_line = m.v_st_line;
+  const unsigned old_v_st_char = m.v_st_char;
+
+  for( unsigned L=m.v_st_line; L<=m.v_fn_line; L++ )
+  {
+    Line* nlp = m.vis.BorrowLine( __FILE__,__LINE__ );
+
+    const unsigned LL = m.fb.LineLen( L );
+
+    bool continue_last_update = false;
+
+    for( unsigned P = m.v_st_char; P<LL && P <= m.v_fn_char; P++ )
+    {
+      nlp->push( m.fb.Get( L, P ) );
+                 m.fb.Set( L, P, ' ', continue_last_update );
+
+      continue_last_update = true;
+    }
+    // m.reg will delete nlp
+    m.reg.push( nlp );
+  }
+  m.vis.SetPasteMode( PM_BLOCK );
+
+  // Try to put cursor at (old_v_st_line, old_v_st_char), but
+  // make sure the cursor is in bounds after the deletion:
+  const unsigned NUM_LINES = m.fb.NumLines();
+  const unsigned ncl = NUM_LINES <= old_v_st_line ? NUM_LINES-1
+                                                  : old_v_st_line;
+  const unsigned NLL = m.fb.LineLen( ncl );
+  const unsigned ncc = NLL <= 0               ? 0
+                     : old_v_st_char <= 0     ? 0
+                     : NLL <= old_v_st_char-1 ? NLL-1
+                                              : old_v_st_char-1;
+  m.view.GoToCrsPos_NoWrite( ncl, ncc );
+}
+
 void Do_y_v_st_fn( View::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -746,7 +788,7 @@ void Do_y_v_st_fn( View::Data& m )
     Line* nlp = m.vis.BorrowLine( __FILE__,__LINE__ );
 
     const unsigned LL = m.fb.LineLen( L );
-    if( LL ) {
+    if( 0 < LL ) {
       const unsigned P_st = (L==m.v_st_line) ? m.v_st_char : 0;
       const unsigned P_fn = (L==m.v_fn_line) ? Min(LL-1,m.v_fn_char) : LL-1;
 
@@ -761,6 +803,52 @@ void Do_y_v_st_fn( View::Data& m )
   m.vis.SetPasteMode( PM_ST_FN );
 }
 
+void Do_r_v_st_fn( View::Data& m )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  Swap_Visual_St_Fn_If_Needed( m );
+
+  const unsigned old_v_st_line = m.v_st_line;
+  const unsigned old_v_st_char = m.v_st_char;
+
+  for( unsigned L=m.v_st_line; L<=m.v_fn_line; L++ )
+  {
+    Line* nlp = m.vis.BorrowLine( __FILE__,__LINE__ );
+
+    const unsigned LL = m.fb.LineLen( L );
+    if( 0 < LL ) {
+      const unsigned P_st = (L==m.v_st_line) ? m.v_st_char : 0;
+      const unsigned P_fn = (L==m.v_fn_line) ? Min(LL-1,m.v_fn_char) : LL-1;
+
+      bool continue_last_update = false;
+
+      for( unsigned P = P_st; P <= P_fn; P++ )
+      {
+        nlp->push( m.fb.Get( L, P ) );
+                   m.fb.Set( L, P, ' ', continue_last_update );
+
+        continue_last_update = true;
+      }
+    }
+    // m.reg will delete nlp
+    m.reg.push( nlp );
+  }
+  m.vis.SetPasteMode( PM_ST_FN );
+
+  // Try to put cursor at (old_v_st_line, old_v_st_char-1), but
+  // make sure the cursor is in bounds after the deletion:
+  const unsigned NUM_LINES = m.fb.NumLines();
+  const unsigned ncl = NUM_LINES <= old_v_st_line ? NUM_LINES-1
+                                                  : old_v_st_line;
+  const unsigned NLL = m.fb.LineLen( ncl );
+  const unsigned ncc = NLL <= 0               ? 0
+                     : old_v_st_char <= 0     ? 0
+                     : NLL <= old_v_st_char-1 ? NLL-1
+                                              : old_v_st_char-1;
+  m.view.GoToCrsPos_NoWrite( ncl, ncc );
+}
+
 void Do_y_v( View::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -769,6 +857,16 @@ void Do_y_v( View::Data& m )
 
   if( m.inVisualBlock ) Do_y_v_block(m);
   else                  Do_y_v_st_fn(m);
+}
+
+void Do_r_v( View::Data& m )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  m.reg.clear();
+
+  if( m.inVisualBlock ) Do_r_v_block(m);
+  else                  Do_r_v_st_fn(m);
 }
 
 void Do_Y_v_st_fn( View::Data& m )
@@ -781,11 +879,41 @@ void Do_Y_v_st_fn( View::Data& m )
 
     const unsigned LL = m.fb.LineLen(L);
 
-    if( LL )
+    if( 0 < LL )
     {
       for( unsigned P = 0; P <= LL-1; P++ )
       {
         nlp->push( m.fb.Get( L, P ) );
+      }
+    }
+    // m.reg will delete nlp
+    m.reg.push( nlp );
+  }
+  m.vis.SetPasteMode( PM_LINE );
+}
+
+void Do_R_v_st_fn( View::Data& m )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( m.v_fn_line < m.v_st_line ) Swap( m.v_st_line, m.v_fn_line );
+
+  for( unsigned L=m.v_st_line; L<=m.v_fn_line; L++ )
+  {
+    Line* nlp = m.vis.BorrowLine( __FILE__,__LINE__ );
+
+    const unsigned LL = m.fb.LineLen(L);
+
+    if( 0 < LL )
+    {
+      bool continue_last_update = false;
+
+      for( unsigned P = 0; P <= LL-1; P++ )
+      {
+        nlp->push( m.fb.Get( L, P ) );
+                   m.fb.Set( L, P, ' ', continue_last_update );
+
+        continue_last_update = true;
       }
     }
     // m.reg will delete nlp
@@ -802,6 +930,16 @@ void Do_Y_v( View::Data& m )
 
   if( m.inVisualBlock ) Do_y_v_block(m);
   else                  Do_Y_v_st_fn(m);
+}
+
+void Do_R_v( View::Data& m )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  m.reg.clear();
+
+  if( m.inVisualBlock ) Do_r_v_block(m);
+  else                  Do_R_v_st_fn(m);
 }
 
 void Do_x_range_pre( View::Data& m
@@ -1309,6 +1447,8 @@ bool Do_visualMode( View::Data& m )
     else if( C == ';' ) m.vis.Handle_SemiColon();
     else if( C == 'y' ) { Do_y_v(m); goto EXIT_VISUAL; }
     else if( C == 'Y' ) { Do_Y_v(m); goto EXIT_VISUAL; }
+    else if( C == 'r' ) { Do_r_v(m); goto EXIT_VISUAL; }
+    else if( C == 'R' ) { Do_R_v(m); goto EXIT_VISUAL; }
     else if( C == 'x'
           || C == 'd' ) { Do_x_v(m); return true; }
     else if( C == 'D' ) { Do_D_v(m); return true; }
@@ -1824,7 +1964,7 @@ void GoToCrsPos_WV_Backward( View::Data& m
   if( OCL == NCL ) // Only one line:
   {
     const unsigned LL = m.fb.LineLen( OCL ); // Line length
-    if( LL ) {
+    if( 0 < LL ) {
       const unsigned START = Min( OCP, LL-1 );
       for( unsigned k=START; NCP<k; k-- )
       {
@@ -1849,7 +1989,7 @@ void GoToCrsPos_WV_Backward( View::Data& m
     for( unsigned l=OCL-1; NCL<l; l-- )
     {
       const unsigned LL = m.fb.LineLen( l ); // Line length
-      if( LL ) {
+      if( 0 < LL ) {
         const unsigned END_OF_LINE = Min( m.view.RightChar(), LL-1 );
         for( int k=END_OF_LINE; static_cast<int>(m.leftChar)<=k; k-- )
         {

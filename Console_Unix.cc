@@ -106,6 +106,13 @@ const char* const STR_BG_BB_DEFAULT = "\E[49;1m";
 const char* const STR_SCREEN_SAVE    = "\E[?47h";
 const char* const STR_SCREEN_RESTORE = "\E[?47l";
 
+const char* const up____arrow = "\E[A";
+const char* const down__arrow = "\E[B";
+const char* const right_arrow = "\E[C";
+const char* const left__arrow = "\E[D";
+const char* const page_up     = "\E[5~";
+const char* const page_down   = "\E[6~";
+
 const uint8_t LEN_CLEAR       = strlen( STR_CLEAR );
 const uint8_t LEN_HOME        = strlen( STR_HOME  );
 const uint8_t LEN_UP          = strlen( STR_UP    );
@@ -780,6 +787,80 @@ unsigned Console::Num_Cols()
   return m_num_cols;
 }
 
+//char Console::KeyIn()
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//
+//  static Vis&     vis   = *mp_vis;
+//  static unsigned count = 0;
+//
+//  // Ignore read errors, and escaped keys.
+//  // Return the first single char read.
+//  char str[16]; // Maximum F1-F12 and arrow key interpretation
+//  // Returns number of bytes read, 0 if EOF, -1 on error:
+//  while( read( STDIN_FILENO, str, 16 ) != 1 )
+//  {
+//    // Try to use less CPU time while waiting:
+//    if( 0==count ) vis.CheckWindowSize(); // If window has resized, update window
+//    if( 4==count ) vis.CheckFileModTime();
+//    if( vis.Shell_Running() ) vis.Update_Shell();
+//
+//    bool updated_sts_line = vis.Update_Status_Lines();
+//    bool updated_chg_sts  = vis.Update_Change_Statuses();
+//
+//    if( updated_sts_line || updated_chg_sts )
+//    {
+//      Console::Update();
+//      vis.PrintCursor();
+//    }
+//    count++;
+//    if( 8==count ) count=0;
+//  }
+////Log.Log("read(%s)\n", str );
+//  return str[0];
+//}
+
+// Returns non-zero if a single character,
+// or a sequence of characters that maps to a single character,
+// was read, else zero
+char read_char()
+{
+  char C_in = 0;
+
+  // Ignore read errors, and escaped keys.
+  // Return the first single char read.
+  char str[16]; // Maximum F1-F12 and arrow key interpretation
+  memset( str, 0, 16 );
+  // Returns number of bytes read, 0 if EOF, -1 on error:
+  const size_t bytes_read = read( STDIN_FILENO, str, 16 );
+
+  if( 1 == bytes_read )
+  {
+  //Log.Log("read(%c)\n", str[0] );
+    C_in = str[0];
+  }
+  else if( 1 < bytes_read )
+  {
+  //for( size_t k=0; k<bytes_read; k++ )
+  //{
+  //  Log.Log("read(%u, %i)\n", k, static_cast<int>(str[k]) );
+  //}
+    if( 3 == bytes_read )
+    {
+      if     ( 0 == strncmp( str, up____arrow, 3 ) ) C_in = 'k';
+      else if( 0 == strncmp( str, down__arrow, 3 ) ) C_in = 'j';
+      else if( 0 == strncmp( str, right_arrow, 3 ) ) C_in = 'l';
+      else if( 0 == strncmp( str, left__arrow, 3 ) ) C_in = 'h';
+    }
+    else if( 4 == bytes_read )
+    {
+      if     ( 0 == strncmp( str, page_up  , 4 ) ) C_in = 'B';
+      else if( 0 == strncmp( str, page_down, 4 ) ) C_in = 'F';
+    }
+  }
+  return C_in;
+}
+
 char Console::KeyIn()
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -787,11 +868,9 @@ char Console::KeyIn()
   static Vis&     vis   = *mp_vis;
   static unsigned count = 0;
 
-  // Ignore read errors, and escaped keys.
-  // Return the first single char read.
-  char str[16]; // Maximum F1-F12 and arrow key interpretation
-  // Returns number of bytes read, 0 if EOF, -1 on error:
-  while( read( STDIN_FILENO, str, 16 ) != 1 )
+  char C_in = read_char();
+
+  while( 0 == C_in )
   {
     // Try to use less CPU time while waiting:
     if( 0==count ) vis.CheckWindowSize(); // If window has resized, update window
@@ -808,9 +887,10 @@ char Console::KeyIn()
     }
     count++;
     if( 8==count ) count=0;
+
+    C_in = read_char();
   }
-//Log.Log("read(%c)\n", str[0]);
-  return str[0];
+  return C_in;
 }
 
 void Console::Set_Normal()

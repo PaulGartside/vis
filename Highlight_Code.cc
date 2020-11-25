@@ -330,10 +330,13 @@ void Highlight_Code::Hi_NumberBeg( unsigned& l, unsigned& p )
   m_state = &ME::Hi_NumberIn;
 
   const unsigned LL = m_fb.LineLen( l );
+
   if( '0' == c1 && (p+1)<LL )
   {
     const char c0 = m_fb.Get( l, p );
-    if( 'x' == c0 ) {
+
+    if( 'x' == c0 || 'X' == c0 )
+    {
       m_fb.SetSyntaxStyle( l, p, HI_CONST );
       m_state = &ME::Hi_NumberHex;
       p++;
