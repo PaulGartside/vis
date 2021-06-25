@@ -4618,8 +4618,34 @@ void Handle_Star( Vis::Data& m )
 
   View* cv = CV(m);
 
-  String pattern = cv->GetInDiff() ?  m.diff.Do_Star_GetNewPattern()
-                                   :     cv->Do_Star_GetNewPattern();
+  String pattern = cv->GetInDiff() ? m.diff.Do_Star_GetNewPattern()
+                                   :    cv->Do_Star_GetNewPattern();
+  if( pattern != m.regex )
+  {
+    m.regex = pattern;
+
+    if( 0<m.regex.len() )
+    {
+      Do_Star_Update_Search_Editor(m);
+    }
+    // Show new star pattern for all windows currently displayed:
+    m.vis.UpdateViews( true );
+  }
+}
+
+void Handle_Ampersand( Vis::Data& m )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  View* cv = CV(m);
+
+  String pattern = cv->GetInDiff() ? m.diff.Do_Star_GetNewPattern()
+                                   :    cv->Do_Star_GetNewPattern();
+
+  if( 0<pattern.len() && !pattern.has_at("(?i)", 0) )
+  {
+    pattern.insert( 0, "(?i)" );
+  }
   if( pattern != m.regex )
   {
     m.regex = pattern;
@@ -4886,6 +4912,7 @@ void InitViewFuncs( Vis::Data& m )
   m.ViewFuncs[ ':' ] = &Handle_Colon;
   m.ViewFuncs[ '/' ] = &Handle_Slash;
   m.ViewFuncs[ '*' ] = &Handle_Star;
+  m.ViewFuncs[ '&' ] = &Handle_Ampersand;
   m.ViewFuncs[ '.' ] = &Handle_Dot;
   m.ViewFuncs[ 'm' ] = &Handle_m;
   m.ViewFuncs[ 'g' ] = &Handle_g;

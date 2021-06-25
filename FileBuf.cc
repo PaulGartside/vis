@@ -2626,30 +2626,17 @@ void FileBuf::Find_Regexs_4_Line( const unsigned line_num )
 //  }
 //}
 
-void Find_patterns_for_line( FileBuf::Data& m
-                           , const unsigned line_num
-                           , Line* lp
-                           , const int LL )
+void Find_patterns_for_line_case_sensitive( FileBuf::Data& m
+                                          , const unsigned line_num
+                                          , Line* lp
+                                          , const int LL
+                                          , const char* star_str
+                                          , const int star_len
+                                          , const bool boundary_st
+                                          , const bool boundary_fn )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  // Find the patterns for the line:
-  bool        boundary_st = false; // word boundary at start
-  bool        boundary_fn = false; // word boundary at end
-  int         star_len = m.regex.len();
-  const char* star_str = m.regex.c_str();
-
-  if( 2<star_len && m.regex.has_at("\\b", 0) )
-  {
-    star_str += 2;
-    star_len -= 2;
-    boundary_st = true;
-  }
-  if( 2<star_len && m.regex.ends_with("\\b") )
-  {
-    star_len -= 2;
-    boundary_fn = true;
-  }
   // Search for m.regex in Line, lp, at each position p:
   for( int p=0; p<=(LL-star_len); p++ )
   {
@@ -2671,6 +2658,98 @@ void Find_patterns_for_line( FileBuf::Data& m
         }
       }
     }
+  }
+}
+
+void Find_patterns_for_line_case_insensitive( FileBuf::Data& m
+                                            , const unsigned line_num
+                                            , Line* lp
+                                            , const int LL
+                                            , const char* star_str
+                                            , const int star_len
+                                            , const bool boundary_st
+                                            , const bool boundary_fn )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  // Search for m.regex in Line, lp, at each position p:
+  for( int p=0; p<=(LL-star_len); p++ )
+  {
+    bool matches = !boundary_st || line_start_or_prev_C_non_ident( *lp, p );
+
+    for( int k=0; matches && (p+k)<LL && k<star_len; k++ )
+    {
+      if( tolower(star_str[k]) != tolower(lp->get(p+k)) ) matches = false;
+      else {
+        if( k+1 == star_len ) // Found pattern
+        {
+          matches = !boundary_fn || line_end_or_non_ident( *lp, LL, p+k );
+          if( matches ) {
+            for( int n=p; n<p+star_len; n++ ) Set__StarStyle( m, line_num, n );
+            // Increment p one less than star_len, because p
+            // will be incremented again by the for loop
+            p += star_len-1;
+          }
+        }
+      }
+    }
+  }
+}
+
+// This version does case insensitive search:
+//
+void Find_patterns_for_line( FileBuf::Data& m
+                           , const unsigned line_num
+                           , Line* lp
+                           , const int LL )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  // Find the patterns for the line:
+  bool        case_insensitive = false;
+  bool        boundary_st = false; // word boundary at start
+  bool        boundary_fn = false; // word boundary at end
+  int         star_len = m.regex.len();
+  const char* star_str = m.regex.c_str();
+
+  if( 4<star_len && m.regex.has_at("(?i)", 0) )
+  {
+    star_str += 4;
+    star_len -= 4;
+    case_insensitive = true;
+  }
+  if( 2<star_len && m.regex.has_at("\\b", case_insensitive?4:0) )
+  {
+    star_str += 2;
+    star_len -= 2;
+    boundary_st = true;
+  }
+  if( 2<star_len && m.regex.ends_with("\\b") )
+  {
+    star_len -= 2;
+    boundary_fn = true;
+  }
+  // Search for m.regex in Line, lp, at each position p:
+  if( case_insensitive )
+  {
+    Find_patterns_for_line_case_insensitive( m
+                                           , line_num
+                                           , lp
+                                           , LL
+                                           , star_str
+                                           , star_len
+                                           , boundary_st
+                                           , boundary_fn );
+  }
+  else {
+    Find_patterns_for_line_case_sensitive( m
+                                         , line_num
+                                         , lp
+                                         , LL
+                                         , star_str
+                                         , star_len
+                                         , boundary_st
+                                         , boundary_fn );
   }
 }
 
