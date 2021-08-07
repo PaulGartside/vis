@@ -845,6 +845,8 @@ bool line_end_or_non_ident( const Line& line
   return false;
 }
 
+// Given full path names of files, return true if the two
+// files are the same
 bool Files_Are_Same( const char* fname_s, const char* fname_l )
 {
   bool files_are_same = false;
@@ -888,6 +890,7 @@ bool Files_Are_Same( const char* fname_s, const char* fname_l )
   return files_are_same;
 }
 
+// Given FileBuf of files, return true if the two files are the same
 bool Files_Are_Same( const FileBuf& fb_s, const FileBuf& fb_l )
 {
   bool files_are_same = false;

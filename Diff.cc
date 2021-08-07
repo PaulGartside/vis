@@ -235,7 +235,7 @@ Diff::Data::~Data()
 }
 
 SameArea Find_Max_Same( Diff::Data& m
-                      , const DiffArea ca, const unsigned count )
+                      , const DiffArea& ca, const unsigned count )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   SameArea max_same = { 0, 0, 0, 0 };
@@ -269,7 +269,7 @@ SameArea Find_Max_Same( Diff::Data& m
   return max_same;
 }
 
-void Popu_SameList( Diff::Data& m, const DiffArea CA )
+void Popu_SameList( Diff::Data& m, const DiffArea& CA )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   m.sameList.clear();
@@ -343,13 +343,13 @@ void Sort_SameList( Diff::Data& m )
   }
 }
 
-void Popu_DiffList_Begin( Diff::Data& m, const DiffArea CA )
+void Popu_DiffList_Begin( Diff::Data& m, const DiffArea& CA )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
   if( m.sameList.len() ) // Add DiffArea before first SameArea if needed:
   {
-    SameArea sa = m.sameList[ 0 ];
+    const SameArea& sa = m.sameList[ 0 ];
 
     const unsigned nlines_s_da = sa.ln_s - CA.ln_s; // Num lines in short diff area
     const unsigned nlines_l_da = sa.ln_l - CA.ln_l; // Num lines in long  diff area
@@ -363,7 +363,7 @@ void Popu_DiffList_Begin( Diff::Data& m, const DiffArea CA )
   }
 }
 
-void Popu_DiffList_End( Diff::Data& m, const DiffArea CA )
+void Popu_DiffList_End( Diff::Data& m, const DiffArea& CA )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -392,7 +392,7 @@ void Popu_DiffList_End( Diff::Data& m, const DiffArea CA )
   }
 }
 
-void Popu_DiffList( Diff::Data& m, const DiffArea CA )
+void Popu_DiffList( Diff::Data& m, const DiffArea& CA )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   m.diffList.clear();
@@ -403,8 +403,8 @@ void Popu_DiffList( Diff::Data& m, const DiffArea CA )
 
   for( unsigned k=1; k<SLL; k++ )
   {
-    SameArea sa0 = m.sameList[ k-1 ];
-    SameArea sa1 = m.sameList[ k   ];
+    const SameArea& sa0 = m.sameList[ k-1 ];
+    const SameArea& sa1 = m.sameList[ k   ];
 
     unsigned da_ln_s = sa0.ln_s+sa0.nlines;
     unsigned da_ln_l = sa0.ln_l+sa0.nlines;
@@ -532,7 +532,7 @@ unsigned Compare_Lines( const Line* ls, LineInfo* li_s
 }
 
 SimLines Find_Lines_Most_Same( Diff::Data& m
-                             , DiffArea ca, FileBuf* pfs, FileBuf* pfl )
+                             , const DiffArea& ca, FileBuf* pfs, FileBuf* pfl )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   // LD = Length Difference between long area and short area
@@ -722,7 +722,7 @@ void Popu_DI_List_AddDiff_Common( Diff::Data& m
                         , DI_List_l );
 }
 
-void Popu_DI_List_AddDiff( Diff::Data& m, const DiffArea da )
+void Popu_DI_List_AddDiff( Diff::Data& m, const DiffArea& da )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -900,7 +900,7 @@ bool Popu_DI_List_Have_Diff_Files( Diff::Data& m
   return files_differ;
 }
 
-void Popu_DI_List_AddSame( Diff::Data& m, const SameArea sa )
+void Popu_DI_List_AddSame( Diff::Data& m, const SameArea& sa )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -929,7 +929,7 @@ void Popu_DI_List_NoDiffArea( Diff::Data& m )
   Popu_DI_List_AddSame( m, m.sameList[0] );
 }
 
-void Popu_DI_List_DiffAndSame( Diff::Data& m, const DiffArea CA )
+void Popu_DI_List_DiffAndSame( Diff::Data& m, const DiffArea& CA )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   const unsigned SLL = m.sameList.len();
@@ -972,7 +972,7 @@ void Popu_DI_List_DiffAndSame( Diff::Data& m, const DiffArea CA )
   }
 }
 
-void Popu_DI_List( Diff::Data& m, const DiffArea CA )
+void Popu_DI_List( Diff::Data& m, const DiffArea& CA )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -987,7 +987,7 @@ void Popu_DI_List( Diff::Data& m, const DiffArea CA )
   else                Popu_DI_List_DiffAndSame( m, CA );
 }
 
-void RunDiff( Diff::Data& m, const DiffArea CA )
+void RunDiff( Diff::Data& m, const DiffArea& CA )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
@@ -2490,7 +2490,7 @@ void PrintDiffList( Diff::Data& m )
   }
 }
 
-void PrintDI_List( Diff::Data& m, const DiffArea CA )
+void PrintDI_List( Diff::Data& m, const DiffArea& CA )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
