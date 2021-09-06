@@ -5421,6 +5421,16 @@ void Vis::Add_FileBuf_2_Lists_Create_Views( FileBuf* pfb, const char* fname )
   }
   // Push file name onto buffer editor buffer
   AddToBufferEditor( m, fname );
+
+  if( strcmp( fname,  EDIT_BUF_NAME )
+   && strcmp( fname,  HELP_BUF_NAME )
+   && strcmp( fname,  MSG__BUF_NAME )
+   && strcmp( fname, SHELL_BUF_NAME )
+   && strcmp( fname, COLON_BUF_NAME )
+   && strcmp( fname, SLASH_BUF_NAME ) )
+  {
+    NotHaveFileAddFile( pfb->GetDirName() );
+  }
 }
 
 // Print a command line message.

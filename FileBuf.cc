@@ -93,7 +93,7 @@ struct FileBuf::Data
   Highlight_Base* pHi;
   ChangeHist      history;
   String          path_name; // Full path and filename = dir_name + file_name
-  String          dir_name;  // Directory = path_name - file_name, (for directories this is the same a path_name)
+  String          dir_name;  // Directory = path_name - file_name, (for directories this is the same as path_name)
   String          file_name; // Filename = path_name - dir_name, (for directories this is empty)
   const bool      is_dir;
   const bool      is_regular;
@@ -159,12 +159,14 @@ FileBuf::Data::Data( FileBuf& parent
   if( is_dir )
   {
     dir_name = path_name;
-    if( DIR_DELIM != path_name.get_end() ) path_name.push( DIR_DELIM );
+
+    Append_Dir_Delim( path_name );
   }
   else {
-    dir_name = GetFnameTail( path_name.c_str() );
+    dir_name  = GetFnameTail( path_name.c_str() );
     file_name = GetFnameHead( path_name.c_str() );
   }
+  Append_Dir_Delim( dir_name );
 }
 
 FileBuf::Data::Data( FileBuf& parent
@@ -204,12 +206,14 @@ FileBuf::Data::Data( FileBuf& parent
   if( is_dir )
   {
     dir_name = path_name;
-    if( DIR_DELIM != path_name.get_end() ) path_name.push( DIR_DELIM );
+
+    Append_Dir_Delim( path_name );
   }
   else {
-    dir_name = GetFnameTail( path_name.c_str() );
+    dir_name  = GetFnameTail( path_name.c_str() );
     file_name = GetFnameHead( path_name.c_str() );
   }
+  Append_Dir_Delim( dir_name );
 }
 
 FileBuf::Data::~Data()

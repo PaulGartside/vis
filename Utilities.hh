@@ -78,6 +78,7 @@ void GetFnameHeadAndTail( const char* in_fname, String& head, String& tail );
 void GetFnameHeadAndTail( const String& in_fname, String& head, String& tail );
 String GetFnameHead( const char* in_full_fname );
 String GetFnameTail( const char* in_full_fname );
+void Append_Dir_Delim( String& in_dir );
 const char* DirDelimStr();
 void ReplaceEnvVars( String& in_out_fname );
 void EnvKeys2Vals( String& in_out_fname );

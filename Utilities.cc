@@ -506,6 +506,11 @@ String GetFnameTail( const char* in_full_fname )
   return tail;
 }
 
+void Append_Dir_Delim( String& in_dir )
+{
+  if( DIR_DELIM != in_dir.get_end() ) in_dir.push( DIR_DELIM );
+}
+
 const char* DirDelimStr()
 {
   static char DIR_DELIM_STR[4];
