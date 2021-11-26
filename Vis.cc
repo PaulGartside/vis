@@ -418,6 +418,7 @@ void InitUserFiles_AddFile( Vis::Data& m, const char* relative_name )
     }
   }
 }
+
 bool InitUserFiles( Vis::Data& m, const int ARGC, const char* const ARGV[] )
 {
   bool run_diff = false;
@@ -738,7 +739,8 @@ bool WentBackToPrevDirDiff( Vis::Data& m )
           if( went_back ) {
             m.diff.GetViewShort()->SetInDiff( true );
             m.diff.GetViewLong() ->SetInDiff( true );
-            m.diff.Update();
+          //m.diff.Update();
+            m.vis.UpdateViews( false );
           }
         }
       }
@@ -2623,7 +2625,8 @@ void Diff_Files_Displayed( Vis::Data& m )
       if( ok ) {
         m.diff.GetViewShort()->SetInDiff( true );
         m.diff.GetViewLong()->SetInDiff( true );
-        m.diff.Update();
+      //m.diff.Update();
+        m.vis.UpdateViews( false );
       }
     }
   }
@@ -2936,6 +2939,20 @@ void HandleColon_uncomment( Vis::Data& m )
   CV(m)->GetFB()->UnComment();
 }
 
+void HandleColon_commentAll( Vis::Data& m )
+{
+  const unsigned num_files_commented = CV(m)->GetFB()->Comment_All();
+
+  m.vis.CmdLineMessage("Commented %u files", num_files_commented );
+}
+
+void HandleColon_uncommentAll( Vis::Data& m )
+{
+  const unsigned num_files_uncommented = CV(m)->GetFB()->UnComment_All();
+
+  m.vis.CmdLineMessage("Uncommented %u files", num_files_uncommented );
+}
+
 bool Matches_BYTE( String S )
 {
   return 0==S.compareToIgnoreCase("byte")
@@ -3209,12 +3226,15 @@ void Handle_Colon_Cmd( Vis::Data& m )
   else if( strcmp( m.cbuf,"showmap")==0)  MapShow(m);
   else if( strcmp( m.cbuf,"cover")==0)    m.colon_view->Cover();
   else if( strcmp( m.cbuf,"coverkey")==0) m.colon_view->CoverKey();
+  else if( strcmp( m.cbuf,"showcover")==0)m.colon_view->ShowCoverKey();
   else if( strncmp(m.cbuf,"detab=",6)==0) HandleColon_detab(m);
   else if( strcmp( m.cbuf,"dos2unix")==0) HandleColon_dos2unix(m);
   else if( strcmp( m.cbuf,"unix2dos")==0) HandleColon_unix2dos(m);
   else if( strcmp( m.cbuf,"sort")==0)     HandleColon_sort(m);
   else if( strcmp( m.cbuf,"comment")==0)  HandleColon_comment(m);
   else if( strcmp( m.cbuf,"uncomment")==0)HandleColon_uncomment(m);
+  else if( strcmp( m.cbuf,"commentall")==0)  HandleColon_commentAll(m);
+  else if( strcmp( m.cbuf,"uncommentall")==0)HandleColon_uncommentAll(m);
   else if( strncmp(m.cbuf,"dec=",4)==0 )  HandleColon_decoding(m);
   else if( strncmp(m.cbuf,"enc=",4)==0 )  HandleColon_encoding(m);
   else if( 'e' == m.cbuf[0] )             HandleColon_e(m);
@@ -5655,45 +5675,71 @@ void Vis::ReleaseFileName( const String& full_fname )
   }
 }
 
+bool GetFullFileNameRelative2CurrFile( Vis::Data& m, String& fname )
+{
+  bool got_full_file_name = false;
+
+  // 2. Get full file name
+  if( fname.has_at( DirDelimStr(), 0 ) && FileExists( fname.c_str() ) )
+  {
+    got_full_file_name = true; // fname is already a full file name
+  }
+  else if( FindFullFileNameRel2( CV(m)->GetDirName(), fname ) )
+  {
+    got_full_file_name = true; // fname now contains full file name
+  }
+  else
+  {
+    // Could not file full file name of fname
+  }
+  return got_full_file_name;
+}
+
 // Return true if went to buffer indicated by fname, else false
 bool Vis::GoToBuffer_Fname( String& fname )
 {
   Trace trace( __PRETTY_FUNCTION__ );
+
+  bool went_to_buffer = false;
 
   // 1. Search for fname in buffer list, and if found, go to that buffer:
   unsigned file_index = 0;
   if( HaveFile( fname.c_str(), &file_index ) )
   {
     GoToBuffer( m, file_index );
-    return true;
+
+    went_to_buffer = true;
   }
-  // 2. Get full file name
-  if( fname.has_at( DirDelimStr(), 0 ) && FileExists( fname.c_str() ) )
+  // 2. Get full file name of fname relative to dir of current file
+  else if( GetFullFileNameRelative2CurrFile( m, fname ) )
   {
-    ; // fname is already a full file name
+    // 3. Search for fname in buffer list, and if found, go to that buffer:
+    if( HaveFile( fname.c_str(), &file_index ) )
+    {
+      GoToBuffer( m, file_index );
+
+      went_to_buffer = true;
+    }
+    // 4. See if file exists, and if so, add a file buffer, and go to that buffer
+    else if( FileExists( fname.c_str() ) )
+    {
+      FileBuf* fb = new(__FILE__,__LINE__) FileBuf( m.vis, fname.c_str(), true, FT_UNKNOWN );
+      fb->ReadFile();
+
+      if( HaveFile( fname.c_str(), &file_index ) )
+      {
+        GoToBuffer( m, file_index );
+
+        went_to_buffer = true;
+      }
+    }
   }
-  else if( !FindFullFileNameRel2( CV()->GetDirName(), fname ) )
+
+  if( ! went_to_buffer )
   {
     m.vis.CmdLineMessage( "Could not find file: %s", fname.c_str() );
-    return false;
   }
-  // 3. Search for fname in buffer list, and if found, go to that buffer:
-  if( HaveFile( fname.c_str(), &file_index ) )
-  {
-    GoToBuffer( m, file_index ); return true;
-  }
-  // 4. See if file exists, and if so, add a file buffer, and go to that buffer
-  if( FileExists( fname.c_str() ) )
-  {
-    FileBuf* fb = new(__FILE__,__LINE__) FileBuf( m.vis, fname.c_str(), true, FT_UNKNOWN );
-    fb->ReadFile();
-    GoToBuffer( m, m.views[m.win].len()-1 );
-  }
-  else {
-    m.vis.CmdLineMessage( "Could not find file: %s", fname.c_str() );
-    return false;
-  }
-  return true;
+  return went_to_buffer;
 }
 
 void Vis::Handle_f()
@@ -5788,7 +5834,8 @@ bool Vis::Diff_By_File_Indexes( View* const cV, unsigned const c_file_idx
     if( ok ) {
       m.diff.GetViewShort()->SetInDiff( true );
       m.diff.GetViewLong() ->SetInDiff( true );
-      m.diff.Update();
+    //m.diff.Update();
+      UpdateViews( false );
     }
   }
   return ok;

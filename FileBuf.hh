@@ -64,7 +64,7 @@ public:
   unsigned LineLen( const unsigned line_num ) const;
   const Line& GetLine( const unsigned l_num ) const;
   const Line& GetStyle( const unsigned l_num ) const;
-  void     GetLine( const unsigned l_num, Line& l ) const;
+  void        GetLine( const unsigned l_num, Line& l ) const;
   const Line* GetLineP( const unsigned l_num ) const;
   void     InsertLine( const unsigned l_num, const Line& line );
   void     InsertLine( const unsigned l_num, Line* const pLine );
@@ -104,7 +104,7 @@ public:
   void ReadArray( const Line& line );
   void ReadFile();
   void ReReadFile();
-  void Write();
+  bool Write();
   bool Sort();
   bool BufferEditor_SortName();
   bool BufferEditor_SortTime();
@@ -129,8 +129,10 @@ public:
   void dos2unix();
   void unix2dos();
   bool Has_Pattern( const String& pattern ) const;
-  void Comment();
-  void UnComment();
+  bool Comment();
+  bool UnComment();
+  unsigned Comment_All();
+  unsigned UnComment_All();
 
   struct Data;
 

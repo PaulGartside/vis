@@ -2861,3 +2861,29 @@ void LineView::CoverKey()
   m.vis.CV()->PrintCursor();
 }
 
+void LineView::ShowCoverKey()
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  const unsigned ST        = Col_Win_2_GL( 0 );
+  const unsigned WC        = WorkingCols();
+  const unsigned COVER_LEN = m.cover_key.len();
+
+  // Print map
+  for( unsigned k=0; k<COVER_LEN && k<WC; k++ )
+  {
+    const char C = m.cover_key.get( k );
+
+    Console::Set( m.y, ST+k, C, S_NORMAL );
+  }
+
+  // Print empty space after map
+  for( unsigned k=COVER_LEN; k<WC; k++ )
+  {
+    Console::Set( m.y, ST+k, ' ', S_NORMAL );
+  }
+  Console::Update();
+
+  m.vis.CV()->PrintCursor(); //< Does Console::Flush():
+}
+

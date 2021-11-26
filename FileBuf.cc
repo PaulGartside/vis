@@ -1588,14 +1588,17 @@ void FileBuf::ReadArray( const Line& line )
   if( lp ) PushLine( lp ); //< FileBuf::lines takes ownership of lp
 }
 
-void Write_p( FileBuf::Data& m
+bool Write_p( FileBuf::Data& m
             , const Array_t<Line*>& l_lines
             , const bool l_LF_at_EOF )
 {
   Trace trace( __PRETTY_FUNCTION__ );
+  bool ok = true;
+
   if( 0==m.path_name.len() )
   {
     // No file name message:
+    ok = false;
     m.vis.CmdLineMessage("No file name to write to");
   }
   else {
@@ -1603,6 +1606,7 @@ void Write_p( FileBuf::Data& m
 
     if( !fp ) {
       // Could not open file for writing message:
+      ok = false;
       m.vis.Window_Message("\nCould not open:\n\n%s\n\nfor writing\n\n"
                            , m.path_name.c_str() );
     }
@@ -1632,13 +1636,16 @@ void Write_p( FileBuf::Data& m
       m.vis.CmdLineMessage("\"%s\" written", m.path_name.c_str() );
     }
   }
+  return ok;
 }
 
-void FileBuf::Write()
+bool FileBuf::Write()
 {
+  bool ok = false;
+
   if( ENC_BYTE == m.encoding )
   {
-    Write_p( m, m.lines, m.LF_at_EOF );
+    ok = Write_p( m, m.lines, m.LF_at_EOF );
   }
   else if( ENC_HEX == m.encoding )
   {
@@ -1647,13 +1654,14 @@ void FileBuf::Write()
 
     if( HEX_to_BYTE_get_lines( m, n_lines, LF_at_EOF ) )
     {
-      Write_p( m, n_lines, LF_at_EOF );
+      ok = Write_p( m, n_lines, LF_at_EOF );
     }
   }
   else {
     m.vis.Window_Message("\nUnhandled Encoding: %s\n\n"
                         , Encoding_Str( m.encoding ) );
   }
+  return ok;
 }
 
 // Return number of lines in file
@@ -3226,6 +3234,68 @@ bool FileBuf::Has_Pattern( const String& pattern ) const
   return false;
 }
 
+bool all_lines_commented_CPP( FileBuf::Data& m )
+{
+  bool all_lines_commented = true;
+
+  const unsigned NUM_LINES = m.self.NumLines();
+
+  // Determine if all lines are commented:
+  for( unsigned k=0; all_lines_commented && k<NUM_LINES; k++ )
+  {
+    const Line& l_k = m.self.GetLine( k );
+
+    if( (l_k.len() < 2)
+     || ('/' != l_k.get( 0 ))
+     || ('/' != l_k.get( 1 )) )
+    {
+      all_lines_commented = false;
+    }
+  }
+  return all_lines_commented;
+}
+
+bool all_lines_commented_Script( FileBuf::Data& m )
+{
+  bool all_lines_commented = true;
+
+  const unsigned NUM_LINES = m.self.NumLines();
+
+  // Determine if all lines are commented:
+  for( unsigned k=0; all_lines_commented && k<NUM_LINES; k++ )
+  {
+    const Line& l_k = m.self.GetLine( k );
+
+    if( (l_k.len() < 1)
+     || ('#' != l_k.get( 0 )) )
+    {
+      all_lines_commented = false;
+    }
+  }
+  return all_lines_commented;
+}
+
+bool all_lines_commented_MIB( FileBuf::Data& m )
+{
+  bool all_lines_commented = true;
+
+  const unsigned NUM_LINES = m.self.NumLines();
+
+  // Determine if all lines are commented:
+  for( unsigned k=0; all_lines_commented && k<NUM_LINES; k++ )
+  {
+    const Line& l_k = m.self.GetLine( k );
+
+    if( (l_k.len() < 2)
+     || ('-' != l_k.get( 0 ))
+     || ('-' != l_k.get( 1 )) )
+    {
+      all_lines_commented = false;
+    }
+  }
+  return all_lines_commented;
+}
+
 bool Comment_CPP( FileBuf::Data& m )
 {
   bool commented = false;
@@ -3236,18 +3306,22 @@ bool Comment_CPP( FileBuf::Data& m )
    || FT_JS   == m.file_type
    || FT_STL  == m.file_type )
   {
-    const unsigned NUM_LINES = m.self.NumLines();
-
-    // Comment all lines:
-    for( unsigned k=0; k<NUM_LINES; k++ )
+    if( !all_lines_commented_CPP(m) )
     {
-      m.self.InsertChar( k, 0, '/' );
-      m.self.InsertChar( k, 0, '/' );
+      // Comment all lines:
+      const unsigned NUM_LINES = m.self.NumLines();
+
+      for( unsigned k=0; k<NUM_LINES; k++ )
+      {
+        m.self.InsertChar( k, 0, '/' );
+        m.self.InsertChar( k, 0, '/' );
+      }
+      commented = true;
     }
-    commented = true;
   }
   return commented;
 }
+
 bool Comment_Script( FileBuf::Data& m )
 {
   bool commented = false;
@@ -3257,17 +3331,21 @@ bool Comment_Script( FileBuf::Data& m )
    || FT_MAKE  == m.file_type
    || FT_PY    == m.file_type )
   {
-    const unsigned NUM_LINES = m.self.NumLines();
-
-    // Comment all lines:
-    for( unsigned k=0; k<NUM_LINES; k++ )
+    if( !all_lines_commented_Script(m) )
     {
-      m.self.InsertChar( k, 0, '#' );
+      const unsigned NUM_LINES = m.self.NumLines();
+
+      // Comment all lines:
+      for( unsigned k=0; k<NUM_LINES; k++ )
+      {
+        m.self.InsertChar( k, 0, '#' );
+      }
+      commented = true;
     }
-    commented = true;
   }
   return commented;
 }
+
 bool Comment_MIB( FileBuf::Data& m )
 {
   bool commented = false;
@@ -3275,27 +3353,35 @@ bool Comment_MIB( FileBuf::Data& m )
   if( FT_MIB == m.file_type
    || FT_SQL == m.file_type )
   {
-    const unsigned NUM_LINES = m.self.NumLines();
-
-    // Comment all lines:
-    for( unsigned k=0; k<NUM_LINES; k++ )
+    if( !all_lines_commented_MIB(m) )
     {
-      m.self.InsertChar( k, 0, '-' );
-      m.self.InsertChar( k, 0, '-' );
+      const unsigned NUM_LINES = m.self.NumLines();
+
+      // Comment all lines:
+      for( unsigned k=0; k<NUM_LINES; k++ )
+      {
+        m.self.InsertChar( k, 0, '-' );
+        m.self.InsertChar( k, 0, '-' );
+      }
+      commented = true;
     }
-    commented = true;
   }
   return commented;
 }
 
-void FileBuf::Comment()
+bool FileBuf::Comment()
 {
+  bool commented_file = false;
+
   if( Comment_CPP(m)
    || Comment_Script(m)
    || Comment_MIB(m) )
   {
+    commented_file = true;
+
     Update();
   }
+  return commented_file;
 }
 
 bool UnComment_CPP( FileBuf::Data& m )
@@ -3308,25 +3394,11 @@ bool UnComment_CPP( FileBuf::Data& m )
    || FT_JS   == m.file_type
    || FT_STL  == m.file_type )
   {
-    bool all_lines_commented = true;
-
-    const unsigned NUM_LINES = m.self.NumLines();
-
-    // Determine if all lines are commented:
-    for( unsigned k=0; all_lines_commented && k<NUM_LINES; k++ )
+    if( all_lines_commented_CPP(m) )
     {
-      const Line& l_k = m.self.GetLine( k );
+      // Un-Comment all lines:
+      const unsigned NUM_LINES = m.self.NumLines();
 
-      if( (l_k.len() < 2)
-       || ('/' != l_k.get( 0 ))
-       || ('/' != l_k.get( 1 )) )
-      {
-        all_lines_commented = false;
-      }
-    }
-    // Un-Comment all lines:
-    if( all_lines_commented )
-    {
       for( unsigned k=0; k<NUM_LINES; k++ )
       {
         m.self.RemoveChar( k, 0 );
@@ -3337,6 +3409,7 @@ bool UnComment_CPP( FileBuf::Data& m )
   }
   return uncommented;
 }
+
 bool UnComment_Script( FileBuf::Data& m )
 {
   bool uncommented = false;
@@ -3346,24 +3419,11 @@ bool UnComment_Script( FileBuf::Data& m )
    || FT_MAKE  == m.file_type
    || FT_PY    == m.file_type )
   {
-    bool all_lines_commented = true;
-
-    const unsigned NUM_LINES = m.self.NumLines();
-
-    // Determine if all lines are commented:
-    for( unsigned k=0; all_lines_commented && k<NUM_LINES; k++ )
+    if( all_lines_commented_Script(m) )
     {
-      const Line& l_k = m.self.GetLine( k );
+      // Un-Comment all lines:
+      const unsigned NUM_LINES = m.self.NumLines();
 
-      if( (l_k.len() < 1)
-       || ('#' != l_k.get( 0 )) )
-      {
-        all_lines_commented = false;
-      }
-    }
-    // Un-Comment all lines:
-    if( all_lines_commented )
-    {
       for( unsigned k=0; k<NUM_LINES; k++ )
       {
         m.self.RemoveChar( k, 0 );
@@ -3373,6 +3433,7 @@ bool UnComment_Script( FileBuf::Data& m )
   }
   return uncommented;
 }
+
 bool UnComment_MIB( FileBuf::Data& m )
 {
   bool uncommented = false;
@@ -3380,25 +3441,11 @@ bool UnComment_MIB( FileBuf::Data& m )
   if( FT_MIB == m.file_type
    || FT_SQL == m.file_type )
   {
-    bool all_lines_commented = true;
-
-    const unsigned NUM_LINES = m.self.NumLines();
-
-    // Determine if all lines are commented:
-    for( unsigned k=0; all_lines_commented && k<NUM_LINES; k++ )
+    if( all_lines_commented_MIB(m) )
     {
-      const Line& l_k = m.self.GetLine( k );
+      // Un-Comment all lines:
+      const unsigned NUM_LINES = m.self.NumLines();
 
-      if( (l_k.len() < 2)
-       || ('-' != l_k.get( 0 ))
-       || ('-' != l_k.get( 1 )) )
-      {
-        all_lines_commented = false;
-      }
-    }
-    // Un-Comment all lines:
-    if( all_lines_commented )
-    {
       for( unsigned k=0; k<NUM_LINES; k++ )
       {
         m.self.RemoveChar( k, 0 );
@@ -3410,13 +3457,78 @@ bool UnComment_MIB( FileBuf::Data& m )
   return uncommented;
 }
 
-void FileBuf::UnComment()
+bool FileBuf::UnComment()
 {
+  bool uncommented_file = false;
+
   if( UnComment_CPP(m)
    || UnComment_Script(m)
    || UnComment_MIB(m) )
   {
+    uncommented_file = true;
+
     Update();
   }
+  return uncommented_file;
+}
+
+unsigned FileBuf::Comment_All()
+{
+  unsigned num_files_commented = 0;
+
+  if( m.is_dir )
+  {
+    const unsigned NUM_LINES = m.lines.len();
+
+    for( unsigned k=0; k<NUM_LINES; k++ )
+    {
+      Line* p_line = m.lines[k];
+
+      String pname = m.dir_name;
+      pname += p_line->toString();
+
+      if( ::IsReg( pname.c_str() ) )
+      {
+        m.vis.NotHaveFileAddFile( pname );
+        FileBuf* p_fb = m.vis.GetFileBuf( pname );
+
+        if( 0 != p_fb && p_fb->Comment() && p_fb->Write() )
+        {
+          num_files_commented++;
+        }
+      }
+    }
+  }
+  return num_files_commented;
+}
+
+unsigned FileBuf::UnComment_All()
+{
+  unsigned num_files_uncommented = 0;
+
+  if( m.is_dir )
+  {
+    const unsigned NUM_LINES = m.lines.len();
+
+    for( unsigned k=0; k<NUM_LINES; k++ )
+    {
+      Line* p_line = m.lines[k];
+
+      String pname = m.dir_name;
+      pname += p_line->toString();
+
+      if( ::IsReg( pname.c_str() ) )
+      {
+        m.vis.NotHaveFileAddFile( pname );
+        FileBuf* p_fb = m.vis.GetFileBuf( pname );
+
+        if( 0 != p_fb && p_fb->UnComment() && p_fb->Write() )
+        {
+          num_files_uncommented++;
+        }
+      }
+    }
+  }
+  return num_files_uncommented;
 }
 

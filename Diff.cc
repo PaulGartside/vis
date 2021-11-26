@@ -173,6 +173,9 @@ struct Diff::Data
   Array_t<SimLines> simiList;
   Array_t<LineInfo*> line_info_cache;
 
+  const unsigned max_files_added_per_diff = 10;
+        unsigned num_files_added_this_diff = 0;
+
   Data( Diff& diff, Vis& vis, Key& key, LinesList& reg );
   ~Data();
 };
@@ -818,8 +821,8 @@ void Popu_DI_List_NoSameArea( Diff::Data& m )
 //  DI_List.remove_n( first_to_remove, num___to_remove );
 //}
 
-//// Returns true if the two lines, line_s and line_l, in the two files
-//// being compared, are the names of files that differ
+// Returns true if the two lines, line_s and line_l, in the two files
+// being compared, are the names of files that differ
 //bool Popu_DI_List_Have_Diff_Files( Diff::Data& m
 //                                 , const unsigned line_s
 //                                 , const unsigned line_l )
@@ -849,7 +852,50 @@ void Popu_DI_List_NoSameArea( Diff::Data& m )
 //        files_differ = !Files_Are_Same( *pfb_s, *pfb_l );
 //      }
 //      else {
-//        // Compare the files:
+//        // Slow: Compare the files in NVM:
+//        files_differ = !Files_Are_Same( fname_s.c_str(), fname_l.c_str() );
+//      }
+//    }
+//  }
+//  return files_differ;
+//}
+
+// Returns true if the two lines, line_s and line_l, in the two files
+// being compared, are the names of files that differ
+//bool Popu_DI_List_Have_Diff_Files( Diff::Data& m
+//                                 , const unsigned line_s
+//                                 , const unsigned line_l )
+//{
+//  bool files_differ = false;
+//
+//  if( m.pfS->IsDir() && m.pfL->IsDir() )
+//  {
+//    // fname_s and fname_l are head names
+//    String fname_s = m.pfS->GetLineP( line_s )->toString();
+//    String fname_l = m.pfL->GetLineP( line_l )->toString();
+//
+//    if( (fname_s != "..") && !fname_s.ends_with( DirDelimStr() )
+//     && (fname_l != "..") && !fname_l.ends_with( DirDelimStr() ) )
+//    {
+//      // After prepending the directory names, fname_s and fname_l
+//      // should be full path names, tail and head, of regular files
+//      fname_s.insert( 0, m.pfS->GetDirName() );
+//      fname_l.insert( 0, m.pfL->GetDirName() );
+//
+//      // Add files if they have not been added:
+//      m.vis.NotHaveFileAddFile( fname_s );
+//      m.vis.NotHaveFileAddFile( fname_l );
+//
+//      FileBuf* pfb_s = m.vis.GetFileBuf( fname_s );
+//      FileBuf* pfb_l = m.vis.GetFileBuf( fname_l );
+//
+//      if( (0 != pfb_s) && (0 != pfb_l) )
+//      {
+//        // Fast: Compare files already cached in memory:
+//        files_differ = !Files_Are_Same( *pfb_s, *pfb_l );
+//      }
+//      else {
+//        // Slow: Compare the files in NVM:
 //        files_differ = !Files_Are_Same( fname_s.c_str(), fname_l.c_str() );
 //      }
 //    }
@@ -868,32 +914,47 @@ bool Popu_DI_List_Have_Diff_Files( Diff::Data& m
   if( m.pfS->IsDir() && m.pfL->IsDir() )
   {
     // fname_s and fname_l are head names
-    String fname_s = m.pfS->GetLineP( line_s )->toString();
-    String fname_l = m.pfL->GetLineP( line_l )->toString();
+    String fname_s = m.pfS->GetLine( line_s ).toString();
+    String fname_l = m.pfL->GetLine( line_l ).toString();
 
     if( (fname_s != "..") && !fname_s.ends_with( DirDelimStr() )
      && (fname_l != "..") && !fname_l.ends_with( DirDelimStr() ) )
     {
-      // After prepending the directory names, fname_s and fname_l
-      // should be full path names, tail and head, of regular files
+      // fname_s and fname_l should now be full path names,
+      // tail and head, of regular files
       fname_s.insert( 0, m.pfS->GetDirName() );
       fname_l.insert( 0, m.pfL->GetDirName() );
-
-      // Add files if they have not been added:
-      m.vis.NotHaveFileAddFile( fname_s );
-      m.vis.NotHaveFileAddFile( fname_l );
 
       FileBuf* pfb_s = m.vis.GetFileBuf( fname_s );
       FileBuf* pfb_l = m.vis.GetFileBuf( fname_l );
 
-      if( (0 != pfb_s) && (0 != pfb_l) )
+      // If one side is in ram, read in the other side:
+      if     ( (0 == pfb_s) && (0 != pfb_l) ) m.vis.NotHaveFileAddFile( fname_s );
+      else if( (0 != pfb_s) && (0 == pfb_l) ) m.vis.NotHaveFileAddFile( fname_l );
+      else if( (0 == pfb_s) && (0 == pfb_l) )
       {
-        // Fast: Compare files already cached in memory:
-        files_differ = !Files_Are_Same( *pfb_s, *pfb_l );
+        // Adding files is slow because of all the new'ing, so limit
+        // the number of files that can be added per diff:
+        if( m.num_files_added_this_diff < m.max_files_added_per_diff )
+        {
+          bool added_s = m.vis.NotHaveFileAddFile( fname_s );
+          bool added_l = m.vis.NotHaveFileAddFile( fname_l );
+
+          if( added_s ) m.num_files_added_this_diff++;
+          if( added_l ) m.num_files_added_this_diff++;
+        }
       }
-      else {
+      pfb_s = m.vis.GetFileBuf( fname_s );
+      pfb_l = m.vis.GetFileBuf( fname_l );
+
+      if( (0 == pfb_s) || (0 == pfb_l) )
+      {
         // Slow: Compare the files in NVM:
         files_differ = !Files_Are_Same( fname_s.c_str(), fname_l.c_str() );
+      }
+      else {
+        // Fast: Compare files already cached in memory:
+        files_differ = !Files_Are_Same( *pfb_s, *pfb_l );
       }
     }
   }
@@ -1817,6 +1878,7 @@ void Diff::ClearDiff()
   m.pvL = 0;
   m.pfS = 0;
   m.pfL = 0;
+  m.num_files_added_this_diff = 0;
 }
 
 bool DiffSameAsPrev( Diff::Data& m, View* const pv0, View* const pv1 )
@@ -7029,7 +7091,8 @@ bool Diff::ReDiff()
     m.DI_L_ins_idx = Remove_From_DI_Lists( m, da );
 
     RunDiff( m, da );
-    Update();
+  //Update();
+    m.vis.UpdateViews( false );
   }
   return ok;
 }

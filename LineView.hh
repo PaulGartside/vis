@@ -157,6 +157,7 @@ public:
 
   void Cover();
   void CoverKey();
+  void ShowCoverKey();
 
   struct Data;
 
