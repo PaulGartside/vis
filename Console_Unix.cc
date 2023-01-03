@@ -174,6 +174,9 @@ Color STATUS_BG = Blue;      Color RV_STATUS_BG = White;
 Color STAR_FG   = White;     Color RV_STAR_FG   = Red;
 Color STAR_BG   = Red;       Color RV_STAR_BG   = White;
 
+Color STAR_IN_F_FG = White;  Color RV_STAR_IN_F_FG = Blue;
+Color STAR_IN_F_BG = Blue;   Color RV_STAR_IN_F_BG = White;
+
 Color VISUAL_FG = White;     Color RV_VISUAL_FG = Red;
 Color VISUAL_BG = Red;       Color RV_VISUAL_BG = White;
 
@@ -213,6 +216,9 @@ Color DIFF_NORMAL_BG = Blue;
 
 Color DIFF_STAR_FG =  Blue;
 Color DIFF_STAR_BG =  Red;
+
+Color DIFF_STAR_IN_F_FG =  Blue;
+Color DIFF_STAR_IN_F_BG =  White;
 
 Color DIFF_COMMENT_FG = White;
 Color DIFF_COMMENT_BG = Blue;
@@ -418,6 +424,7 @@ Color Style_2_BG( const uint8_t S )
   case S_BORDER_HI: C = BORDER_HI_BG; break;
   case S_BANNER   : C = BANNER_BG;    break;
   case S_STAR     : C = STAR_BG;      break;
+  case S_STAR_IN_F: C = STAR_IN_F_BG; break;
   case S_COMMENT  : C = COMMENT_BG;   break;
   case S_DEFINE   : C = DEFINE_BG;    break;
   case S_CONST    : C = QUOTE_BG;     break;
@@ -434,6 +441,7 @@ Color Style_2_BG( const uint8_t S )
   case S_RV_BORDER_HI: C = RV_BORDER_HI_BG; break;
   case S_RV_BANNER   : C = RV_BANNER_BG;    break;
   case S_RV_STAR     : C = RV_STAR_BG;      break;
+  case S_RV_STAR_IN_F: C = RV_STAR_IN_F_BG; break;
   case S_RV_COMMENT  : C = RV_COMMENT_BG;   break;
   case S_RV_DEFINE   : C = RV_DEFINE_BG;    break;
   case S_RV_CONST    : C = RV_QUOTE_BG;     break;
@@ -442,15 +450,16 @@ Color Style_2_BG( const uint8_t S )
   case S_RV_VISUAL   : C = RV_VISUAL_BG;    break;
   case S_RV_NONASCII : C = RV_NONASCII_BG;  break;
 
-  case S_DIFF_NORMAL : C = DIFF_NORMAL_BG;  break;
-  case S_DIFF_STAR   : C = DIFF_STAR_BG;    break;
-  case S_DIFF_COMMENT: C = DIFF_COMMENT_BG; break;
-  case S_DIFF_DEFINE : C = DIFF_DEFINE_BG;  break;
-  case S_DIFF_CONST  : C = DIFF_QUOTE_BG;   break;
-  case S_DIFF_CONTROL: C = DIFF_CONTROL_BG; break;
-  case S_DIFF_VARTYPE: C = DIFF_VARTYPE_BG; break;
-  case S_DIFF_VISUAL : C = DIFF_VISUAL_BG;  break;
-  case S_DIFF_DEL    : C = DIFF_DELETED_BG; break;
+  case S_DIFF_NORMAL   : C = DIFF_NORMAL_BG;   break;
+  case S_DIFF_STAR     : C = DIFF_STAR_BG;     break;
+  case S_DIFF_STAR_IN_F: C = DIFF_STAR_IN_F_BG;break;
+  case S_DIFF_COMMENT  : C = DIFF_COMMENT_BG;  break;
+  case S_DIFF_DEFINE   : C = DIFF_DEFINE_BG;   break;
+  case S_DIFF_CONST    : C = DIFF_QUOTE_BG;    break;
+  case S_DIFF_CONTROL  : C = DIFF_CONTROL_BG;  break;
+  case S_DIFF_VARTYPE  : C = DIFF_VARTYPE_BG;  break;
+  case S_DIFF_VISUAL   : C = DIFF_VISUAL_BG;   break;
+  case S_DIFF_DEL      : C = DIFF_DELETED_BG;  break;
   }
   return C;
 }
@@ -469,6 +478,7 @@ Color Style_2_FG( const uint8_t S )
   case S_BORDER_HI: C = BORDER_HI_FG; break;
   case S_BANNER   : C = BANNER_FG;    break;
   case S_STAR     : C = STAR_FG;      break;
+  case S_STAR_IN_F: C = STAR_IN_F_FG; break;
   case S_COMMENT  : C = COMMENT_FG;   break;
   case S_DEFINE   : C = DEFINE_FG;    break;
   case S_CONST    : C = QUOTE_FG;     break;
@@ -485,6 +495,7 @@ Color Style_2_FG( const uint8_t S )
   case S_RV_BORDER_HI: C = RV_BORDER_HI_FG; break;
   case S_RV_BANNER   : C = RV_BANNER_FG;    break;
   case S_RV_STAR     : C = RV_STAR_FG;      break;
+  case S_RV_STAR_IN_F: C = RV_STAR_IN_F_FG; break;
   case S_RV_COMMENT  : C = RV_COMMENT_FG;   break;
   case S_RV_DEFINE   : C = RV_DEFINE_FG;    break;
   case S_RV_CONST    : C = RV_QUOTE_FG;     break;
@@ -493,15 +504,16 @@ Color Style_2_FG( const uint8_t S )
   case S_RV_VISUAL   : C = RV_VISUAL_FG;    break;
   case S_RV_NONASCII : C = RV_NONASCII_FG;  break;
 
-  case S_DIFF_NORMAL : C = DIFF_NORMAL_FG;  break;
-  case S_DIFF_STAR   : C = DIFF_STAR_FG;    break;
-  case S_DIFF_COMMENT: C = DIFF_COMMENT_FG; break;
-  case S_DIFF_DEFINE : C = DIFF_DEFINE_FG;  break;
-  case S_DIFF_CONST  : C = DIFF_QUOTE_FG;   break;
-  case S_DIFF_CONTROL: C = DIFF_CONTROL_FG; break;
-  case S_DIFF_VARTYPE: C = DIFF_VARTYPE_FG; break;
-  case S_DIFF_VISUAL : C = DIFF_VISUAL_FG;  break;
-  case S_DIFF_DEL    : C = DIFF_DELETED_FG; break;
+  case S_DIFF_NORMAL   : C = DIFF_NORMAL_FG;   break;
+  case S_DIFF_STAR     : C = DIFF_STAR_FG;     break;
+  case S_DIFF_STAR_IN_F: C = DIFF_STAR_IN_F_FG;break;
+  case S_DIFF_COMMENT  : C = DIFF_COMMENT_FG;  break;
+  case S_DIFF_DEFINE   : C = DIFF_DEFINE_FG;   break;
+  case S_DIFF_CONST    : C = DIFF_QUOTE_FG;    break;
+  case S_DIFF_CONTROL  : C = DIFF_CONTROL_FG;  break;
+  case S_DIFF_VARTYPE  : C = DIFF_VARTYPE_FG;  break;
+  case S_DIFF_VISUAL   : C = DIFF_VISUAL_FG;   break;
+  case S_DIFF_DEL      : C = DIFF_DELETED_FG;  break;
   }
   return C;
 }
@@ -944,41 +956,44 @@ void Console::Set_Color_Scheme_1()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  NORMAL_FG       = White  ;  NORMAL_BG       = Black  ;
-  STATUS_FG       = White  ;  STATUS_BG       = Blue   ;
-  BORDER_HI_FG    = White  ;  BORDER_HI_BG    = Green  ;
-  BANNER_FG       = White  ;  BANNER_BG       = Red    ;
-  STAR_FG         = White  ;  STAR_BG         = Red    ;
-  COMMENT_FG      = Blue   ;  COMMENT_BG      = Black  ;
-  DEFINE_FG       = Magenta;  DEFINE_BG       = Black  ;
-  QUOTE_FG        = Cyan   ;  QUOTE_BG        = Black  ;
-  CONTROL_FG      = Yellow ;  CONTROL_BG      = Black  ;
-  VARTYPE_FG      = Green  ;  VARTYPE_BG      = Black  ;
-  VISUAL_FG       = White  ;  VISUAL_BG       = Red    ;
-  NONASCII_FG     = Red    ;  NONASCII_BG     = Blue   ;
-  RV_NORMAL_FG    = Black  ;  RV_NORMAL_BG    = White  ;
-  RV_STATUS_FG    = Blue   ;  RV_STATUS_BG    = White  ;
-  RV_BORDER_HI_FG = Green  ;  RV_BORDER_HI_BG = White  ;
-  RV_BANNER_FG    = Red    ;  RV_BANNER_BG    = White  ;
-  RV_STAR_FG      = Red    ;  RV_STAR_BG      = White  ;
-  RV_COMMENT_FG   = White  ;  RV_COMMENT_BG   = Blue   ;
-  RV_DEFINE_FG    = White  ;  RV_DEFINE_BG    = Magenta;
-  RV_QUOTE_FG     = Black  ;  RV_QUOTE_BG     = Cyan   ;
-  RV_CONTROL_FG   = Black  ;  RV_CONTROL_BG   = Yellow ;
-  RV_VARTYPE_FG   = White  ;  RV_VARTYPE_BG   = Green  ;
-  RV_VISUAL_FG    = Red    ;  RV_VISUAL_BG    = White  ;
-  RV_NONASCII_FG  = Blue   ;  RV_NONASCII_BG  = Red    ;
-  EMPTY_FG        = Red    ;  EMPTY_BG        = Black  ;
-  EOF_FG          = Red    ;  EOF_BG          = Gray   ;
-  DIFF_DELETED_FG = White  ;  DIFF_DELETED_BG = Red    ;
-  DIFF_NORMAL_FG  = White  ;  DIFF_NORMAL_BG  = Blue   ;
-  DIFF_STAR_FG    = Blue   ;  DIFF_STAR_BG    = Red    ;
-  DIFF_COMMENT_FG = White  ;  DIFF_COMMENT_BG = Blue   ;
-  DIFF_DEFINE_FG  = Magenta;  DIFF_DEFINE_BG  = Blue   ;
-  DIFF_QUOTE_FG   = Cyan   ;  DIFF_QUOTE_BG   = Blue   ;
-  DIFF_CONTROL_FG = Yellow ;  DIFF_CONTROL_BG = Blue   ;
-  DIFF_VARTYPE_FG = Green  ;  DIFF_VARTYPE_BG = Blue   ;
-  DIFF_VISUAL_FG  = Blue   ;  DIFF_VISUAL_BG  = Red    ;
+  NORMAL_FG         = White  ;  NORMAL_BG         = Black  ;
+  STATUS_FG         = White  ;  STATUS_BG         = Blue   ;
+  BORDER_HI_FG      = White  ;  BORDER_HI_BG      = Green  ;
+  BANNER_FG         = White  ;  BANNER_BG         = Red    ;
+  STAR_FG           = White  ;  STAR_BG           = Red    ;
+  STAR_IN_F_FG      = White  ;  STAR_IN_F_BG      = Blue   ;
+  COMMENT_FG        = Blue   ;  COMMENT_BG        = Black  ;
+  DEFINE_FG         = Magenta;  DEFINE_BG         = Black  ;
+  QUOTE_FG          = Cyan   ;  QUOTE_BG          = Black  ;
+  CONTROL_FG        = Yellow ;  CONTROL_BG        = Black  ;
+  VARTYPE_FG        = Green  ;  VARTYPE_BG        = Black  ;
+  VISUAL_FG         = White  ;  VISUAL_BG         = Red    ;
+  NONASCII_FG       = Red    ;  NONASCII_BG       = Blue   ;
+  RV_NORMAL_FG      = Black  ;  RV_NORMAL_BG      = White  ;
+  RV_STATUS_FG      = Blue   ;  RV_STATUS_BG      = White  ;
+  RV_BORDER_HI_FG   = Green  ;  RV_BORDER_HI_BG   = White  ;
+  RV_BANNER_FG      = Red    ;  RV_BANNER_BG      = White  ;
+  RV_STAR_FG        = Red    ;  RV_STAR_BG        = White  ;
+  RV_STAR_IN_F_FG   = Blue   ;  RV_STAR_IN_F_BG   = White  ;
+  RV_COMMENT_FG     = White  ;  RV_COMMENT_BG     = Blue   ;
+  RV_DEFINE_FG      = White  ;  RV_DEFINE_BG      = Magenta;
+  RV_QUOTE_FG       = Black  ;  RV_QUOTE_BG       = Cyan   ;
+  RV_CONTROL_FG     = Black  ;  RV_CONTROL_BG     = Yellow ;
+  RV_VARTYPE_FG     = White  ;  RV_VARTYPE_BG     = Green  ;
+  RV_VISUAL_FG      = Red    ;  RV_VISUAL_BG      = White  ;
+  RV_NONASCII_FG    = Blue   ;  RV_NONASCII_BG    = Red    ;
+  EMPTY_FG          = Red    ;  EMPTY_BG          = Black  ;
+  EOF_FG            = Red    ;  EOF_BG            = Gray   ;
+  DIFF_DELETED_FG   = White  ;  DIFF_DELETED_BG   = Red    ;
+  DIFF_NORMAL_FG    = White  ;  DIFF_NORMAL_BG    = Blue   ;
+  DIFF_STAR_FG      = Blue   ;  DIFF_STAR_BG      = Red    ;
+  DIFF_STAR_IN_F_FG = Blue   ;  DIFF_STAR_IN_F_BG = White  ;
+  DIFF_COMMENT_FG   = White  ;  DIFF_COMMENT_BG   = Blue   ;
+  DIFF_DEFINE_FG    = Magenta;  DIFF_DEFINE_BG    = Blue   ;
+  DIFF_QUOTE_FG     = Cyan   ;  DIFF_QUOTE_BG     = Blue   ;
+  DIFF_CONTROL_FG   = Yellow ;  DIFF_CONTROL_BG   = Blue   ;
+  DIFF_VARTYPE_FG   = Green  ;  DIFF_VARTYPE_BG   = Blue   ;
+  DIFF_VISUAL_FG    = Blue   ;  DIFF_VISUAL_BG    = Red    ;
 
   Refresh();
 }
@@ -998,41 +1013,44 @@ void Console::Set_Color_Scheme_3()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  NORMAL_FG       = Black  ;  NORMAL_BG       = White  ;
-  STATUS_FG       = White  ;  STATUS_BG       = Blue   ;
-  BORDER_HI_FG    = White  ;  BORDER_HI_BG    = Green  ;
-  BANNER_FG       = White  ;  BANNER_BG       = Red    ;
-  STAR_FG         = White  ;  STAR_BG         = Red    ;
-  COMMENT_FG      = Blue   ;  COMMENT_BG      = White  ;
-  DEFINE_FG       = Magenta;  DEFINE_BG       = White  ;
-  QUOTE_FG        = Cyan   ;  QUOTE_BG        = White  ;
-  CONTROL_FG      = Yellow ;  CONTROL_BG      = White  ;
-  VARTYPE_FG      = Green  ;  VARTYPE_BG      = White  ;
-  VISUAL_FG       = Red    ;  VISUAL_BG       = White  ;
-  NONASCII_FG     = Yellow ;  NONASCII_BG     = Cyan   ;
-  RV_NORMAL_FG    = White  ;  RV_NORMAL_BG    = Black  ;
-  RV_STATUS_FG    = Blue   ;  RV_STATUS_BG    = White  ;
-  RV_BORDER_HI_FG = Green  ;  RV_BORDER_HI_BG = White  ;
-  RV_BANNER_FG    = White  ;  RV_BANNER_BG    = Red    ;
-  RV_STAR_FG      = Red    ;  RV_STAR_BG      = White  ;
-  RV_COMMENT_FG   = White  ;  RV_COMMENT_BG   = Blue   ;
-  RV_DEFINE_FG    = Magenta;  RV_DEFINE_BG    = White  ;
-  RV_QUOTE_FG     = Cyan   ;  RV_QUOTE_BG     = Black  ;
-  RV_CONTROL_FG   = Black  ;  RV_CONTROL_BG   = Yellow ;
-  RV_VARTYPE_FG   = Green  ;  RV_VARTYPE_BG   = White  ;
-  RV_VISUAL_FG    = White  ;  RV_VISUAL_BG    = Red    ;
-  RV_NONASCII_FG  = Cyan   ;  RV_NONASCII_BG  = Yellow ;
-  EMPTY_FG        = Red    ;  EMPTY_BG        = White  ;
-  EOF_FG          = Red    ;  EOF_BG          = Gray   ;
-  DIFF_DELETED_FG = White  ;  DIFF_DELETED_BG = Red    ;
-  DIFF_NORMAL_FG  = White  ;  DIFF_NORMAL_BG  = Blue   ;
-  DIFF_STAR_FG    = Blue   ;  DIFF_STAR_BG    = Red    ;
-  DIFF_COMMENT_FG = White  ;  DIFF_COMMENT_BG = Blue   ;
-  DIFF_DEFINE_FG  = Magenta;  DIFF_DEFINE_BG  = Blue   ;
-  DIFF_QUOTE_FG   = Cyan   ;  DIFF_QUOTE_BG   = Blue   ;
-  DIFF_CONTROL_FG = Yellow ;  DIFF_CONTROL_BG = Blue   ;
-  DIFF_VARTYPE_FG = Green  ;  DIFF_VARTYPE_BG = Blue   ;
-  DIFF_VISUAL_FG  = Blue   ;  DIFF_VISUAL_BG  = Red    ;
+  NORMAL_FG         = Black  ;  NORMAL_BG         = White  ;
+  STATUS_FG         = White  ;  STATUS_BG         = Blue   ;
+  BORDER_HI_FG      = White  ;  BORDER_HI_BG      = Green  ;
+  BANNER_FG         = White  ;  BANNER_BG         = Red    ;
+  STAR_FG           = White  ;  STAR_BG           = Red    ;
+  STAR_IN_F_FG      = White  ;  STAR_IN_F_BG      = Blue   ;
+  COMMENT_FG        = Blue   ;  COMMENT_BG        = White  ;
+  DEFINE_FG         = Magenta;  DEFINE_BG         = White  ;
+  QUOTE_FG          = Cyan   ;  QUOTE_BG          = White  ;
+  CONTROL_FG        = Yellow ;  CONTROL_BG        = White  ;
+  VARTYPE_FG        = Green  ;  VARTYPE_BG        = White  ;
+  VISUAL_FG         = Red    ;  VISUAL_BG         = White  ;
+  NONASCII_FG       = Yellow ;  NONASCII_BG       = Cyan   ;
+  RV_NORMAL_FG      = White  ;  RV_NORMAL_BG      = Black  ;
+  RV_STATUS_FG      = Blue   ;  RV_STATUS_BG      = White  ;
+  RV_BORDER_HI_FG   = Green  ;  RV_BORDER_HI_BG   = White  ;
+  RV_BANNER_FG      = White  ;  RV_BANNER_BG      = Red    ;
+  RV_STAR_FG        = Red    ;  RV_STAR_BG        = White  ;
+  RV_STAR_IN_F_FG   = Blue   ;  RV_STAR_IN_F_BG   = White  ;
+  RV_COMMENT_FG     = White  ;  RV_COMMENT_BG     = Blue   ;
+  RV_DEFINE_FG      = Magenta;  RV_DEFINE_BG      = White  ;
+  RV_QUOTE_FG       = Cyan   ;  RV_QUOTE_BG       = Black  ;
+  RV_CONTROL_FG     = Black  ;  RV_CONTROL_BG     = Yellow ;
+  RV_VARTYPE_FG     = Green  ;  RV_VARTYPE_BG     = White  ;
+  RV_VISUAL_FG      = White  ;  RV_VISUAL_BG      = Red    ;
+  RV_NONASCII_FG    = Cyan   ;  RV_NONASCII_BG    = Yellow ;
+  EMPTY_FG          = Red    ;  EMPTY_BG          = White  ;
+  EOF_FG            = Red    ;  EOF_BG            = Gray   ;
+  DIFF_DELETED_FG   = White  ;  DIFF_DELETED_BG   = Red    ;
+  DIFF_NORMAL_FG    = White  ;  DIFF_NORMAL_BG    = Blue   ;
+  DIFF_STAR_FG      = Blue   ;  DIFF_STAR_BG      = Red    ;
+  DIFF_STAR_IN_F_FG = Blue   ;  DIFF_STAR_IN_F_BG = White  ;
+  DIFF_COMMENT_FG   = White  ;  DIFF_COMMENT_BG   = Blue   ;
+  DIFF_DEFINE_FG    = Magenta;  DIFF_DEFINE_BG    = Blue   ;
+  DIFF_QUOTE_FG     = Cyan   ;  DIFF_QUOTE_BG     = Blue   ;
+  DIFF_CONTROL_FG   = Yellow ;  DIFF_CONTROL_BG   = Blue   ;
+  DIFF_VARTYPE_FG   = Green  ;  DIFF_VARTYPE_BG   = Blue   ;
+  DIFF_VISUAL_FG    = Blue   ;  DIFF_VISUAL_BG    = Red    ;
 
   Refresh();
 }
@@ -1048,37 +1066,37 @@ void Console::Set_Color_Scheme_4()
   Refresh();
 }
 
-void Console::Set_Color_Scheme_5()
-{
-  Trace trace( __PRETTY_FUNCTION__ );
-
-  STATUS_FG = White;
-  STATUS_BG = Blue;
-
-  STAR_FG   = White;
-  STAR_BG   = Red;
-
-  VISUAL_FG = White;
-  VISUAL_BG = Red;
-
-  BANNER_FG = White;
-  BANNER_BG = Red;
-
-  COMMENT_FG = Cyan;
-  COMMENT_BG = Black;
-
-  DEFINE_FG  = Magenta;
-  DEFINE_BG  = Black;
-
-  QUOTE_FG   = Blue;
-  QUOTE_BG   = Black;
-
-  CONTROL_FG = Yellow;
-  CONTROL_BG = Black;
-
-  VARTYPE_FG = Green;
-  VARTYPE_BG = Black;
-
-  Refresh();
-}
+//void Console::Set_Color_Scheme_5()
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//
+//  STATUS_FG = White;
+//  STATUS_BG = Blue;
+//
+//  STAR_FG   = White;
+//  STAR_BG   = Red;
+//
+//  VISUAL_FG = White;
+//  VISUAL_BG = Red;
+//
+//  BANNER_FG = White;
+//  BANNER_BG = Red;
+//
+//  COMMENT_FG = Cyan;
+//  COMMENT_BG = Black;
+//
+//  DEFINE_FG  = Magenta;
+//  DEFINE_BG  = Black;
+//
+//  QUOTE_FG   = Blue;
+//  QUOTE_BG   = Black;
+//
+//  CONTROL_FG = Yellow;
+//  CONTROL_BG = Black;
+//
+//  VARTYPE_FG = Green;
+//  VARTYPE_BG = Black;
+//
+//  Refresh();
+//}
 

@@ -61,6 +61,7 @@ static HiKeyVal HiPairs[] =
   { "static_cast"        , HI_CONTROL },
   { "dynamic_cast"       , HI_CONTROL },
   { "reinterpret_cast"   , HI_CONTROL },
+  { "override"           , HI_CONTROL },
 
   { "auto"               , HI_VARTYPE },
   { "int"                , HI_VARTYPE },
@@ -70,6 +71,7 @@ static HiKeyVal HiPairs[] =
   { "bool"               , HI_VARTYPE },
   { "char"               , HI_VARTYPE },
   { "const"              , HI_VARTYPE },
+  { "constexpr"          , HI_VARTYPE },
   { "short"              , HI_VARTYPE },
   { "float"              , HI_VARTYPE },
   { "double"             , HI_VARTYPE },
@@ -97,6 +99,8 @@ static HiKeyVal HiPairs[] =
   { "typename"           , HI_VARTYPE },
   { "virtual"            , HI_VARTYPE },
   { "inline"             , HI_VARTYPE },
+  { "explicit"           , HI_VARTYPE },
+
   { "true"               , HI_CONST   },
   { "false"              , HI_CONST   },
   { "NULL"               , HI_CONST   },

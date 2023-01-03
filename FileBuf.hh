@@ -133,6 +133,8 @@ public:
   bool UnComment();
   unsigned Comment_All();
   unsigned UnComment_All();
+  unsigned Get_Tab_Size() const;
+  void     Set_Tab_Size( const unsigned ts_new );
 
   struct Data;
 

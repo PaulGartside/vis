@@ -119,6 +119,7 @@ struct FileBuf::Data
   Line       line_buf;
   Encoding   decoding;
   Encoding   encoding;
+  unsigned   tab_size;
 };
 
 FileBuf::Data::Data( FileBuf& parent
@@ -155,6 +156,7 @@ FileBuf::Data::Data( FileBuf& parent
   , m_mutable( MUTABLE )
   , decoding( ENC_BYTE )
   , encoding( ENC_BYTE )
+  , tab_size( 1 )
 {
   if( is_dir )
   {
@@ -924,10 +926,10 @@ void Set__StarStyle( FileBuf::Data& m
   sp->set( c_num, sp->get( c_num ) | HI_STAR );
 }
 
-// Leave syntax m.styles unchanged, and clear star style
-void ClearStarStyle( FileBuf::Data& m
-                   , const unsigned l_num
-                   , const unsigned c_num )
+// Leave syntax m.styles unchanged, and set star-in-file style
+void Set__StarInFStyle( FileBuf::Data& m
+                      , const unsigned l_num
+                      , const unsigned c_num )
 {
   Trace trace( __PRETTY_FUNCTION__ );
   ASSERT( __LINE__, l_num < m.styles.len(), "l_num < m.styles.len()" );
@@ -936,8 +938,44 @@ void ClearStarStyle( FileBuf::Data& m
 
   ASSERT( __LINE__, c_num < sp->len(), "c_num < sp->len()" );
 
-  // Clear only star
-  sp->set( c_num, sp->get( c_num ) & ~HI_STAR );
+  sp->set( c_num, sp->get( c_num ) | HI_STAR_IN_F );
+}
+
+// Leave syntax m.styles unchanged, and clear star style
+//void ClearStarStyle( FileBuf::Data& m
+//                   , const unsigned l_num
+//                   , const unsigned c_num )
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//  ASSERT( __LINE__, l_num < m.styles.len(), "l_num < m.styles.len()" );
+//
+//  Line* sp = m.styles[ l_num ];
+//
+//  ASSERT( __LINE__, c_num < sp->len(), "c_num < sp->len()" );
+//
+//  // Clear only star
+//  sp->set( c_num, sp->get( c_num ) & ~HI_STAR );
+//}
+
+// Leave syntax m.styles unchanged, and clear star and in-file styles
+void ClearStarAndInFileStyles( FileBuf::Data& m
+                             , const unsigned l_num
+                             , const unsigned c_num )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+  ASSERT( __LINE__, l_num < m.styles.len(), "l_num < m.styles.len()" );
+
+  Line* sp = m.styles[ l_num ];
+
+  ASSERT( __LINE__, c_num < sp->len(), "c_num < sp->len()" );
+
+  // Clear only star and in-file
+  uint8_t s = sp->get( c_num );
+
+  s &= ~HI_STAR;
+  s &= ~HI_STAR_IN_F;
+
+  sp->set( c_num, s );
 }
 
 Line* Append_hex_2_line( FileBuf::Data& m
@@ -2929,7 +2967,10 @@ bool Filename_Is_Relevant( String fname )
       || fname.ends_with(".cmake.old" )
       || fname.ends_with("CMakeLists.txt")
       || fname.ends_with("CMakeLists.txt.old")
-      || fname.ends_with("CMakeLists.txt.new");
+      || fname.ends_with("CMakeLists.txt.new")
+      || fname.ends_with("go")
+      || fname.ends_with("go.old")
+      || fname.ends_with("go.new");
 }
 
 bool File_Has_Regex( FileBuf::Data& m, Line* lp )
@@ -2980,7 +3021,7 @@ void FileBuf::Find_Regexs_4_Line( const unsigned line_num )
     // Clear the patterns for the line:
     for( unsigned pos=0; pos<LL; pos++ )
     {
-      ClearStarStyle( m, line_num, pos );
+      ClearStarAndInFileStyles( m, line_num, pos );
     }
     if( 0<m.regex.len() && 0<LL )
     {
@@ -2989,7 +3030,7 @@ void FileBuf::Find_Regexs_4_Line( const unsigned line_num )
       {
         if( File_Has_Regex( m, lp ) )
         {
-          for( int k=0; k<LL; k++ ) Set__StarStyle( m, line_num, k );
+          for( int k=0; k<LL; k++ ) Set__StarInFStyle( m, line_num, k );
         }
       }
       Find_patterns_for_line( m, line_num, lp, LL );
@@ -3011,11 +3052,11 @@ void FileBuf::ClearSyntaxStyles( const unsigned l_num
 
   ASSERT( __LINE__, c_num < sp->len(), "c_num < sp->len()" );
 
-  // Clear everything except star
-  sp->set( c_num, sp->get( c_num ) & HI_STAR );
+  // Clear everything except star and in-file
+  sp->set( c_num, sp->get( c_num ) & ( HI_STAR | HI_STAR_IN_F ) );
 }
 
-// Leave star style unchanged, and set syntax style
+// Leave star and in-file styles unchanged, and set syntax style
 void FileBuf::SetSyntaxStyle( const unsigned l_num
                             , const unsigned c_num
                             , const unsigned style )
@@ -3029,7 +3070,8 @@ void FileBuf::SetSyntaxStyle( const unsigned l_num
 
   uint8_t s = sp->get( c_num );
 
-  s &= HI_STAR; //< Clear everything except star
+  //< Clear everything except star and in-file
+  s &= ( HI_STAR | HI_STAR_IN_F );
   s |= style;   //< Set style
 
   sp->set( c_num, s );
@@ -3530,5 +3572,83 @@ unsigned FileBuf::UnComment_All()
     }
   }
   return num_files_uncommented;
+}
+
+// This method assumes changing from a tab_size ts,
+// where 1 < ts, to a tab_size of 1
+void set_tab_size_to_1( FileBuf::Data& m, const unsigned ts )
+{
+  for( unsigned l_num=0; l_num<m.lines.len(); l_num++ )
+  {
+    Line* lp =  m.lines[ l_num ];
+    Line* sp = m.styles[ l_num ];
+
+    for( int k=lp->len()-1; -1<k; k-- )
+    {
+      const char C = lp->get( k );
+
+      if( C == '\t' )
+      {
+        unsigned spaces_to_rm = ts - (k%ts) - 1;
+
+        for( unsigned i=0; i<spaces_to_rm; i++ )
+        {
+          if( k+1 < lp->len() && ' ' == lp->get( k+1 ) )
+          {
+            lp->remove( k+1 );
+            sp->remove( k+1 );
+          }
+        }
+      }
+    }
+  }
+}
+
+// This method assumes changing from a tab_size of 1 to ts,
+// where 1 < ts
+void set_tab_size_to_X( FileBuf::Data& m, const unsigned ts )
+{
+  for( unsigned l_num=0; l_num<m.lines.len(); l_num++ )
+  {
+    Line* lp =  m.lines[ l_num ];
+    Line* sp = m.styles[ l_num ];
+
+    for( unsigned k=0; k<lp->len(); k++ )
+    {
+      const char C = lp->get( k );
+
+      if( C == '\t' )
+      {
+        unsigned spaces_to_add = ts - (k%ts) - 1;
+
+        for( unsigned i=0; i<spaces_to_add; i++ )
+        {
+          lp->insert( k+1, ' ' );
+        //sp->insert( k+1, '\u0000' );
+          sp->insert( k+1, 0 );
+        }
+      }
+    }
+  }
+}
+
+unsigned FileBuf::Get_Tab_Size() const
+{
+  return m.tab_size;
+}
+
+void FileBuf::Set_Tab_Size( const unsigned ts_new )
+{
+  if( 0 < ts_new && m.tab_size != ts_new )
+  {
+    const unsigned ts_old = m.tab_size;
+
+    m.tab_size = ts_new;
+
+    if( 1 < ts_old ) set_tab_size_to_1( m, ts_old );
+    if( 1 < ts_new ) set_tab_size_to_X( m, ts_new );
+
+    Update();
+  }
 }
 

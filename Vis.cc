@@ -3032,6 +3032,20 @@ void HandleColon_encoding( Vis::Data& m )
   }
 }
 
+void HandleColon_tab_size( Vis::Data& m )
+{
+  if( strlen( m.cbuf ) <= 3 )
+  {
+    unsigned ts = CV(m)->GetFB()->Get_Tab_Size();
+    m.vis.CmdLineMessage("Tab size is: %u", ts );
+  }
+  else { // 3 < strlen( m.cbuf )
+    const unsigned ts = atol( m.cbuf + 3 );
+
+    CV(m)->GetFB()->Set_Tab_Size( ts );
+  }
+}
+
 //void HandleColon_e( Vis::Data& m )
 //{
 //  Trace trace( __PRETTY_FUNCTION__ );
@@ -3237,6 +3251,7 @@ void Handle_Colon_Cmd( Vis::Data& m )
   else if( strcmp( m.cbuf,"uncommentall")==0)HandleColon_uncommentAll(m);
   else if( strncmp(m.cbuf,"dec=",4)==0 )  HandleColon_decoding(m);
   else if( strncmp(m.cbuf,"enc=",4)==0 )  HandleColon_encoding(m);
+  else if( strncmp(m.cbuf,"ts=",3)==0 )   HandleColon_tab_size(m);
   else if( 'e' == m.cbuf[0] )             HandleColon_e(m);
   else if( 'w' == m.cbuf[0] )             HandleColon_w(m);
   else if( 'b' == m.cbuf[0] )             HandleColon_b(m);

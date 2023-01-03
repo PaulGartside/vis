@@ -147,16 +147,18 @@ public:
   void MoveInBounds_Line();
   void MoveInBounds_File();
 
-  bool InVisualArea ( const unsigned line, const unsigned pos );
-  bool InVisualStFn ( const unsigned line, const unsigned pos );
-  bool InVisualBlock( const unsigned line, const unsigned pos );
-  bool InComment    ( const unsigned line, const unsigned pos );
-  bool InDefine     ( const unsigned line, const unsigned pos );
-  bool InConst      ( const unsigned line, const unsigned pos );
-  bool InControl    ( const unsigned line, const unsigned pos );
-  bool InVarType    ( const unsigned line, const unsigned pos );
-  bool InStar       ( const unsigned line, const unsigned pos );
-  bool InNonAscii   ( const unsigned line, const unsigned pos );
+  bool InVisualArea   ( const unsigned line, const unsigned pos );
+  bool InVisualStFn   ( const unsigned line, const unsigned pos );
+  bool InVisualBlock  ( const unsigned line, const unsigned pos );
+  bool InComment      ( const unsigned line, const unsigned pos );
+  bool InDefine       ( const unsigned line, const unsigned pos );
+  bool InConst        ( const unsigned line, const unsigned pos );
+  bool InControl      ( const unsigned line, const unsigned pos );
+  bool InVarType      ( const unsigned line, const unsigned pos );
+  bool InStar         ( const unsigned line, const unsigned pos );
+  bool InStarInF      ( const unsigned line, const unsigned pos );
+  bool InStarOrStarInF( const unsigned line, const unsigned pos );
+  bool InNonAscii     ( const unsigned line, const unsigned pos );
 
   void Update( const bool PRINT_CURSOR = true );
   void RepositionView();

@@ -1403,13 +1403,14 @@ Style Get_Style( Diff::Data& m
   {
     S = S_NORMAL;
 
-    if     (  InVisualArea( m, pV, DL, pos ) ) S = S_RV_VISUAL;
-    else if( pV->InStar       ( VL, pos ) ) S = S_STAR;
-    else if( pV->InDefine     ( VL, pos ) ) S = S_DEFINE;
-    else if( pV->InComment    ( VL, pos ) ) S = S_COMMENT;
-    else if( pV->InConst      ( VL, pos ) ) S = S_CONST;
-    else if( pV->InControl    ( VL, pos ) ) S = S_CONTROL;
-    else if( pV->InVarType    ( VL, pos ) ) S = S_VARTYPE;
+    if     ( InVisualArea( m, pV, DL, pos ) ) S = S_RV_VISUAL;
+    else if( pV->InStar         ( VL, pos ) ) S = S_STAR;
+    else if( pV->InStarInF      ( VL, pos ) ) S = S_STAR_IN_F;
+    else if( pV->InDefine       ( VL, pos ) ) S = S_DEFINE;
+    else if( pV->InComment      ( VL, pos ) ) S = S_COMMENT;
+    else if( pV->InConst        ( VL, pos ) ) S = S_CONST;
+    else if( pV->InControl      ( VL, pos ) ) S = S_CONTROL;
+    else if( pV->InVarType      ( VL, pos ) ) S = S_VARTYPE;
   }
   return S;
 }
@@ -2181,6 +2182,7 @@ Style DiffStyle( const Style S )
 
   if     ( S == S_NORMAL   ) diff_s = S_DIFF_NORMAL   ;
   else if( S == S_STAR     ) diff_s = S_DIFF_STAR     ;
+  else if( S == S_STAR_IN_F) diff_s = S_DIFF_STAR_IN_F;
   else if( S == S_COMMENT  ) diff_s = S_DIFF_COMMENT  ;
   else if( S == S_DEFINE   ) diff_s = S_DIFF_DEFINE   ;
   else if( S == S_CONST    ) diff_s = S_DIFF_CONST    ;
@@ -2895,23 +2897,23 @@ bool Do_n_FindNextPattern( Diff::Data& m, CrsPos& ncp )
 
   pfb->Check_4_New_Regex();
   pfb->Find_Regexs_4_Line( OCL );
-  for( ; st_c<LL && pV->InStar(OCLv,st_c); st_c++ ) ;
 
-  // Go down to next line
+  // Move past current pattern:
+  for( ; st_c<LL && pV->InStarOrStarInF(OCLv,st_c); st_c++ ) ;
+
+  // If at end of current line, go down to next line
   if( LL <= st_c ) { st_c=0; st_l++; }
 
-  // Search for first star position past current position
+  // Search for first pattern position past current position
   for( unsigned l=st_l; !found_next_star && l<NUM_LINES; l++ )
   {
     pfb->Find_Regexs_4_Line( l );
 
     const unsigned LL = pfb->LineLen( l );
 
-    for( unsigned p=st_c
-       ; !found_next_star && p<LL
-       ; p++ )
+    for( unsigned p=st_c; !found_next_star && p<LL; p++ )
     {
-      if( pV->InStar(l,p) )
+      if( pV->InStarOrStarInF(l,p) )
       {
         found_next_star = true;
         // Convert from view line back to diff line:
@@ -2935,7 +2937,7 @@ bool Do_n_FindNextPattern( Diff::Data& m, CrsPos& ncp )
 
       for( unsigned p=0; !found_next_star && p<END_C; p++ )
       {
-        if( pV->InStar(l,p) )
+        if( pV->InStarOrStarInF(l,p) )
         {
           found_next_star = true;
           // Convert from view line back to diff line:
@@ -3022,7 +3024,7 @@ bool Do_N_FindPrevPattern( Diff::Data& m, CrsPos& ncp )
 
     for( ; 0<p && !found_prev_star; p-- )
     {
-      for( ; 0<=p && pV->InStar(l,p); p-- )
+      for( ; 0<=p && pV->InStarOrStarInF(l,p); p-- )
       {
         found_prev_star = true;
         // Convert from view line back to diff line:
@@ -3046,7 +3048,7 @@ bool Do_N_FindPrevPattern( Diff::Data& m, CrsPos& ncp )
 
       for( ; 0<p && !found_prev_star; p-- )
       {
-        for( ; 0<=p && pV->InStar(l,p); p-- )
+        for( ; 0<=p && pV->InStarOrStarInF(l,p); p-- )
         {
           found_prev_star = true;
           // Convert from view line back to diff line:

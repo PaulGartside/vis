@@ -178,6 +178,7 @@ Style Get_Style( LineView::Data& m
     s = S_RV_NORMAL;
 
     if     ( m.view.InStar    ( line, pos ) ) s = S_RV_STAR;
+    else if( m.view.InStarInF ( line, pos ) ) s = S_RV_STAR_IN_F;
     else if( m.view.InDefine  ( line, pos ) ) s = S_RV_DEFINE;
     else if( m.view.InComment ( line, pos ) ) s = S_RV_COMMENT;
     else if( m.view.InConst   ( line, pos ) ) s = S_RV_CONST;
@@ -186,6 +187,7 @@ Style Get_Style( LineView::Data& m
     else if( m.view.InNonAscii( line, pos ) ) s = S_RV_NONASCII;
   }
   else if( m.view.InStar    ( line, pos ) ) s = S_STAR;
+  else if( m.view.InStarInF ( line, pos ) ) s = S_STAR_IN_F;
   else if( m.view.InDefine  ( line, pos ) ) s = S_DEFINE;
   else if( m.view.InComment ( line, pos ) ) s = S_COMMENT;
   else if( m.view.InConst   ( line, pos ) ) s = S_CONST;
@@ -2624,6 +2626,13 @@ bool LineView::InStar( const unsigned line, const unsigned pos )
   Trace trace( __PRETTY_FUNCTION__ );
 
   return m.fb.HasStyle( line, pos, HI_STAR );
+}
+
+bool LineView::InStarInF( const unsigned line, const unsigned pos )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  return m.fb.HasStyle( line, pos, HI_STAR_IN_F );
 }
 
 bool LineView::InNonAscii( const unsigned line, const unsigned pos )

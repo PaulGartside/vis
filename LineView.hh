@@ -139,6 +139,7 @@ public:
   bool InControl    ( const unsigned line, const unsigned pos );
   bool InVarType    ( const unsigned line, const unsigned pos );
   bool InStar       ( const unsigned line, const unsigned pos );
+  bool InStarInF    ( const unsigned line, const unsigned pos );
   bool InNonAscii   ( const unsigned line, const unsigned pos );
 
   void Update();

@@ -152,10 +152,12 @@ void Highlight_Code::Hi_In_Define( unsigned& l, unsigned& p )
   Trace trace( __PRETTY_FUNCTION__ );
   const unsigned LL = m_fb.LineLen( l );
 
+  char ce = 0; // character at end of line
   for( ; p<LL; p++ )
   {
-    const char c1 = p ? m_fb.Get( l, p-1 ) : m_fb.Get( l, p );
-    const char c0 = p ? m_fb.Get( l, p   ) : 0;
+    // c0 is ahead of c1: (c1,c0)
+    const char c1 = p ? m_fb.Get( l, p-1 ) : 0;
+    const char c0 =     m_fb.Get( l, p );
 
     if( c1=='/' && c0=='/' )
     {
@@ -171,9 +173,14 @@ void Highlight_Code::Hi_In_Define( unsigned& l, unsigned& p )
       m_fb.SetSyntaxStyle( l, p, HI_DEFINE );
     }
     if( &ME::Hi_In_Define != m_state ) return;
+    ce = c0;
   }
   p=0; l++;
-  m_state = &ME::Hi_In_None;
+
+  if( ce != '\\' )
+  {
+    m_state = &ME::Hi_In_None;
+  }
 }
 
 void Highlight_Code::Hi_BegC_Comment( unsigned& l, unsigned& p )
@@ -193,8 +200,9 @@ void Highlight_Code::Hi_In_C_Comment( unsigned& l, unsigned& p )
 
     for( ; p<LL; p++ )
     {
-      const char c1 = p ? m_fb.Get( l, p-1 ) : m_fb.Get( l, p );
-      const char c0 = p ? m_fb.Get( l, p   ) : 0;
+      // c0 is ahead of c1: (c1,c0)
+      const char c1 = p ? m_fb.Get( l, p-1 ) : 0;
+      const char c0 =     m_fb.Get( l, p );
 
       if( c1=='*' && c0=='/' )
       {
@@ -387,6 +395,21 @@ void Highlight_Code::Hi_NumberIn( unsigned& l, unsigned& p )
     else if( c1=='L' || c1=='F' || c1=='U' )
     {
       m_state = &ME::Hi_NumberTypeSpec;
+    }
+    else if( c1=='\'' && (p+1)<LL )
+    {
+      // ' is followed by another digit on line
+      const char c0 = m_fb.Get( l, p+1 );
+
+      if( isdigit( c0 ) )
+      {
+        m_fb.SetSyntaxStyle( l, p  , HI_CONST );
+        m_fb.SetSyntaxStyle( l, p+1, HI_CONST );
+        p += 2;
+      }
+      else {
+        m_state = &ME::Hi_In_None;
+      }
     }
     else {
       m_state = &ME::Hi_In_None;

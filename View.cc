@@ -385,6 +385,7 @@ Style Get_Style( View::Data& m
     s = S_RV_NORMAL;
 
     if     ( m.view.InStar    ( line, pos ) ) s = S_RV_STAR;
+    else if( m.view.InStarInF ( line, pos ) ) s = S_RV_STAR_IN_F;
     else if( m.view.InDefine  ( line, pos ) ) s = S_RV_DEFINE;
     else if( m.view.InComment ( line, pos ) ) s = S_RV_COMMENT;
     else if( m.view.InConst   ( line, pos ) ) s = S_RV_CONST;
@@ -393,6 +394,7 @@ Style Get_Style( View::Data& m
     else if( m.view.InNonAscii( line, pos ) ) s = S_RV_NONASCII;
   }
   else if( m.view.InStar    ( line, pos ) ) s = S_STAR;
+  else if( m.view.InStarInF ( line, pos ) ) s = S_STAR_IN_F;
   else if( m.view.InDefine  ( line, pos ) ) s = S_DEFINE;
   else if( m.view.InComment ( line, pos ) ) s = S_COMMENT;
   else if( m.view.InConst   ( line, pos ) ) s = S_CONST;
@@ -2046,6 +2048,7 @@ bool RV_Style( const Style s )
 {
   return s == S_RV_NORMAL
       || s == S_RV_STAR
+      || s == S_RV_STAR_IN_F
       || s == S_RV_DEFINE
       || s == S_RV_COMMENT
       || s == S_RV_CONST
@@ -2057,12 +2060,13 @@ Style RV_Style_2_NonRV( const Style RVS )
 {
   Style s = S_NORMAL;
 
-  if     ( RVS == S_RV_STAR    ) s = S_STAR   ;
-  else if( RVS == S_RV_DEFINE  ) s = S_DEFINE ;
-  else if( RVS == S_RV_COMMENT ) s = S_COMMENT;
-  else if( RVS == S_RV_CONST   ) s = S_CONST  ;
-  else if( RVS == S_RV_CONTROL ) s = S_CONTROL;
-  else if( RVS == S_RV_VARTYPE ) s = S_VARTYPE;
+  if     ( RVS == S_RV_STAR     ) s = S_STAR     ;
+  else if( RVS == S_RV_STAR_IN_F) s = S_STAR_IN_F;
+  else if( RVS == S_RV_DEFINE   ) s = S_DEFINE   ;
+  else if( RVS == S_RV_COMMENT  ) s = S_COMMENT  ;
+  else if( RVS == S_RV_CONST    ) s = S_CONST    ;
+  else if( RVS == S_RV_CONTROL  ) s = S_CONTROL  ;
+  else if( RVS == S_RV_VARTYPE  ) s = S_VARTYPE  ;
 
   return s;
 }
@@ -2137,7 +2141,7 @@ bool Do_n_FindNextPattern( View::Data& m, CrsPos& ncp )
 
   m.fb.Check_4_New_Regex();
   m.fb.Find_Regexs_4_Line( OCL );
-  for( ; st_c<LL && m.view.InStar(OCL,st_c); st_c++ ) ;
+  for( ; st_c<LL && m.view.InStarOrStarInF(OCL,st_c); st_c++ ) ;
 
   // If at end of current line, go down to next line:
   if( LL <= st_c ) { st_c=0; st_l++; }
@@ -2151,7 +2155,7 @@ bool Do_n_FindNextPattern( View::Data& m, CrsPos& ncp )
 
     for( unsigned p=st_c; !found_next_star && p<LL; p++ )
     {
-      if( m.view.InStar(l,p) )
+      if( m.view.InStarOrStarInF(l,p) )
       {
         found_next_star = true;
         ncp.crsLine = l;
@@ -2174,7 +2178,7 @@ bool Do_n_FindNextPattern( View::Data& m, CrsPos& ncp )
 
       for( unsigned p=0; !found_next_star && p<END_C; p++ )
       {
-        if( m.view.InStar(l,p) )
+        if( m.view.InStarOrStarInF(l,p) )
         {
           found_next_star = true;
           ncp.crsLine = l;
@@ -2330,7 +2334,7 @@ bool Do_N_FindPrevPattern( View::Data& m, CrsPos& ncp )
 
     for( ; 0<p && !found_prev_star; p-- )
     {
-      for( ; 0<=p && m.view.InStar(l,p); p-- )
+      for( ; 0<=p && m.view.InStarOrStarInF(l,p); p-- )
       {
         found_prev_star = true;
         ncp.crsLine = l;
@@ -2353,7 +2357,7 @@ bool Do_N_FindPrevPattern( View::Data& m, CrsPos& ncp )
 
       for( ; 0<p && !found_prev_star; p-- )
       {
-        for( ; 0<=p && m.view.InStar(l,p); p-- )
+        for( ; 0<=p && m.view.InStarOrStarInF(l,p); p-- )
         {
           found_prev_star = true;
           ncp.crsLine = l;
@@ -4285,6 +4289,20 @@ bool View::InStar( const unsigned line, const unsigned pos )
   Trace trace( __PRETTY_FUNCTION__ );
 
   return m.fb.HasStyle( line, pos, HI_STAR );
+}
+
+bool View::InStarInF( const unsigned line, const unsigned pos )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  return m.fb.HasStyle( line, pos, HI_STAR_IN_F );
+}
+
+bool View::InStarOrStarInF( const unsigned line, const unsigned pos )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  return m.fb.HasStyle( line, pos, HI_STAR | HI_STAR_IN_F );
 }
 
 bool View::InNonAscii( const unsigned line, const unsigned pos )

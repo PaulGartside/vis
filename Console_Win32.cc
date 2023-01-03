@@ -778,37 +778,37 @@ void Console::Set_Color_Scheme_4()
   Refresh();
 }
 
-void Console::Set_Color_Scheme_5()
-{
-  STATUS_FG = White;
-  STATUS_BG = Blue;
-
-  STAR_FG   = White;
-  STAR_BG   = Red;
-
-  VISUAL_FG = White;
-  VISUAL_BG = Red;
-
-  BANNER_FG = White;
-  BANNER_BG = Red;
-
-  COMMENT_FG = Cyan;
-  COMMENT_BG = Black;
-
-  DEFINE_FG  = Magenta;
-  DEFINE_BG  = Black;
-
-  QUOTE_FG   = Blue;
-  QUOTE_BG   = Black;
-
-  CONTROL_FG = Yellow;
-  CONTROL_BG = Black;
-
-  VARTYPE_FG = Green;
-  VARTYPE_BG = Black;
-
-  Refresh();
-}
+//void Console::Set_Color_Scheme_5()
+//{
+//  STATUS_FG = White;
+//  STATUS_BG = Blue;
+//
+//  STAR_FG   = White;
+//  STAR_BG   = Red;
+//
+//  VISUAL_FG = White;
+//  VISUAL_BG = Red;
+//
+//  BANNER_FG = White;
+//  BANNER_BG = Red;
+//
+//  COMMENT_FG = Cyan;
+//  COMMENT_BG = Black;
+//
+//  DEFINE_FG  = Magenta;
+//  DEFINE_BG  = Black;
+//
+//  QUOTE_FG   = Blue;
+//  QUOTE_BG   = Black;
+//
+//  CONTROL_FG = Yellow;
+//  CONTROL_BG = Black;
+//
+//  VARTYPE_FG = Green;
+//  VARTYPE_BG = Black;
+//
+//  Refresh();
+//}
 
 void Console::Set_Normal()
 {

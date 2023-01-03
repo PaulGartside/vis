@@ -59,13 +59,14 @@ enum Paste_Pos
 // HI for Highlight
 enum HighlightType
 {
-  HI_STAR     = 0x01, // Search pattern
-  HI_COMMENT  = 0x02, // Comment
-  HI_DEFINE   = 0x04, // #define
-  HI_CONST    = 0x08, // C constant, '...' or "...", true, false
-  HI_CONTROL  = 0x10, // C flow control, if, else, etc.
-  HI_VARTYPE  = 0x20, // C variable type, char, int, etc.
-  HI_NONASCII = 0x40 // Non-ascii character
+  HI_STAR      = 0x01, // Search pattern
+  HI_STAR_IN_F = 0x02, // Search pattern in file
+  HI_COMMENT   = 0x04, // Comment
+  HI_DEFINE    = 0x08, // #define
+  HI_CONST     = 0x10, // C constant, '...' or "...", true, false
+  HI_CONTROL   = 0x20, // C flow control, if, else, etc.
+  HI_VARTYPE   = 0x40, // C variable type, char, int, etc.
+  HI_NONASCII  = 0x80  // Non-ascii character
 };
 
 enum Style
@@ -76,6 +77,7 @@ enum Style
   S_BORDER_HI, S_RV_BORDER_HI,
   S_BANNER   , S_RV_BANNER   ,
   S_STAR     , S_RV_STAR     ,
+  S_STAR_IN_F, S_RV_STAR_IN_F,
   S_COMMENT  , S_RV_COMMENT  ,
   S_DEFINE   , S_RV_DEFINE   ,
   S_CONST    , S_RV_CONST    ,
@@ -85,15 +87,16 @@ enum Style
   S_NONASCII , S_RV_NONASCII ,
   S_EMPTY    ,
   S_EOF      ,
-  S_DIFF_DEL    ,
-  S_DIFF_NORMAL ,
-  S_DIFF_STAR   ,
-  S_DIFF_COMMENT,
-  S_DIFF_DEFINE ,
-  S_DIFF_CONST  ,
-  S_DIFF_CONTROL,
-  S_DIFF_VARTYPE,
-  S_DIFF_VISUAL ,
+  S_DIFF_DEL      ,
+  S_DIFF_NORMAL   ,
+  S_DIFF_STAR     ,
+  S_DIFF_STAR_IN_F,
+  S_DIFF_COMMENT  ,
+  S_DIFF_DEFINE   ,
+  S_DIFF_CONST    ,
+  S_DIFF_CONTROL  ,
+  S_DIFF_VARTYPE  ,
+  S_DIFF_VISUAL   ,
   S_UNKNOWN
 };
 

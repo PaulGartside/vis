@@ -64,7 +64,7 @@ public:
   static void Set_Color_Scheme_2();
   static void Set_Color_Scheme_3();
   static void Set_Color_Scheme_4();
-  static void Set_Color_Scheme_5();
+//static void Set_Color_Scheme_5();
 };
 
 #endif
