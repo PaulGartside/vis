@@ -3087,11 +3087,9 @@ void View::PageDown()
 void View::PageUp()
 {
   Trace trace( __PRETTY_FUNCTION__ );
-  const unsigned OCL = CrsLine(); // Old cursor line
-  const unsigned OCP = CrsChar(); // Old cursor position
 
   // Dont scroll if we are at the top of the file:
-  if( m.topLine )
+  if( 0 < m.topLine )
   {
     //Leave m.crsRow unchanged.
     m.crsCol = 0;
@@ -3538,7 +3536,6 @@ void View::GoToCmdLineClear( const char* S )
 }
 
 // If past end of line, move back to end of line.
-// Returns true if moved, false otherwise.
 //
 void View::MoveInBounds_Line()
 {
@@ -4455,8 +4452,6 @@ void View::PrintCmdLine()
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  // Assumes you are already at the command line,
-  // and just prints "--INSERT--" banner, and/or clears command line
   const unsigned WC = WorkingCols();
   unsigned col=0;
   // Draw insert banner if needed

@@ -1991,7 +1991,7 @@ bool LineView::Do_i()
   const unsigned LL = m.fb.LineLen( CrsLine() );  // Line length
 
   // For user friendlyness, move cursor to new position immediately:
-  // Since cursor is now allowed past EOL, it may need to be moved back:
+  // Since cursor is not allowed past EOL, it may need to be moved back:
   GoToCrsPos_Write( CrsLine(), LL < CrsChar() ? LL : CrsChar() );
 
   const bool CURSOR_AT_EOL = CrsChar() == LL;

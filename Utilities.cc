@@ -425,7 +425,7 @@ bool FindFullFileNameRel2( const char* rel_2_path, String& in_out_fname )
 
     if( 0<in_out_fname.len() && DIR_DELIM == in_fname[0] )
     {
-      // in_out_fname is a already full path, so just return
+      // in_out_fname is already a full path, so just return
       return true;
     }
     const unsigned BUF_LEN = 1024;
