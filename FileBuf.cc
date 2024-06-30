@@ -3574,6 +3574,57 @@ unsigned FileBuf::UnComment_All()
   return num_files_uncommented;
 }
 
+void FileBuf::Strip_escape_seqs()
+{
+  unsigned esc_seqs_removed = 0;
+  unsigned bytes_removed = 0;
+
+  const unsigned NUM_LINES = NumLines();
+
+  for( unsigned k=0; k<NUM_LINES; k++ )
+  {
+    Line& l_k = *m.lines[ k ];
+  //Line& s_k = *m.styles[ k ];
+
+    unsigned LL = l_k.len();
+
+    for( unsigned p=0; 2<LL && p<LL-2; p++ )
+    {
+      if( '\E' == l_k.get(p)
+       && '['  == l_k.get(p+1) )
+      {
+        const unsigned st = p;
+
+        for( unsigned fn=p+2; (fn-st<10) && fn<LL; fn++ )
+        {
+          const uint8_t C_fn = l_k.get(fn);
+
+          if( 'm' == C_fn
+           || 'K' == C_fn )
+          {
+            // Remove from st to fn
+            for( unsigned i=st; i<=fn; i++ )
+            {
+            //l_k.remove( st );
+            //s_k.remove( st );
+              RemoveChar( k, st );
+              bytes_removed++;
+            }
+            LL = l_k.len();
+            p--;
+            esc_seqs_removed++;
+            break;
+          }
+        }
+      }
+    }
+  }
+  if( 0<bytes_removed ) Update();
+
+  m.vis.CmdLineMessage("Removed %u escape sequences, %u bytes"
+                      , esc_seqs_removed, bytes_removed );
+}
+
 // This method assumes changing from a tab_size ts,
 // where 1 < ts, to a tab_size of 1
 void set_tab_size_to_1( FileBuf::Data& m, const unsigned ts )

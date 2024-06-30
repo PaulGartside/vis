@@ -1286,212 +1286,6 @@ void GoToNextWindow_l( Vis::Data& m )
   }
 }
 
-//bool GoToNextWindow_h_Find( Vis::Data& m )
-//{
-//  Trace trace( __PRETTY_FUNCTION__ );
-//
-//  bool found = false; // Found next view to go to
-//
-//  const View*    curr_V  = GetView_Win( m, m.win );
-//  const Tile_Pos curr_TP = curr_V->GetTilePos();
-//
-//  if( curr_TP == TP_LEFT_HALF )
-//  {
-//    for( unsigned k=0; !found && k<m.num_wins; k++ )
-//    {
-//      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
-//      if( TP_RITE_HALF     == TP
-//       || TP_TOP__RITE_QTR == TP
-//       || TP_BOT__RITE_QTR == TP
-//       || TP_RITE_QTR      == TP
-//       || TP_TOP__RITE_8TH == TP
-//       || TP_BOT__RITE_8TH == TP ) { m.win = k; found = true; }
-//    }
-//  }
-//  else if( curr_TP == TP_RITE_HALF )
-//  {
-//    for( unsigned k=0; !found && k<m.num_wins; k++ )
-//    {
-//      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
-//      if( TP_LEFT_HALF         == TP
-//       || TP_TOP__LEFT_QTR     == TP
-//       || TP_BOT__LEFT_QTR     == TP
-//       || TP_LEFT_CTR__QTR     == TP
-//       || TP_TOP__LEFT_CTR_8TH == TP
-//       || TP_BOT__LEFT_CTR_8TH == TP ) { m.win = k; found = true; }
-//    }
-//  }
-//  else if( curr_TP == TP_TOP__LEFT_QTR )
-//  {
-//    for( unsigned k=0; !found && k<m.num_wins; k++ )
-//    {
-//      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
-//      if( TP_RITE_HALF     == TP
-//       || TP_TOP__RITE_QTR == TP
-//       || TP_RITE_QTR      == TP
-//       || TP_TOP__RITE_8TH == TP ) { m.win = k; found = true; }
-//    }
-//  }
-//  else if( curr_TP == TP_TOP__RITE_QTR )
-//  {
-//    for( unsigned k=0; !found && k<m.num_wins; k++ )
-//    {
-//      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
-//      if( TP_LEFT_HALF         == TP
-//       || TP_LEFT_CTR__QTR     == TP
-//       || TP_TOP__LEFT_QTR     == TP
-//       || TP_TOP__LEFT_CTR_8TH == TP ) { m.win = k; found = true; }
-//    }
-//  }
-//  else if( curr_TP == TP_BOT__LEFT_QTR )
-//  {
-//    for( unsigned k=0; !found && k<m.num_wins; k++ )
-//    {
-//      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
-//      if( TP_RITE_HALF     == TP
-//       || TP_BOT__RITE_QTR == TP
-//       || TP_RITE_QTR      == TP
-//       || TP_BOT__RITE_8TH == TP ) { m.win = k; found = true; }
-//    }
-//  }
-//  else if( curr_TP == TP_BOT__RITE_QTR )
-//  {
-//    for( unsigned k=0; !found && k<m.num_wins; k++ )
-//    {
-//      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
-//      if( TP_LEFT_HALF         == TP
-//       || TP_LEFT_CTR__QTR     == TP
-//       || TP_BOT__LEFT_QTR     == TP
-//       || TP_BOT__LEFT_CTR_8TH == TP ) { m.win = k; found = true; }
-//    }
-//  }
-//  else if( curr_TP == TP_LEFT_QTR )
-//  {
-//    for( unsigned k=0; !found && k<m.num_wins; k++ )
-//    {
-//      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
-//      if( TP_RITE_HALF     == TP
-//       || TP_RITE_QTR      == TP
-//       || TP_TOP__RITE_8TH == TP
-//       || TP_BOT__RITE_8TH == TP ) { m.win = k; found = true; }
-//    }
-//  }
-//  else if( curr_TP == TP_RITE_QTR )
-//  {
-//    for( unsigned k=0; !found && k<m.num_wins; k++ )
-//    {
-//      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
-//      if( TP_RITE_CTR__QTR     == TP
-//       || TP_TOP__LEFT_CTR_8TH == TP
-//       || TP_BOT__LEFT_CTR_8TH == TP ) { m.win = k; found = true; }
-//    }
-//  }
-//  else if( curr_TP == TP_LEFT_CTR__QTR )
-//  {
-//    for( unsigned k=0; !found && k<m.num_wins; k++ )
-//    {
-//      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
-//      if( TP_LEFT_QTR      == TP
-//       || TP_TOP__LEFT_8TH == TP
-//       || TP_BOT__LEFT_8TH == TP ) { m.win = k; found = true; }
-//    }
-//  }
-//  else if( curr_TP == TP_RITE_CTR__QTR )
-//  {
-//    for( unsigned k=0; !found && k<m.num_wins; k++ )
-//    {
-//      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
-//      if( TP_LEFT_HALF         == TP
-//       || TP_LEFT_CTR__QTR     == TP
-//       || TP_TOP__LEFT_QTR     == TP
-//       || TP_BOT__LEFT_QTR     == TP
-//       || TP_TOP__LEFT_CTR_8TH == TP
-//       || TP_BOT__LEFT_CTR_8TH == TP ) { m.win = k; found = true; }
-//    }
-//  }
-//  else if( curr_TP == TP_TOP__LEFT_8TH )
-//  {
-//    for( unsigned k=0; !found && k<m.num_wins; k++ )
-//    {
-//      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
-//      if( TP_RITE_HALF     == TP
-//       || TP_TOP__RITE_QTR == TP
-//       || TP_RITE_QTR      == TP
-//       || TP_TOP__RITE_8TH == TP ) { m.win = k; found = true; }
-//    }
-//  }
-//  else if( curr_TP == TP_BOT__LEFT_8TH )
-//  {
-//    for( unsigned k=0; !found && k<m.num_wins; k++ )
-//    {
-//      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
-//      if( TP_RITE_HALF     == TP
-//       || TP_BOT__RITE_QTR == TP
-//       || TP_RITE_QTR      == TP
-//       || TP_BOT__RITE_8TH == TP ) { m.win = k; found = true; }
-//    }
-//  }
-//  else if( curr_TP == TP_TOP__LEFT_CTR_8TH )
-//  {
-//    for( unsigned k=0; !found && k<m.num_wins; k++ )
-//    {
-//      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
-//      if( TP_LEFT_QTR      == TP
-//       || TP_TOP__LEFT_8TH == TP ) { m.win = k; found = true; }
-//    }
-//  }
-//  else if( curr_TP == TP_BOT__LEFT_CTR_8TH )
-//  {
-//    for( unsigned k=0; !found && k<m.num_wins; k++ )
-//    {
-//      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
-//      if( TP_LEFT_QTR      == TP
-//       || TP_BOT__LEFT_8TH == TP ) { m.win = k; found = true; }
-//    }
-//  }
-//  else if( curr_TP == TP_TOP__RITE_CTR_8TH )
-//  {
-//    for( unsigned k=0; !found && k<m.num_wins; k++ )
-//    {
-//      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
-//      if( TP_LEFT_HALF         == TP
-//       || TP_TOP__LEFT_QTR     == TP
-//       || TP_LEFT_CTR__QTR     == TP
-//       || TP_TOP__LEFT_CTR_8TH == TP ) { m.win = k; found = true; }
-//    }
-//  }
-//  else if( curr_TP == TP_BOT__RITE_CTR_8TH )
-//  {
-//    for( unsigned k=0; !found && k<m.num_wins; k++ )
-//    {
-//      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
-//      if( TP_LEFT_HALF         == TP
-//       || TP_BOT__LEFT_QTR     == TP
-//       || TP_LEFT_CTR__QTR     == TP
-//       || TP_BOT__LEFT_CTR_8TH == TP ) { m.win = k; found = true; }
-//    }
-//  }
-//  else if( curr_TP == TP_TOP__RITE_8TH )
-//  {
-//    for( unsigned k=0; !found && k<m.num_wins; k++ )
-//    {
-//      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
-//      if( TP_RITE_CTR__QTR     == TP
-//       || TP_TOP__RITE_CTR_8TH == TP ) { m.win = k; found = true; }
-//    }
-//  }
-//  else if( curr_TP == TP_BOT__RITE_8TH )
-//  {
-//    for( unsigned k=0; !found && k<m.num_wins; k++ )
-//    {
-//      const Tile_Pos TP = GetView_Win( m, k )->GetTilePos();
-//      if( TP_RITE_CTR__QTR     == TP
-//       || TP_BOT__RITE_CTR_8TH == TP ) { m.win = k; found = true; }
-//    }
-//  }
-//  return found;
-//}
-
 bool GoToNextWin_h_TP_RITE_HALF( Vis::Data& m )
 {
   bool found = false; // Found next view to go to
@@ -3564,6 +3358,11 @@ void HandleColon_uncommentAll( Vis::Data& m )
   m.vis.CmdLineMessage("Uncommented %u files", num_files_uncommented );
 }
 
+void HandleColon_strip_escape_seqs( Vis::Data& m )
+{
+  CV(m)->GetFB()->Strip_escape_seqs();
+}
+
 bool Matches_BYTE( String S )
 {
   return 0==S.compareToIgnoreCase("byte")
@@ -3860,6 +3659,7 @@ void Handle_Colon_Cmd( Vis::Data& m )
   else if( strcmp( m.cbuf,"uncomment")==0)HandleColon_uncomment(m);
   else if( strcmp( m.cbuf,"commentall")==0)  HandleColon_commentAll(m);
   else if( strcmp( m.cbuf,"uncommentall")==0)HandleColon_uncommentAll(m);
+  else if( strcmp( m.cbuf,"strip")==0)    HandleColon_strip_escape_seqs(m);
   else if( strncmp(m.cbuf,"dec=",4)==0 )  HandleColon_decoding(m);
   else if( strncmp(m.cbuf,"enc=",4)==0 )  HandleColon_encoding(m);
   else if( strncmp(m.cbuf,"ts=",3)==0 )   HandleColon_tab_size(m);
