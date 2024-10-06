@@ -24,12 +24,12 @@ CLASS_DIR=classes_fx
 
 FILES='ChangeHist Console_Unix Cover_Array Diff FileBuf
        Highlight_Base Highlight_Bash Highlight_BufferEditor
-       Highlight_CPP Highlight_Code Highlight_Dir Highlight_HTML
-       Highlight_IDL Highlight_JS Highlight_Java Highlight_Make
-       Highlight_MIB Highlight_CMake Highlight_ODB Highlight_Python
-       Highlight_SQL Highlight_STL Highlight_Swift Highlight_TCL
-       Highlight_Text Highlight_XML Key Line LineView MemCheck
-       MemLog Shell String Types Utilities View Vis'
+       Highlight_CPP Highlight_Code Highlight_Dir Highlight_Go
+       Highlight_HTML Highlight_IDL Highlight_JS Highlight_Java
+       Highlight_Make Highlight_MIB Highlight_CMake Highlight_ODB
+       Highlight_Python Highlight_SQL Highlight_STL Highlight_Swift
+       Highlight_TCL Highlight_Text Highlight_XML Key Line LineView
+       MemCheck MemLog Shell String Types Utilities View Vis'
 
 DOT_O_FILES=
 

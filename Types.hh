@@ -154,6 +154,7 @@ enum File_Type
   FT_BUFFER_EDITOR,
   FT_CPP,
   FT_DIR,
+  FT_GO,
   FT_HTML,
   FT_IDL,
   FT_JAVA,

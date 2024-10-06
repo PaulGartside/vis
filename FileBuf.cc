@@ -47,6 +47,7 @@
 #include "Highlight_CMake.hh"
 #include "Highlight_CPP.hh"
 #include "Highlight_Dir.hh"
+#include "Highlight_Go.hh"
 #include "Highlight_HTML.hh"
 #include "Highlight_IDL.hh"
 #include "Highlight_Java.hh"
@@ -273,6 +274,21 @@ bool Find_File_Type_CPP( FileBuf::Data& m )
   {
     m.file_type = FT_CPP;
     m.pHi = new(__FILE__,__LINE__) Highlight_CPP( m.self );
+    return true;
+  }
+  return false;
+}
+
+bool Find_File_Type_Go( FileBuf::Data& m )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  if( m.path_name.ends_with(".go"    )
+   || m.path_name.ends_with(".go.new")
+   || m.path_name.ends_with(".go.old") )
+  {
+    m.file_type = FT_GO;
+    m.pHi = new(__FILE__,__LINE__) Highlight_Go( m.self );
     return true;
   }
   return false;
@@ -526,6 +542,7 @@ void Find_File_Type_Suffix( FileBuf::Data& m )
   }
   else if( Find_File_Type_Bash  ( m )
         || Find_File_Type_CPP   ( m )
+        || Find_File_Type_Go    ( m )
         || Find_File_Type_IDL   ( m )
         || Find_File_Type_Java  ( m )
         || Find_File_Type_HTML  ( m )
