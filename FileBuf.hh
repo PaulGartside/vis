@@ -113,7 +113,7 @@ public:
   uint8_t  Get( const unsigned l_num, const unsigned c_num ) const;
   void     Set( const unsigned l_num, const unsigned c_num
               , const uint8_t C, const bool continue_last_update=true );
-  bool     Has_LF_at_EOF();
+  bool     Has_LF_at_EOF() const;
   void ClearStyles();
   void Find_Styles( const unsigned up_to_line );
   void Check_4_New_Regex();

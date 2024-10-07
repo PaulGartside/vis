@@ -900,6 +900,35 @@ bool Files_Are_Same( const char* fname_s, const char* fname_l )
 }
 
 // Given FileBuf of files, return true if the two files are the same
+//bool Files_Are_Same( const FileBuf& fb_s, const FileBuf& fb_l )
+//{
+//  bool files_are_same = false;
+//
+//  if( fb_s.IsRegular() && fb_l.IsRegular() )
+//  {
+//    const unsigned num_lines_s = fb_s.NumLines();
+//    const unsigned num_lines_l = fb_l.NumLines();
+//
+//    if( num_lines_s == num_lines_l )
+//    {
+//      files_are_same = true;
+//
+//      for( unsigned k=0; files_are_same && k<num_lines_s; k++ )
+//      {
+//        const Line& l_s = fb_s.GetLine( k );
+//        const Line& l_l = fb_l.GetLine( k );
+//
+//        if( !l_s.eq( l_l ) )
+//        {
+//          files_are_same = false;
+//        }
+//      }
+//    }
+//  }
+//  return files_are_same;
+//}
+
+// Given FileBuf of files, return true if the two files are the same
 bool Files_Are_Same( const FileBuf& fb_s, const FileBuf& fb_l )
 {
   bool files_are_same = false;
@@ -909,7 +938,8 @@ bool Files_Are_Same( const FileBuf& fb_s, const FileBuf& fb_l )
     const unsigned num_lines_s = fb_s.NumLines();
     const unsigned num_lines_l = fb_l.NumLines();
 
-    if( num_lines_s == num_lines_l )
+    if( (num_lines_s == num_lines_l)
+     && (fb_s.Has_LF_at_EOF() == fb_l.Has_LF_at_EOF()) )
     {
       files_are_same = true;
 

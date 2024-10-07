@@ -37,6 +37,7 @@ SOURCES = ChangeHist \
           Highlight_Make \
           Highlight_MIB \
           Highlight_CMake \
+          Highlight_Go \
           Highlight_ODB \
           Highlight_Python \
           Highlight_SQL \

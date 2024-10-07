@@ -1790,7 +1790,7 @@ void FileBuf::Set( const unsigned l_num
   }
 }
 
-bool FileBuf::Has_LF_at_EOF() { return m.LF_at_EOF; }
+bool FileBuf::Has_LF_at_EOF() const { return m.LF_at_EOF; }
 
 // Return reference to line l_num
 //

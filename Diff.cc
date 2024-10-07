@@ -115,7 +115,7 @@ struct Diff_Info
 {
   Diff_Type diff_type; // Diff type of line this Diff_Info refers to
   unsigned  line_num;  // Line number in file to which this Diff_Info applies (view line)
-  LineInfo* pLineInfo;
+  LineInfo* pLineInfo; // Only non-nullptr if diff_type is DT_CHANGED
 };
 
 const char* Diff_Type_2_Str( const Diff_Type dt )
@@ -1768,11 +1768,23 @@ void Do_n_Diff( Diff::Data& m, const bool write )
     {
       bool found_diff = Do_n_Search_for_Diff( m, dl, DI_List );
 
+      unsigned NCL, NCP;
       if( found_diff )
       {
-        const unsigned NCL = dl;
-        const unsigned NCP = Do_n_Find_Crs_Pos( m, NCL, DI_List );
-
+        NCL = dl;
+        NCP = Do_n_Find_Crs_Pos( m, NCL, DI_List );
+      }
+      else // Could not find a difference.
+      {    // Check if one file ends in LF and the other does not:
+        if( m.pfS->Has_LF_at_EOF() != m.pfL->Has_LF_at_EOF() )
+        {
+          found_diff = true;
+          NCL = DI_List.len() - 1;
+          NCP = pV->GetFB()->LineLen( DI_List[ NCL ].line_num );
+        }
+      }
+      if( found_diff )
+      {
         if( write ) GoToCrsPos_Write( m, NCL, NCP );
         else        m.diff.GoToCrsPos_NoWrite( NCL, NCP );
       }
