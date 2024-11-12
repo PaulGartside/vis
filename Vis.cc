@@ -804,9 +804,128 @@ void GoToPoundBuffer( Vis::Data& m )
   else GoToBuffer( m, m.file_hist[m.win][1] );
 }
 
+//void Set_BufferEditor_Cursor_on_CurrentFile( Vis::Data& m )
+//{
+//  const View* p_cv = CV(m);
+//  const FileBuf* p_cv_fb = p_cv->GetFB();
+//  const char* CV_path = p_cv_fb->GetPathName();
+//  const char* CV_dir  = p_cv_fb->GetDirName();
+//  const unsigned str_len_CV_dir  = strlen(CV_dir);
+//  const unsigned str_len_CV_path = strlen(CV_path);
+//
+//  View* p_be_v = m.views[m.win][ BE_FILE ];
+//  FileBuf* p_be_fb = p_be_v->GetFB();
+//  const unsigned BE_NUM_LINES = p_be_fb->NumLines();
+//
+//  for( unsigned k=0; k<BE_NUM_LINES; k++ )
+//  {
+//    const Line* p_be_l_k = p_be_fb->GetLineP( k );
+//
+//    if( (str_len_CV_path == p_be_l_k->len())
+//     && (0 == strcmp( CV_path, p_be_l_k->c_str(0) )) )
+//    {
+//      unsigned topLine  = k;
+//      unsigned leftChar = 0;
+//      unsigned crsRow   = 0;
+//      unsigned crsCol   = str_len_CV_dir;
+//
+//      if( p_cv->WorkingCols() < str_len_CV_path )
+//      {
+//        unsigned diff = str_len_CV_path - p_cv->WorkingCols();
+//        leftChar += diff;
+//        crsCol   -= diff;
+//      }
+//      p_be_v->Set_Context( topLine, leftChar, crsRow, crsCol );
+//      break;
+//    }
+//  }
+//}
+
+//void Set_BufferEditor_Cursor_on_CurrentFile( Vis::Data& m )
+//{
+//  const View* p_cv = CV(m);
+//  const FileBuf* p_cv_fb = p_cv->GetFB();
+//  const char* CV_path = p_cv_fb->GetPathName();
+//  const char* CV_dir  = p_cv_fb->GetDirName();
+//  const unsigned str_len_CV_dir  = strlen(CV_dir);
+//  const unsigned str_len_CV_path = strlen(CV_path);
+//
+//  View* p_be_v = m.views[m.win][ BE_FILE ];
+//  FileBuf* p_be_fb = p_be_v->GetFB();
+//  const unsigned BE_NUM_LINES = p_be_fb->NumLines();
+//
+//  for( unsigned k=0; k<BE_NUM_LINES; k++ )
+//  {
+//    const Line* p_be_l_k = p_be_fb->GetLineP( k );
+//
+//    if( (str_len_CV_path == p_be_l_k->len())
+//     && (0 == strcmp( CV_path, p_be_l_k->c_str(0) )) )
+//    {
+//      const unsigned cv_working_rows_2 = p_cv->WorkingRows() / 2;
+//      unsigned shift_down = cv_working_rows_2;
+//      if( k < shift_down ) shift_down = k;
+//
+//      unsigned topLine  = k - shift_down;
+//      unsigned leftChar = 0;
+//      unsigned crsRow   = 0 + shift_down;
+//      unsigned crsCol   = str_len_CV_dir;
+//
+//      if( p_cv->WorkingCols() < str_len_CV_path )
+//      {
+//        unsigned diff = str_len_CV_path - p_cv->WorkingCols();
+//        leftChar += diff;
+//        crsCol   -= diff;
+//      }
+//      p_be_v->Set_Context( topLine, leftChar, crsRow, crsCol );
+//      break;
+//    }
+//  }
+//}
+
+void Set_BufferEditor_Cursor_on_CurrentFile( Vis::Data& m )
+{
+  const View* p_cv = CV(m);
+  const FileBuf* p_cv_fb = p_cv->GetFB();
+  const char* CV_path = p_cv_fb->GetPathName();
+  const char* CV_dir  = p_cv_fb->GetDirName();
+  const unsigned str_len_CV_dir  = strlen(CV_dir);
+  const unsigned str_len_CV_path = strlen(CV_path);
+
+  View* p_be_v = m.views[m.win][ BE_FILE ];
+  FileBuf* p_be_fb = p_be_v->GetFB();
+  const unsigned BE_NUM_LINES = p_be_fb->NumLines();
+
+  for( unsigned k=0; k<BE_NUM_LINES; k++ )
+  {
+    const Line* p_be_l_k = p_be_fb->GetLineP( k );
+
+    if( (str_len_CV_path == p_be_l_k->len())
+     && (0 == strcmp( CV_path, p_be_l_k->c_str(0) )) )
+    {
+      const unsigned shift_down = Min( k, p_cv->WorkingRows()/2 );
+
+      unsigned topLine  = k - shift_down;
+      unsigned leftChar = 0;
+      unsigned crsRow   = 0 + shift_down;
+      unsigned crsCol   = str_len_CV_dir;
+
+      if( p_cv->WorkingCols() < str_len_CV_path )
+      {
+        unsigned diff = str_len_CV_path - p_cv->WorkingCols();
+        leftChar += diff;
+        crsCol   -= diff;
+      }
+      p_be_v->Set_Context( topLine, leftChar, crsRow, crsCol );
+      break;
+    }
+  }
+}
+
 void GoToBufferEditor( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
+
+  Set_BufferEditor_Cursor_on_CurrentFile( m );
 
   GoToBuffer( m, BE_FILE );
 }
