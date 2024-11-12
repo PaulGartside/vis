@@ -804,9 +804,30 @@ void GoToPoundBuffer( Vis::Data& m )
   else GoToBuffer( m, m.file_hist[m.win][1] );
 }
 
+void Set_BufferEditor_Cursor_on_CurrentFile( Vis::Data& m )
+{
+  const char* CV_path = CV(m)->GetFB()->GetPathName();
+  const char* CV_dir  = CV(m)->GetFB()->GetDirName();
+  View* be_v = m.views[m.win][ BE_FILE ];
+  FileBuf* be_fb = be_v->GetFB();
+  const unsigned BE_NUM_LINES = be_fb->NumLines();
+
+  for( unsigned k=0; k<BE_NUM_LINES; k++ )
+  {
+    const Line* be_l_k = be_fb->GetLineP( k );
+
+    if( 0 == strcmp( CV_path, be_l_k->c_str(0) ) )
+    {
+      be_v->Set_Context( k, 0, 0, strlen(CV_dir) );
+    }
+  }
+}
+
 void GoToBufferEditor( Vis::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
+
+  Set_BufferEditor_Cursor_on_CurrentFile( m );
 
   GoToBuffer( m, BE_FILE );
 }
