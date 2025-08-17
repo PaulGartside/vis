@@ -2086,9 +2086,9 @@ void GoToCrsPos_Write_VisualBlock( View::Data& m
   const unsigned vis_box_top  = Min( m.v_st_line, Min( OCL, NCL ) );
   const unsigned vis_box_bot  = Max( m.v_st_line, Max( OCL, NCL ) );
 
-  const unsigned draw_box_left = Max( m.leftChar   , vis_box_left );
+  const unsigned draw_box_left = Max( m.leftChar        , vis_box_left );
   const unsigned draw_box_rite = Min( m.view.RightChar(), vis_box_rite );
-  const unsigned draw_box_top  = Max( m.topLine    , vis_box_top  );
+  const unsigned draw_box_top  = Max( m.topLine         , vis_box_top  );
   const unsigned draw_box_bot  = Min( m.view.BotLine()  , vis_box_bot  );
 
   for( unsigned l=draw_box_top; l<=draw_box_bot; l++ )
@@ -2591,7 +2591,7 @@ void Do_p_or_P_st_fn( View::Data& m, Paste_Pos paste_pos )
   for( unsigned k=0; k<N_REG_LINES; k++ )
   {
     const unsigned NLL = m.reg[k]->len();  // New line length
-    const unsigned OCL = m.view.CrsLine();               // Old cursor line
+    const unsigned OCL = m.view.CrsLine(); // Old cursor line
 
     if( 0 == k ) // Add to current line
     {

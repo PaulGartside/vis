@@ -612,19 +612,30 @@ bool SavingHist( FileBuf::Data& m )
   return m.m_mutable && m.save_history;
 }
 
+//void ChangedLine( FileBuf::Data& m, const unsigned line_num )
+//{
+//  Trace trace( __PRETTY_FUNCTION__ );
+//
+//  // HVLO = Highest valid line offset
+//  unsigned HVLO = 0;
+//
+//  if( 0<line_num && 0<m.lineOffsets.len() )
+//  {
+//    HVLO = Min( line_num-1, m.lineOffsets.len()-1 );
+//  }
+//  m.lineOffsets.set_len( HVLO+1 );
+//
+//  m.hi_touched_line = Min( m.hi_touched_line, line_num );
+//}
+
 void ChangedLine( FileBuf::Data& m, const unsigned line_num )
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  // HVLO = Highest valid line offset
-  unsigned HVLO = 0;
-
-  if( 0<line_num && 0<m.lineOffsets.len() )
+  if( line_num < m.lineOffsets.len() )
   {
-    HVLO = Min( line_num-1, m.lineOffsets.len()-1 );
+    m.lineOffsets.set_len( line_num );
   }
-  m.lineOffsets.set_len( HVLO );
-
   m.hi_touched_line = Min( m.hi_touched_line, line_num );
 }
 
@@ -1538,7 +1549,7 @@ bool FileBuf::BufferEditor_SortName()
   const unsigned NUM_LINES = NumLines();
 
   const unsigned NUM_BUILT_IN_FILES = USER_FILE;
-  const unsigned FNAME_START_CHAR   = 0;
+//const unsigned FNAME_START_CHAR   = 0;
 
   // Sort lines (file names), least to greatest:
   for( unsigned i=NUM_LINES-1; NUM_BUILT_IN_FILES<i; i-- )
@@ -2257,10 +2268,10 @@ void FileBuf::AppendLineToLine( const unsigned l_num, const Line& line )
 
   ChangedLine( m, l_num );
 
-  const unsigned first_insert = lp->len() - line.len();
-
   if( SavingHist( m ) )
   {
+    const unsigned first_insert = lp->len() - line.len();
+
     for( unsigned k=0; k<line.len(); k++ )
     {
       m.history.Save_InsertChar( l_num, first_insert + k );
@@ -2362,7 +2373,7 @@ unsigned FileBuf::GetSize()
 
   unsigned size = 0;
 
-  if( NUM_LINES )
+  if( 0 < NUM_LINES )
   {
     // Absolute byte offset of beginning of first line in file is always zero:
     if( 0 == m.lineOffsets.len() ) m.lineOffsets.push( 0 );
@@ -2476,7 +2487,7 @@ void FileBuf::UpdateCmd()
 
   if( !m.vis.RunningDot() )
   {
-    UpdateWinViews( m, false );
+  //UpdateWinViews( m, false );
 
     if( 0 != m.line_view )
     {

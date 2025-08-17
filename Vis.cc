@@ -553,6 +553,59 @@ void NoDiff_CV( Vis::Data& m )
   }
 }
 
+void GoToBuffer_SetContext( Vis::Data& m
+                          , const unsigned buf_idx
+                          , View* nv
+                          , View* pv )
+{
+  Trace trace( __PRETTY_FUNCTION__ );
+
+  bool new_file_is_directory_of_prev_file
+    = (0 == strlen( nv->GetFB()->GetFileName())) // New  file a directory
+   && (0 <  strlen( pv->GetFB()->GetFileName())) // Prev file is NOT a directory
+   && (0==strcmp(nv->GetFB()->GetDirName(), pv->GetFB()->GetDirName())); // New and prev files have same directory
+
+  if( new_file_is_directory_of_prev_file )
+  {
+    int prev_fname_lnum_in_new_file = -1;
+    const char* prev_fname = pv->GetFB()->GetFileName();
+
+    for( int k=0; k<nv->GetFB()->NumLines(); k++ )
+    {
+      if( 0==strcmp( prev_fname, nv->GetFB()->GetLine(k).c_str(0) ) )
+      {
+        prev_fname_lnum_in_new_file = k;
+        break;
+      }
+    }
+    if( 0 <= prev_fname_lnum_in_new_file )
+    {
+      const int shift_down = Min( prev_fname_lnum_in_new_file, nv->WorkingRows()/2 );
+
+      int topLine  = prev_fname_lnum_in_new_file - shift_down;
+      int leftChar = 0;
+      int crsRow   = 0 + shift_down;
+      int crsCol   = 0;
+      nv->Set_Context( topLine, leftChar, crsRow, crsCol );
+    }
+  }
+  if( ! nv->Has_Context() )
+  {
+    // Look for context for the new view:
+    bool found_context = false;
+    for( unsigned w=0; !found_context && w<MAX_WINS; w++ )
+    {
+      View* v = m.views[ w ][ buf_idx ];
+      if( v->Has_Context() )
+      {
+        found_context = true;
+
+        nv->Set_Context( *v );
+      }
+    }
+  }
+}
+
 void GoToBuffer( Vis::Data& m, const unsigned buf_idx )
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -579,21 +632,10 @@ void GoToBuffer( Vis::Data& m, const unsigned buf_idx )
         if( buf_idx == m.file_hist[m.win][k] ) m.file_hist[m.win].remove( k );
       }
       View* nv = CV(m); // New View to display
-      if( ! nv->Has_Context() )
-      {
-        // Look for context for the new view:
-        bool found_context = false;
-        for( unsigned w=0; !found_context && w<m.num_wins; w++ )
-        {
-          View* v = m.views[w][ buf_idx ];
-          if( v->Has_Context() )
-          {
-            found_context = true;
+      View* pv = PV(m); // View of previous file
 
-            nv->Set_Context( *v );
-          }
-        }
-      }
+      GoToBuffer_SetContext( m, buf_idx, nv, pv );
+
       // For DIR and BUFFER_EDITOR, invalidate regex's so that files that
       // no longer contain the current regex are no longer highlighted
       if( nv->GetFB()->GetFileType() == FT_DIR
@@ -3574,47 +3616,6 @@ void HandleColon_tab_size( Vis::Data& m )
     CV(m)->GetFB()->Set_Tab_Size( ts );
   }
 }
-
-//void HandleColon_e( Vis::Data& m )
-//{
-//  Trace trace( __PRETTY_FUNCTION__ );
-//
-//  View* pV = CV(m);
-//  if( 0 == m.cbuf[1] ) // :e
-//  {
-//    FileBuf* pfb = pV->GetFB();
-//    pfb->ReReadFile();
-//
-//    for( unsigned w=0; w<m.num_wins; w++ )
-//    {
-//      if( pfb == GetView_Win( m, w )->GetFB() )
-//      {
-//        // View is currently displayed, perform needed update:
-//        GetView_Win( m, w )->Update();
-//      }
-//    }
-//  }
-//  else // :e file_name
-//  {
-//    // Edit file of supplied file name:
-//    String fname( m.cbuf + 1 );
-//
-//    if( FindFullFileNameRel2( pV->GetDirName(), fname ) )
-//    {
-//      unsigned file_index = 0;
-//      if( m.vis.HaveFile( fname.c_str(), &file_index ) )
-//      {
-//        GoToBuffer( m, file_index );
-//      }
-//      else {
-//        FileBuf* p_fb = new(__FILE__,__LINE__)
-//                        FileBuf( m.vis, fname.c_str(), true, FT_UNKNOWN );
-//        p_fb->ReadFile();
-//        GoToBuffer( m, m.views[m.win].len()-1 );
-//      }
-//    }
-//  }
-//}
 
 void HandleColon_e( Vis::Data& m )
 {

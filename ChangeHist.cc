@@ -53,7 +53,7 @@ void ChangeHist::Clear()
 
 bool ChangeHist::Has_Changes() const
 {
-  return !! changes.len();
+  return 0 < changes.len();
 }
 
 void ChangeHist::Undo( View& rV )
@@ -106,9 +106,9 @@ void ChangeHist::Save_Set( const unsigned l_num
 
   const unsigned NUM_CHANGES = changes.len();
 
-  if( NUM_CHANGES
+  if( 0<NUM_CHANGES
    && continue_last_update
-   && c_pos
+   && 0<c_pos
    && Replace_Text == changes[NUM_CHANGES-1]->type
    && l_num        == changes[NUM_CHANGES-1]->lnum
    && c_pos        == ( changes[NUM_CHANGES-1]->cpos

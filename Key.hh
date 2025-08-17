@@ -42,7 +42,7 @@ public:
   bool get_from_map_buf;
   Line dot_buf_n; // Dot buf for normal view
   Line dot_buf_l; // Dot buf for line view
-  Line vis_buf;
+  Line vis_buf;   // Visual buf
   Line map_buf;
 
 private:
