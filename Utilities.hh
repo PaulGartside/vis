@@ -73,7 +73,7 @@ bool IsDir( const char* fname );
 double ModificationTime( const char* fname );
 void Normalize_Full_Path( const char* path );
 bool FindFullFileNameRel2CWD( String& in_out_fname );
-bool FindFullFileNameRel2( const char* rel_2_path, String& in_out_fname );
+bool FindFullFileNameRel2( const String& rel_2_path, String& in_out_fname );
 void GetFnameHeadAndTail( const char* in_fname, String& head, String& tail );
 void GetFnameHeadAndTail( const String& in_fname, String& head, String& tail );
 String GetFnameHead( const char* in_full_fname );

@@ -6714,8 +6714,8 @@ void Diff::GoToFile()
         // or directories with same name but different paths
         if( (cDT == DT_DIFF_FILES && oDT == DT_DIFF_FILES)
          || (cV->GetFB()->IsDir() && oV->GetFB()->IsDir()
-          && 0==strcmp(c_file_buf->GetFileName(),o_file_buf->GetFileName())
-          && 0!=strcmp(c_file_buf->GetDirName(),o_file_buf->GetDirName()) ) )
+          && (c_file_buf->GetFileName() == o_file_buf->GetFileName())
+          && (c_file_buf->GetDirName()  != o_file_buf->GetDirName()) ) )
         {
           // Save current view context for when we come back
           const unsigned cV_vl_cl = ViewLine( m, cV, CrsLine(m) );

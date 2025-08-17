@@ -255,7 +255,7 @@ void Ch_Dir( Vis::Data& m )
   }
   else // :cd - chdir to location of current file
   {
-    const char* fname = CV(m)->GetFB()->GetPathName();
+    const char* fname = CV(m)->GetFB()->GetPathName().c_str();
     const char* last_slash = strrchr( fname, DIR_DELIM );
     if( 0==last_slash )
     {
@@ -561,18 +561,18 @@ void GoToBuffer_SetContext( Vis::Data& m
   Trace trace( __PRETTY_FUNCTION__ );
 
   bool new_file_is_directory_of_prev_file
-    = (0 == strlen( nv->GetFB()->GetFileName())) // New  file a directory
-   && (0 <  strlen( pv->GetFB()->GetFileName())) // Prev file is NOT a directory
-   && (0==strcmp(nv->GetFB()->GetDirName(), pv->GetFB()->GetDirName())); // New and prev files have same directory
+    = (0 == nv->GetFB()->GetFileName().len()) // New  file a directory
+   && (0 <  pv->GetFB()->GetFileName().len()) // Prev file is NOT a directory
+   && (nv->GetFB()->GetDirName() == pv->GetFB()->GetDirName()); // New and prev files have same directory
 
   if( new_file_is_directory_of_prev_file )
   {
     int prev_fname_lnum_in_new_file = -1;
-    const char* prev_fname = pv->GetFB()->GetFileName();
+    const String& prev_fname = pv->GetFB()->GetFileName();
 
     for( int k=0; k<nv->GetFB()->NumLines(); k++ )
     {
-      if( 0==strcmp( prev_fname, nv->GetFB()->GetLine(k).c_str(0) ) )
+      if( prev_fname == nv->GetFB()->GetLine(k).toString() )
       {
         prev_fname_lnum_in_new_file = k;
         break;
@@ -846,92 +846,12 @@ void GoToPoundBuffer( Vis::Data& m )
   else GoToBuffer( m, m.file_hist[m.win][1] );
 }
 
-//void Set_BufferEditor_Cursor_on_CurrentFile( Vis::Data& m )
-//{
-//  const View* p_cv = CV(m);
-//  const FileBuf* p_cv_fb = p_cv->GetFB();
-//  const char* CV_path = p_cv_fb->GetPathName();
-//  const char* CV_dir  = p_cv_fb->GetDirName();
-//  const unsigned str_len_CV_dir  = strlen(CV_dir);
-//  const unsigned str_len_CV_path = strlen(CV_path);
-//
-//  View* p_be_v = m.views[m.win][ BE_FILE ];
-//  FileBuf* p_be_fb = p_be_v->GetFB();
-//  const unsigned BE_NUM_LINES = p_be_fb->NumLines();
-//
-//  for( unsigned k=0; k<BE_NUM_LINES; k++ )
-//  {
-//    const Line* p_be_l_k = p_be_fb->GetLineP( k );
-//
-//    if( (str_len_CV_path == p_be_l_k->len())
-//     && (0 == strcmp( CV_path, p_be_l_k->c_str(0) )) )
-//    {
-//      unsigned topLine  = k;
-//      unsigned leftChar = 0;
-//      unsigned crsRow   = 0;
-//      unsigned crsCol   = str_len_CV_dir;
-//
-//      if( p_cv->WorkingCols() < str_len_CV_path )
-//      {
-//        unsigned diff = str_len_CV_path - p_cv->WorkingCols();
-//        leftChar += diff;
-//        crsCol   -= diff;
-//      }
-//      p_be_v->Set_Context( topLine, leftChar, crsRow, crsCol );
-//      break;
-//    }
-//  }
-//}
-
-//void Set_BufferEditor_Cursor_on_CurrentFile( Vis::Data& m )
-//{
-//  const View* p_cv = CV(m);
-//  const FileBuf* p_cv_fb = p_cv->GetFB();
-//  const char* CV_path = p_cv_fb->GetPathName();
-//  const char* CV_dir  = p_cv_fb->GetDirName();
-//  const unsigned str_len_CV_dir  = strlen(CV_dir);
-//  const unsigned str_len_CV_path = strlen(CV_path);
-//
-//  View* p_be_v = m.views[m.win][ BE_FILE ];
-//  FileBuf* p_be_fb = p_be_v->GetFB();
-//  const unsigned BE_NUM_LINES = p_be_fb->NumLines();
-//
-//  for( unsigned k=0; k<BE_NUM_LINES; k++ )
-//  {
-//    const Line* p_be_l_k = p_be_fb->GetLineP( k );
-//
-//    if( (str_len_CV_path == p_be_l_k->len())
-//     && (0 == strcmp( CV_path, p_be_l_k->c_str(0) )) )
-//    {
-//      const unsigned cv_working_rows_2 = p_cv->WorkingRows() / 2;
-//      unsigned shift_down = cv_working_rows_2;
-//      if( k < shift_down ) shift_down = k;
-//
-//      unsigned topLine  = k - shift_down;
-//      unsigned leftChar = 0;
-//      unsigned crsRow   = 0 + shift_down;
-//      unsigned crsCol   = str_len_CV_dir;
-//
-//      if( p_cv->WorkingCols() < str_len_CV_path )
-//      {
-//        unsigned diff = str_len_CV_path - p_cv->WorkingCols();
-//        leftChar += diff;
-//        crsCol   -= diff;
-//      }
-//      p_be_v->Set_Context( topLine, leftChar, crsRow, crsCol );
-//      break;
-//    }
-//  }
-//}
-
 void Set_BufferEditor_Cursor_on_CurrentFile( Vis::Data& m )
 {
   const View* p_cv = CV(m);
   const FileBuf* p_cv_fb = p_cv->GetFB();
-  const char* CV_path = p_cv_fb->GetPathName();
-  const char* CV_dir  = p_cv_fb->GetDirName();
-  const unsigned str_len_CV_dir  = strlen(CV_dir);
-  const unsigned str_len_CV_path = strlen(CV_path);
+  const String& CV_path = p_cv_fb->GetPathName();
+  const String& CV_dir  = p_cv_fb->GetDirName();
 
   View* p_be_v = m.views[m.win][ BE_FILE ];
   FileBuf* p_be_fb = p_be_v->GetFB();
@@ -941,19 +861,19 @@ void Set_BufferEditor_Cursor_on_CurrentFile( Vis::Data& m )
   {
     const Line* p_be_l_k = p_be_fb->GetLineP( k );
 
-    if( (str_len_CV_path == p_be_l_k->len())
-     && (0 == strcmp( CV_path, p_be_l_k->c_str(0) )) )
+    if( (CV_path.len() == p_be_l_k->len())
+     && (CV_path == p_be_l_k->toString()) )
     {
       const unsigned shift_down = Min( k, p_cv->WorkingRows()/2 );
 
       unsigned topLine  = k - shift_down;
       unsigned leftChar = 0;
       unsigned crsRow   = 0 + shift_down;
-      unsigned crsCol   = str_len_CV_dir;
+      unsigned crsCol   = CV_dir.len();
 
-      if( p_cv->WorkingCols() < str_len_CV_path )
+      if( p_cv->WorkingCols() < CV_path.len() )
       {
-        unsigned diff = str_len_CV_path - p_cv->WorkingCols();
+        unsigned diff = CV_path.len() - p_cv->WorkingCols();
         leftChar += diff;
         crsCol   -= diff;
       }
@@ -3173,14 +3093,14 @@ void Diff_Files_Displayed( Vis::Data& m )
       pv0 = Diff_FindRegFileView( m, pfb1, pfb0, 0, pv0 );
     }
     else {
-      if( ( strcmp( SHELL_BUF_NAME, pfb0->GetFileName() )
-         && !FileExists( pfb0->GetPathName() ) ) )
+      if( (pfb0->GetFileName() != SHELL_BUF_NAME)
+       && !FileExists( pfb0->GetPathName().c_str() ) )
       {
         ok = false;
         m.vis.Window_Message("\n%s does not exist\n\n", pfb0->GetFileName());
       }
-      if( ( strcmp( SHELL_BUF_NAME, pfb1->GetFileName() )
-         && !FileExists( pfb1->GetPathName() ) ) )
+      if( (pfb1->GetFileName() != SHELL_BUF_NAME)
+         && !FileExists( pfb1->GetPathName().c_str() ) )
       {
         ok = false;
         m.vis.Window_Message("\n%s does not exist\n\n", pfb1->GetFileName());
@@ -5938,7 +5858,7 @@ void Vis::CheckFileModTime()
   if( USER_FILE <= m.file_hist[m.win][0] )
   {
     FileBuf* pfb = CV()->GetFB();
-    const char* fname = pfb->GetPathName();
+    const char* fname = pfb->GetPathName().c_str();
 
     const double curr_mod_time = ModificationTime( fname );
 
@@ -6170,7 +6090,7 @@ bool Vis::HaveFile( const char* path_name, unsigned* file_index )
 
   for( unsigned k=0; !already_have_file && k<NUM_FILES; k++ )
   {
-    if( 0==strcmp( m.files[k]->GetPathName(), path_name ) )
+    if( m.files[k]->GetPathName() == path_name )
     {
       already_have_file = true;
 

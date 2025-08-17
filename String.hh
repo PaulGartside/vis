@@ -66,6 +66,7 @@ public:
   bool push( const char C );
   bool insert( const unsigned p, const char C );
   bool insert( const unsigned p, const char* cp );
+  bool insert( const unsigned p, const String& s );
   char remove( const unsigned p );
   char pop();
 

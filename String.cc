@@ -222,6 +222,16 @@ bool String::insert( const unsigned p, const char* cp )
   return false;
 }
 
+bool String::insert( const unsigned p, const String& s )
+{
+  if( p<=m.s.length() )
+  {
+    m.s.insert( p, s.c_str() );
+    return true;
+  }
+  return false;
+}
+
 // Returns char removed from p
 char String::remove( const unsigned p )
 {

@@ -1269,10 +1269,10 @@ void FileBuf::SetModTime( const double mt ) { m.mod_time = mt; }
 void FileBuf::SetFocTime( const double ft ) { m.foc_time = ft; }
 bool FileBuf::GetChangedExternally() const { return m.changed_externally; }
 void FileBuf::SetChangedExternally() { m.changed_externally = true; }
-const char* FileBuf::GetPathName() const { return m.path_name.c_str(); }
-const char* FileBuf::GetDirName() const { return m.dir_name.c_str(); }
-const char* FileBuf::GetFileName() const { return m.file_name.c_str(); }
-File_Type   FileBuf::GetFileType() const { return m.file_type; }
+const String& FileBuf::GetPathName() const { return m.path_name; }
+const String& FileBuf::GetDirName() const { return m.dir_name; }
+const String& FileBuf::GetFileName() const { return m.file_name; }
+File_Type     FileBuf::GetFileType() const { return m.file_type; }
 
 Encoding FileBuf::GetDecoding() const
 {
@@ -1549,7 +1549,6 @@ bool FileBuf::BufferEditor_SortName()
   const unsigned NUM_LINES = NumLines();
 
   const unsigned NUM_BUILT_IN_FILES = USER_FILE;
-//const unsigned FNAME_START_CHAR   = 0;
 
   // Sort lines (file names), least to greatest:
   for( unsigned i=NUM_LINES-1; NUM_BUILT_IN_FILES<i; i-- )

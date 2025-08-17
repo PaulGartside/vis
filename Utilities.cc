@@ -412,9 +412,9 @@ bool FindFullFileNameRel2CWD( String& in_out_fname )
 // The full name found does not need to exist to return success.
 // Returns true on success, false on failure.
 //
-bool FindFullFileNameRel2( const char* rel_2_path, String& in_out_fname )
+bool FindFullFileNameRel2( const String& rel_2_path, String& in_out_fname )
 {
-  if( 0==rel_2_path || 0==strcmp(rel_2_path,"") )
+  if( 0 == rel_2_path.len() )
   {
     return FindFullFileNameRel2CWD( in_out_fname );
   }
@@ -430,7 +430,7 @@ bool FindFullFileNameRel2( const char* rel_2_path, String& in_out_fname )
     }
     const unsigned BUF_LEN = 1024;
     char buf[ BUF_LEN ];
-    Safe_Strcpy( buf, rel_2_path, BUF_LEN );
+    Safe_Strcpy( buf, rel_2_path.c_str(), BUF_LEN );
     const int REL_PATH_LEN = strlen( buf );
     if( REL_PATH_LEN < BUF_LEN )
     {

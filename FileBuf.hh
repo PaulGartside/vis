@@ -51,10 +51,10 @@ public:
   void SetFocTime( const double ft );
   bool GetChangedExternally() const;
   void SetChangedExternally();
-  const char* GetPathName() const;
-  const char* GetDirName() const;
-  const char* GetFileName() const;
-  File_Type   GetFileType() const;
+  const String& GetPathName() const;
+  const String& GetDirName() const;
+  const String& GetFileName() const;
+  File_Type     GetFileType() const;
   Encoding GetDecoding() const;
   bool     SetDecoding( const Encoding dec );
   Encoding GetEncoding() const;

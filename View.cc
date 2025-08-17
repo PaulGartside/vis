@@ -4428,7 +4428,7 @@ void View::PrintFileLine()
   Trace trace( __PRETTY_FUNCTION__ );
 
   const unsigned WC = WorkingCols();
-  const unsigned FILE_NAME_LEN = strlen( m.fb.GetPathName() );
+  const unsigned FILE_NAME_LEN = m.fb.GetPathName().len();
 
   char buf[1024]; buf[0] = 0;
   char* p = buf;
@@ -4436,11 +4436,11 @@ void View::PrintFileLine()
   if( WC < FILE_NAME_LEN )
   {
     // file_name does not fit, so truncate beginning
-    p += sprintf( buf, "%s", m.fb.GetPathName() + (FILE_NAME_LEN - WC) );
+    p += sprintf( buf, "%s", m.fb.GetPathName().c_str() + (FILE_NAME_LEN - WC) );
   }
   else {
     // file_name fits, add spaces at end
-    p += sprintf( buf, "%s", m.fb.GetPathName() );
+    p += sprintf( buf, "%s", m.fb.GetPathName().c_str() );
     for( unsigned k=0; k<(WC-FILE_NAME_LEN); k++ ) *p++ = ' ';
   }
   *p = 0;
@@ -4730,7 +4730,7 @@ void View::Set_Cmd_Line_Msg( const String& msg )
   m.cmd_line_msg = msg;
 }
 
-const char* View::GetDirName()
+const String& View::GetDirName()
 {
   return m.fb.GetDirName();
 }
