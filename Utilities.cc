@@ -996,6 +996,86 @@ bool Line_Has_Regex( const Line& line, const String& regex )
   return false;
 }
 
+// dir1 is direct parent of dir2
+// Example:
+// dir1 = /a/b/c/
+// dir2 = /a/b/c/d/
+//
+bool dir1_is_parent_dir_of_dir2( const String& dir1, const String& dir2 )
+{
+  if( dir1.len()+1 < dir2.len() )
+  {
+    if( dir2.has_at(dir1.c_str(), 0) )
+    {
+      unsigned start_idx  = dir1.len();
+      unsigned finish_idx = dir2.len();
+
+      while( dir2.get(start_idx)==DIR_DELIM ) start_idx++;
+      while( dir2.get(finish_idx-1)==DIR_DELIM ) finish_idx--;
+
+      for( unsigned k=start_idx; k<finish_idx; k++ )
+      {
+        if( dir2.get(k) == DIR_DELIM ) return false; 
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
+// Example: If dir_name = /a/b/c/d/
+// returns: d
+//
+//String get_last_dir_of( const String dir_name )
+//{
+//  String last_dir;
+//
+//  if( 1 < dir_name.len() )
+//  {
+//    unsigned idx = dir_name.len() - 1;
+//
+//    // Backup idx to before one or more DIR_DELIM's at end of dir_name:
+//    while( 0<idx && dir_name.get(idx)==DIR_DELIM ) idx--;
+//
+//    // Backup, adding chars at end of dir_name to last_dir
+//    // until DIR_DELIM is found:
+//    bool done = false;
+//    while( 0<idx && !done )
+//    {
+//      const char C = dir_name.get(idx);
+//      if( C==DIR_DELIM ) done = true;
+//      else {
+//        last_dir.insert( 0, C );
+//        idx--;
+//      }
+//    }
+//  }
+//  return last_dir;
+//}
+
+// Example: If dir_name = /a/b/c/d/
+// returns: d
+//
+String get_last_dir_of( const String dir_name )
+{
+  String last_dir;
+
+  if( 1 < dir_name.len() )
+  {
+    int finish_idx = dir_name.len() - 1;
+
+    // Backup finish_idx to before one or more DIR_DELIM's at end of dir_name:
+    while( 0<finish_idx && dir_name.get(finish_idx)==DIR_DELIM ) finish_idx--;
+
+    int start_idx = finish_idx;
+    while( 0<=start_idx && dir_name.get(start_idx)!=DIR_DELIM ) start_idx--;
+    start_idx++;
+
+    for( int k=start_idx; k<=finish_idx; k++ ) last_dir.push( dir_name.get(k) );
+  }
+  return last_dir;
+}
+
 ConstCharList* Trace::mp_Call_Stack = 0;
 
 void Trace::Allocate()

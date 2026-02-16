@@ -325,6 +325,9 @@ void Popu_SameList( Diff::Data& m, const DiffArea& CA )
   }
 }
 
+// Sort m.sameList from least ln_l to greatest ln_l.
+// DiffArea.ln_l is beginning line number in long file.
+//
 void Sort_SameList( Diff::Data& m )
 {
   Trace trace( __PRETTY_FUNCTION__ );
@@ -2381,7 +2384,6 @@ void PrintWorkingView( Diff::Data& m, View* pV )
   unsigned row = 0; // (dl=diff line)
   for( unsigned dl=m.topLine; dl<NUM_LINES && row<WR; dl++, row++ )
   {
-    unsigned col=0;
     const unsigned G_ROW = Row_Win_2_GL( m, pV, row );
     const Diff_Type DT = DiffType( m, pV, dl );
 
@@ -4053,7 +4055,6 @@ void Do_x_range_multiple( Diff::Data& m
     for( unsigned P = P_st; P_st < LL && P <= P_fn; P++ )
     {
       nlp->push( pfb->RemoveChar( VL, P_st ) );
-      LL = pfb->LineLen( VL ); // Removed a char, so re-calculate LL
       removed_char = true;
     }
     if( 0 == P_st && OLL-1 == P_fn )
@@ -4711,8 +4712,6 @@ void Do_P_block( Diff::Data& m )
   const unsigned DL = CrsLine(m);          // Diff line
   const unsigned CP = CrsChar(m);          // Cursor position
   const unsigned VL = ViewLine( m, pV, DL ); // View line
-  const bool     ON_DELETED = DT_DELETED == cDI_List[ DL ].diff_type;
-  const unsigned LL = ON_DELETED ? 0 : pfb->LineLen( VL ); // Line length
   const unsigned ISP = 0<CP ? CP : 0;     // Insert position
 
   const unsigned N_REG_LINES = m.reg.len();
@@ -4742,7 +4741,7 @@ void Replace_Crs_Char( Diff::Data& m, Style style )
   const unsigned CLv = ViewLine( m, pV, CrsLine(m) );
 
   const unsigned LL = pfb->LineLen( CLv ); // Line length
-  if( LL )
+  if( 0 < LL )
   {
     int byte = pfb->Get( CLv, CrsChar(m) );
 
@@ -6477,9 +6476,9 @@ void Diff::Do_p()
 
   const Paste_Mode PM = m.vis.GetPasteMode();
 
-  if     ( PM_ST_FN == PM ) return Do_p_or_P_st_fn( m, PP_After );
-  else if( PM_BLOCK == PM ) return Do_p_block(m);
-  else /*( PM_LINE  == PM*/ return Do_p_line(m);
+  if     ( PM_ST_FN == PM ) Do_p_or_P_st_fn( m, PP_After );
+  else if( PM_BLOCK == PM ) Do_p_block(m);
+  else /*( PM_LINE  == PM*/ Do_p_line(m);
 }
 
 void Diff::Do_P()
@@ -6488,9 +6487,9 @@ void Diff::Do_P()
 
   const Paste_Mode PM = m.vis.GetPasteMode();
 
-  if     ( PM_ST_FN == PM ) return Do_p_or_P_st_fn( m, PP_Before );
-  else if( PM_BLOCK == PM ) return Do_P_block(m);
-  else /*( PM_LINE  == PM*/ return Do_P_line(m);
+  if     ( PM_ST_FN == PM ) Do_p_or_P_st_fn( m, PP_Before );
+  else if( PM_BLOCK == PM ) Do_P_block(m);
+  else /*( PM_LINE  == PM*/ Do_P_line(m);
 }
 
 bool Diff::Do_v()
@@ -6985,7 +6984,7 @@ bool ReDiff_GetDiffArea( Diff::Data& m
                        , const unsigned DL_fn
                        , DiffArea& da )
 {
-  // Diff area if from l_DL_st up to but not including l_DL_fn
+  // Diff area is from l_DL_st up to but not including l_DL_fn
   unsigned l_DL_st = DL_st; // local diff line start
   unsigned l_DL_fn = DL_fn; // local diff line finish
 

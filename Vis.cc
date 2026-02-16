@@ -553,6 +553,31 @@ void NoDiff_CV( Vis::Data& m )
   }
 }
 
+void GoToBuffer_SetContext_NewView( const String& prev_fname, View* nv )
+{
+  int prev_fname_lnum_in_new_file = -1;
+
+  const int NUM_LINES_IN_NV = nv->GetFB()->NumLines();
+  for( int k=0; k<NUM_LINES_IN_NV; k++ )
+  {
+    if( prev_fname == nv->GetFB()->GetLine(k).toString() )
+    {
+      prev_fname_lnum_in_new_file = k;
+      break;
+    }
+  }
+  if( 0 <= prev_fname_lnum_in_new_file )
+  {
+    const int shift_down = Min( prev_fname_lnum_in_new_file, nv->WorkingRows()/2 );
+
+    int topLine  = prev_fname_lnum_in_new_file - shift_down;
+    int leftChar = 0;
+    int crsRow   = 0 + shift_down;
+    int crsCol   = 0;
+    nv->Set_Context( topLine, leftChar, crsRow, crsCol );
+  }
+}
+
 void GoToBuffer_SetContext( Vis::Data& m
                           , const unsigned buf_idx
                           , View* nv
@@ -560,35 +585,32 @@ void GoToBuffer_SetContext( Vis::Data& m
 {
   Trace trace( __PRETTY_FUNCTION__ );
 
-  bool new_file_is_directory_of_prev_file
-    = (0 == nv->GetFB()->GetFileName().len()) // New  file a directory
-   && (0 <  pv->GetFB()->GetFileName().len()) // Prev file is NOT a directory
-   && (nv->GetFB()->GetDirName() == pv->GetFB()->GetDirName()); // New and prev files have same directory
-
-  if( new_file_is_directory_of_prev_file )
+  if( nv->GetFB()->IsDir() ) // New  file is a directory
   {
-    int prev_fname_lnum_in_new_file = -1;
-    const String& prev_fname = pv->GetFB()->GetFileName();
+    const String& nv_dir_name = nv->GetFB()->GetDirName();
+    const String& pv_dir_name = pv->GetFB()->GetDirName();
 
-    for( int k=0; k<nv->GetFB()->NumLines(); k++ )
+    bool new_file_is_directory_of_prev_file
+      = (! pv->GetFB()->IsDir())      // Prev file is NOT a directory
+     && (nv_dir_name == pv_dir_name); // New and prev files have same directory
+
+    if( new_file_is_directory_of_prev_file )
     {
-      if( prev_fname == nv->GetFB()->GetLine(k).toString() )
-      {
-        prev_fname_lnum_in_new_file = k;
-        break;
-      }
+      const String& prev_fname = pv->GetFB()->GetFileName();
+
+      GoToBuffer_SetContext_NewView( prev_fname, nv );
     }
-    if( 0 <= prev_fname_lnum_in_new_file )
+    else if( dir1_is_parent_dir_of_dir2( nv_dir_name, pv_dir_name ) )
     {
-      const int shift_down = Min( prev_fname_lnum_in_new_file, nv->WorkingRows()/2 );
+      // New file is direct parent directory of directory of previous file, or
+      // new file is direct parent directory of previous file which was a directory.
+      String last_dir = get_last_dir_of( pv_dir_name );
+      Append_Dir_Delim( last_dir );
 
-      int topLine  = prev_fname_lnum_in_new_file - shift_down;
-      int leftChar = 0;
-      int crsRow   = 0 + shift_down;
-      int crsCol   = 0;
-      nv->Set_Context( topLine, leftChar, crsRow, crsCol );
+      GoToBuffer_SetContext_NewView( last_dir, nv );
     }
   }
+
   if( ! nv->Has_Context() )
   {
     // Look for context for the new view:
